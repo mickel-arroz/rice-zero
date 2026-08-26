@@ -24,12 +24,4 @@ export const THEMES = {
   system: "system",
 } as const;
 
-export type Theme = (typeof THEMES)[keyof typeof THEMES];
-
-export const THEME_GROUP_LABEL = "Tema";
-
-export const THEME_LABELS: Record<Theme, string> = {
-  light: "Claro",
-  dark: "Oscuro",
-  system: "Sistema",
-};
+export const THEME_TOGGLE_LABEL = "Cambiar entre tema claro y oscuro";

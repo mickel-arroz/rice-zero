@@ -2,50 +2,40 @@
 
 import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
-import {
-  THEME_GROUP_LABEL,
-  THEME_LABELS,
-  THEMES,
-  type Theme,
-} from "@/lib/constants";
-
-const ORDER: Theme[] = [THEMES.light, THEMES.dark, THEMES.system];
+import { THEME_TOGGLE_LABEL, THEMES } from "@/lib/constants";
 
 const emptySubscribe = () => () => {};
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  // true tras hidratar; en SSR no hay tema resuelto y ningún botón se marca activo
+  const { resolvedTheme, setTheme } = useTheme();
+  // true tras hidratar; en SSR no hay tema resuelto y el botón queda sin marcar
   const mounted = useSyncExternalStore(
     emptySubscribe,
     () => true,
     () => false
   );
+  const isDark = mounted && resolvedTheme === THEMES.dark;
 
   return (
-    <div
-      role="group"
-      aria-label={THEME_GROUP_LABEL}
-      className="flex items-center gap-1 rounded-full border border-border bg-card p-1"
+    <button
+      type="button"
+      aria-label={THEME_TOGGLE_LABEL}
+      aria-pressed={isDark}
+      onClick={() => setTheme(isDark ? THEMES.light : THEMES.dark)}
+      className="flex size-9 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-accent"
     >
-      {ORDER.map((value) => {
-        const active = mounted && theme === value;
-        return (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={active}
-            onClick={() => setTheme(value)}
-            className={`rounded-full px-3 py-1 text-sm transition-colors ${
-              active
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {THEME_LABELS[value]}
-          </button>
-        );
-      })}
-    </div>
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none" />
+      </svg>
+    </button>
   );
 }
