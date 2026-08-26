@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
+import { ContrastIcon } from "@/components/icons/contrast-icon";
 import { THEME_TOGGLE_LABEL, THEMES } from "@/lib/constants";
 
 const emptySubscribe = () => () => {};
@@ -24,18 +25,7 @@ export function ThemeToggle() {
       onClick={() => setTheme(isDark ? THEMES.light : THEMES.dark)}
       className="flex size-9 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-accent"
     >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="12" r="8" />
-        <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none" />
-      </svg>
+      <ContrastIcon />
     </button>
   );
 }
