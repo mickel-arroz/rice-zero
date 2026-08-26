@@ -15,7 +15,7 @@ export const EXTERNAL_LINKS = {
   github: "https://github.com/mickel-arroz",
   // TODO: URLs reales de portafolio y LinkedIn antes del ticket de /about
   portfolio: "https://github.com/mickel-arroz",
-  linkedin: "https://www.linkedin.com/in/mickel-arroz",
+  linkedin: "https://github.com/mickel-arroz",
 } as const;
 
 export const THEMES = {
@@ -25,6 +25,8 @@ export const THEMES = {
 } as const;
 
 export type Theme = (typeof THEMES)[keyof typeof THEMES];
+
+export const THEME_GROUP_LABEL = "Tema";
 
 export const THEME_LABELS: Record<Theme, string> = {
   light: "Claro",

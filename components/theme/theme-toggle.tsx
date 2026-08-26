@@ -2,7 +2,12 @@
 
 import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
-import { THEME_LABELS, THEMES, type Theme } from "@/lib/constants";
+import {
+  THEME_GROUP_LABEL,
+  THEME_LABELS,
+  THEMES,
+  type Theme,
+} from "@/lib/constants";
 
 const ORDER: Theme[] = [THEMES.light, THEMES.dark, THEMES.system];
 
@@ -19,8 +24,8 @@ export function ThemeToggle() {
 
   return (
     <div
-      role="radiogroup"
-      aria-label="Tema"
+      role="group"
+      aria-label={THEME_GROUP_LABEL}
       className="flex items-center gap-1 rounded-full border border-border bg-card p-1"
     >
       {ORDER.map((value) => {
@@ -29,8 +34,7 @@ export function ThemeToggle() {
           <button
             key={value}
             type="button"
-            role="radio"
-            aria-checked={active}
+            aria-pressed={active}
             onClick={() => setTheme(value)}
             className={`rounded-full px-3 py-1 text-sm transition-colors ${
               active
