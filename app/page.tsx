@@ -37,7 +37,7 @@ const LINK_CLASS =
   "underline decoration-dotted underline-offset-4 decoration-muted-foreground hover:text-primary";
 
 const CTA_CLASS =
-  "flex h-13 items-center justify-center rounded-full font-heading text-[15px] font-bold uppercase tracking-[0.08em] lg:h-14 lg:px-10";
+  "flex h-13 items-center justify-center rounded-full text-[15px] font-bold uppercase tracking-[0.08em] lg:h-14 lg:px-10";
 
 const CTA_PRIMARY_CLASS = `${CTA_CLASS} bg-primary text-primary-foreground hover:opacity-90`;
 
@@ -104,7 +104,7 @@ export default function Home() {
         <section className="flex flex-col gap-10 px-6 pb-4 lg:flex-row lg:gap-8 lg:px-16 lg:pb-14">
           <div className="flex flex-col gap-4 rounded-[20px] border border-border bg-card p-7 [background-image:radial-gradient(circle,var(--border)_1px,transparent_1px)] [background-size:18px_18px] lg:flex-1">
             <span className={LABEL_CLASS}>Manifiesto</span>
-            <p className="font-heading text-[19px] leading-normal lg:text-xl">
+            <p className="text-[19px] leading-normal lg:text-xl">
               «Rice» es el apodo de su creador. «(0)» es el inicio de algo: el
               punto cero donde una idea aún puede ser cualquier cosa.
             </p>
@@ -137,7 +137,7 @@ export default function Home() {
 
         <section className="mx-6 mt-4 flex flex-col gap-4 rounded-[20px] bg-accent p-7 text-accent-foreground lg:hidden">
           <span className={LABEL_CLASS}>Nodo cero</span>
-          <p className="font-heading text-xl leading-snug font-bold">
+          <p className="text-xl leading-snug font-bold">
             Tu próximo proyecto empieza con un nodo.
           </p>
           <Link
