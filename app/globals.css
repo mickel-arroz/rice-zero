@@ -42,12 +42,30 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-node-bg: var(--node-bg);
   --color-edge: var(--edge-color);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-iosevka);
+  --font-mono: var(--font-iosevka);
+  --font-display: var(--font-ndot57);
+  --font-heading: var(--font-ntype82);
+}
+
+/* Jerarquía tipográfica Nothing OS: NDot en display (h1), NType en h2–h5.
+   Badges y otros componentes usan las utilidades font-display / font-heading. */
+@layer base {
+  /* Los fallbacks ya vienen dentro de cada variable (opción `fallback` en app/fonts). */
+  h1 {
+    font-family: var(--font-display);
+  }
+
+  h2,
+  h3,
+  h4,
+  h5 {
+    font-family: var(--font-heading);
+  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
