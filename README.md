@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RICE(0)
 
-## Getting Started
+PWA mobile-first para volcar ideas de proyectos en un árbol de nodos de texto
+y transformar cada versión del árbol en prompts estructurados para agentes de
+IA.
 
-First, run the development server:
+El vocabulario del producto (Proyecto, Versión, Nodo, Análisis…) vive en
+[`CONTEXT.md`](CONTEXT.md).
+
+## Puesta en marcha
+
+La app necesita un proyecto de Supabase con el esquema aplicado. El wizard lo
+monta entero — crea el proyecto, captura las credenciales en `.env.local`,
+aplica la migración, verifica el aislamiento entre usuarios y configura Vercel:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bash scripts/setup-wizard.sh
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Es idempotente: puedes cortarlo con Ctrl-C y volver a lanzarlo, que recuerda lo
+que ya guardó. Al terminar:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Comandos
 
-## Learn More
+| Comando             | Qué hace                                  |
+| ------------------- | ----------------------------------------- |
+| `npm run dev`       | Servidor de desarrollo en `localhost:3000` |
+| `npm run build`     | Build de producción                       |
+| `npm test`          | Tests (Vitest)                            |
+| `npm run typecheck` | TypeScript sin emitir                     |
+| `npm run lint`      | ESLint                                    |
 
-To learn more about Next.js, take a look at the following resources:
+## Base de datos
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `supabase/migrations/` — las migraciones, en orden. Se aplican pegándolas en
+  el SQL Editor de Supabase (el wizard lo hace por ti).
+- `supabase/tests/verify_rls_and_clone.sql` — comprueba contra el motor real
+  que RLS aísla a cada usuario y que clonar una Versión copia el árbol entero
+  con la jerarquía remapeada. Hace `rollback`: no deja rastro.
+- `lib/supabase/database.types.ts` — la forma del esquema en TypeScript.
+  Regenerable con `npx supabase gen types typescript --project-id <ref>
+  --schema public`. Si tocas una migración, actualízalo en el mismo commit.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Solo `lib/supabase/` y `lib/services/` pueden importar los SDKs de Supabase;
+todo lo demás recibe datos ya resueltos por servicios tipados. ESLint lo
+impide, no es una convención de palabra.

@@ -52,3 +52,17 @@ export const DOT_PATTERN_TOKENS = {
   base: "--dot-base",
   glow: "--primary",
 } as const;
+
+/**
+ * Variables de entorno que la app consume. Los valores `NEXT_PUBLIC_*` se
+ * incrustan en el bundle en tiempo de build, así que `lib/env.ts` debe
+ * referenciarlos literalmente; estas constantes existen para nombrarlas en
+ * mensajes de error, tests y el wizard de configuración.
+ */
+export const ENV_KEYS = {
+  supabaseUrl: "NEXT_PUBLIC_SUPABASE_URL",
+  supabasePublishableKey: "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+} as const;
+
+/** Ruta del wizard que deja `.env.local` y Vercel listos. */
+export const SETUP_WIZARD_PATH = "scripts/setup-wizard.sh";
