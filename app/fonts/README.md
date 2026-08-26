@@ -14,6 +14,6 @@ punto de entrada es `index.ts`; los componentes nunca importan fuentes directame
 Conversión OTF → WOFF2 de NDot/NType con `fonttools` (`font.flavor = "woff2"`);
 los WOFF2 de Iosevka vienen ya empaquetados por Fontsource (subset latin, cubre español).
 
-Licencias: Iosevka es SIL OFL 1.1. NDot/NType son fuentes propietarias de
-Nothing Technology redistribuidas por el repo `xeji01/nothingfont`; uso en
-proyecto personal sin fines comerciales.
+Licencias: Iosevka es SIL OFL 1.1. NDot/NType son recreaciones hechas por
+fans (repo `xeji01/nothingfont`), muy similares a las fuentes de Nothing OS
+pero independientes; sin restricciones legales conocidas.
