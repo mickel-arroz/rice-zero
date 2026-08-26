@@ -6,7 +6,9 @@
   --background: oklch(0.985 0 0);
   --foreground: oklch(0.205 0 0);
   --card: oklch(1 0 0);
-  --primary: oklch(0.577 0.245 27.3);
+  /* El rojo de marca: único acento de toda la app (énfasis, hover, detalles).
+     En hex porque el fondo de puntos lo lee desde JS. */
+  --primary: #e7000b;
   --primary-foreground: oklch(0.985 0 0);
   --border: oklch(0.885 0 0);
   --accent: oklch(0.94 0 0);
@@ -14,13 +16,15 @@
   --muted-foreground: oklch(0.52 0 0);
   --node-bg: oklch(1 0 0);
   --edge-color: oklch(0.7 0 0);
+  /* Fondo dot-pattern: el halo es --primary; la base se lee desde JS y va en hex. */
+  --dot-base: #8a8a8a;
 }
 
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.93 0 0);
   --card: oklch(0.205 0 0);
-  --primary: oklch(0.637 0.237 25.3);
+  --primary: #fb2c36;
   --primary-foreground: oklch(0.145 0 0);
   --border: oklch(0.31 0 0);
   --accent: oklch(0.26 0 0);
@@ -28,6 +32,13 @@
   --muted-foreground: oklch(0.65 0 0);
   --node-bg: oklch(0.205 0 0);
   --edge-color: oklch(0.45 0 0);
+  --dot-base: #8a8a8a;
+}
+
+/* La viñeta del fondo se deriva del propio fondo: nunca puede desincronizarse. */
+:root,
+.dark {
+  --dot-vignette: color-mix(in oklab, var(--background) 85%, transparent);
 }
 
 @theme inline {

@@ -23,7 +23,7 @@ export function ThemeToggle() {
       aria-label={THEME_TOGGLE_LABEL}
       aria-pressed={isDark}
       onClick={() => setTheme(isDark ? THEMES.light : THEMES.dark)}
-      className="flex size-9 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:bg-accent"
+      className="flex size-9 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-primary hover:text-primary"
     >
       <ContrastIcon />
     </button>
