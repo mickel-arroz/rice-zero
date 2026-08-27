@@ -6,6 +6,8 @@
  * servicio esté en Beta — si se rompe, este archivo es el único a tocar.
  */
 
+import { isAuthApiError } from "@neondatabase/auth";
+
 import { keepBackendError } from "@/lib/backend/adapters/postgrest/errors";
 import type { NeonBrowserClient } from "@/lib/backend/adapters/neon/client";
 import {
@@ -28,6 +30,22 @@ type BetterAuthFailure = {
   status?: number;
   code?: string;
 };
+
+/**
+ * El SDK no siempre devuelve el fallo en `error`: en varios caminos LANZA un
+ * `AuthApiError`, y por ahí pasan las credenciales incorrectas y el email ya
+ * registrado. Sin este filtro acababan en `translateThrown` y se reportaban
+ * como `NetworkError` —o sea, reintentables—, así que la interfaz habría
+ * ofrecido «reintentar» ante una contraseña mal escrita.
+ *
+ * Lo descubrió la corrida en vivo: un 403 del servicio de auth llegaba a la app
+ * como un problema de red.
+ */
+function translateThrownAuth(error: unknown): Error {
+  return isAuthApiError(error)
+    ? translateAuthFailure(error as BetterAuthFailure)
+    : keepBackendError(error);
+}
 
 /** El usuario de Better Auth, reducido a lo que el puerto expone. */
 type BetterAuthUser = {
@@ -54,7 +72,11 @@ function translateAuthFailure(failure: BetterAuthFailure): Error {
       cause: failure,
     });
   }
-  if (failure.status != null && failure.status >= 500) {
+  // El 429 va con los 5xx aunque sea 4xx: «espera» es transitorio y se
+  // reintenta, mientras que tratarlo como falta de sesión mandaría a login a
+  // quien solo tiene que esperar. Lo destapó la corrida en vivo, con 45 logins
+  // seguidos.
+  if (failure.status === 429 || (failure.status != null && failure.status >= 500)) {
     return new NetworkError(message, { cause: failure });
   }
   return new UnauthenticatedError(message, { cause: failure });
@@ -99,11 +121,22 @@ export function createNeonAuthProvider(client: NeonBrowserClient): AuthProvider 
           name: nameFromEmail(email),
         });
         if (error) throw translateAuthFailure(error);
-        // Sin usuario devuelto no hay nada que confirmar, así que se trata
-        // como el caso normal: hay que verificar el email antes de entrar.
-        return { needsEmailVerification: !(data as { user?: unknown })?.user };
+        // Better Auth devuelve el usuario TAMBIÉN cuando hay que confirmar el
+        // email, así que mirarlo daba siempre «no hace falta confirmar». Lo que
+        // separa los dos casos es la sesión: con verificación obligatoria el
+        // `token` viene nulo y el usuario sin verificar. Comprobado contra el
+        // servicio real, que devuelve `{ token: null, user: { emailVerified:
+        // false, … } }`.
+        const created = data as {
+          token?: string | null;
+          user?: { emailVerified?: boolean };
+        } | null;
+        return {
+          needsEmailVerification:
+            !created?.token || created.user?.emailVerified !== true,
+        };
       } catch (error) {
-        throw keepBackendError(error);
+        throw translateThrownAuth(error);
       }
     },
 
@@ -126,7 +159,7 @@ export function createNeonAuthProvider(client: NeonBrowserClient): AuthProvider 
         }
         return toAuthSession(user);
       } catch (error) {
-        throw keepBackendError(error);
+        throw translateThrownAuth(error);
       }
     },
 
@@ -138,7 +171,7 @@ export function createNeonAuthProvider(client: NeonBrowserClient): AuthProvider 
         });
         if (error) throw translateAuthFailure(error);
       } catch (error) {
-        throw keepBackendError(error);
+        throw translateThrownAuth(error);
       }
     },
 
@@ -147,7 +180,7 @@ export function createNeonAuthProvider(client: NeonBrowserClient): AuthProvider 
         const { error } = await client.auth.signOut();
         if (error) throw translateAuthFailure(error);
       } catch (error) {
-        throw keepBackendError(error);
+        throw translateThrownAuth(error);
       }
     },
   };

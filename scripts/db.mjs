@@ -5,7 +5,7 @@
  * `docs/adr/0001-proveedor-de-backend-intercambiable.md`.
  */
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,9 +41,16 @@ export function activeProvider() {
 
 /** Preludio + migración: lo que deja el esquema en pie. */
 export function schemaSql(provider) {
+  // Todas las migraciones, en orden por nombre. Aplicar solo la primera era una
+  // trampa esperando: el día que hubiera una 0002, `db:apply` habría dicho «✓
+  // esquema aplicado» sin aplicarla.
+  const migrations = readdirSync(join(ROOT, "db", "migrations"))
+    .filter((name) => name.endsWith(".sql"))
+    .sort();
+
   return [
     sql("db", "preludes", `${provider}.sql`),
-    sql("db", "migrations", "0001_initial_schema.sql"),
+    ...migrations.map((name) => sql("db", "migrations", name)),
   ];
 }
 

@@ -24,7 +24,13 @@
 create table public.projects (
   id uuid primary key default gen_random_uuid(),
   -- La FK se añade abajo: su destino lo decide el preludio del proveedor.
-  owner_id uuid not null,
+  --
+  -- El default no es comodidad: es lo que hace que la propiedad la ponga el
+  -- MOTOR y no el llamante. La capa de datos nunca manda `owner_id`, así que no
+  -- existe forma de crear un Proyecto a nombre de otro — ni por error ni a
+  -- propósito. Sin el default, el insert llega con `owner_id` nulo y lo rechaza
+  -- el `with check` de la política con un 42501.
+  owner_id uuid not null default app.current_user_id(),
   title text not null check (char_length(btrim(title)) between 1 and 200),
   description text check (char_length(description) <= 2000),
   created_at timestamptz not null default now(),

@@ -11,6 +11,8 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 
 import { loadEnvLocal } from "./env-local.mjs";
 
@@ -56,10 +58,42 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-const { status } = spawnSync(
-  process.platform === "win32" ? "npx.cmd" : "npx",
-  ["vitest", "run", TARGETS[target]],
+/**
+ * Se lanza `node` contra el entrypoint de vitest, no `npx`.
+ *
+ * En Windows `npx` es un `.cmd`, y desde Node 20 lanzar un `.cmd` sin
+ * `shell: true` devuelve EINVAL (endurecimiento por CVE-2024-27980). Resolver
+ * el binario y ejecutarlo con el mismo Node que corre esto no depende del shell
+ * ni del PATH, así que se comporta igual en las tres plataformas.
+ */
+const require = createRequire(import.meta.url);
+
+let vitestBin;
+try {
+  // Se resuelve el `package.json` y se lee su `bin`: el entrypoint del binario
+  // no está en el mapa de `exports`, así que pedirlo por subpath falla.
+  const manifest = require.resolve("vitest/package.json");
+  const { bin } = require(manifest);
+  vitestBin = join(dirname(manifest), typeof bin === "string" ? bin : bin.vitest);
+} catch {
+  console.error("✗ No encuentro vitest. ¿Falta `npm install`?");
+  process.exit(1);
+}
+
+const { status, error } = spawnSync(
+  process.execPath,
+  // `--config`: la configuración de siempre excluye estos archivos para que
+  // `npm test` no pida red. Ver el encabezado de `vitest.live.config.ts`.
+  [vitestBin, "run", "--config", "vitest.live.config.ts", TARGETS[target]],
   { stdio: "inherit" },
 );
+
+// Sin esto, un fallo al ARRANCAR el proceso salía sin imprimir nada: el
+// comando parecía no hacer nada en vez de decir qué pasó. Es justo lo que este
+// script existe para evitar.
+if (error) {
+  console.error(`✗ No pude lanzar vitest: ${error.message}`);
+  process.exit(1);
+}
 
 process.exit(status ?? 1);

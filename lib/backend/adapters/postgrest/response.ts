@@ -66,7 +66,14 @@ export function createRunner(recover?: RecoverThrown) {
       throw recover?.(error) ?? translateThrown(error);
     }
     if (response.error) {
-      throw translatePostgrestFailure(response.error, RESOURCE[table], id);
+      // `recover` primero también aquí: hay SDKs que no lanzan su error propio
+      // sino que lo dejan en `error`, y entonces llega sin código de motor y se
+      // reportaría como fallo de red. Fue el caso de `AuthRequiredError` de
+      // Neon, que salía como «problema de red» en vez de «no hay sesión».
+      throw (
+        recover?.(response.error) ??
+        translatePostgrestFailure(response.error, RESOURCE[table], id)
+      );
     }
     return response.data;
   };

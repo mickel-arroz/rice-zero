@@ -37,8 +37,11 @@ function translateAuthError(error: AuthError): Error {
     });
   }
   // Un 5xx o un fallo de red llegan también como AuthError; se distinguen por
-  // el status, que en los errores de credenciales es 4xx.
-  if (error.status != null && error.status >= 500) {
+  // el status, que en los errores de credenciales es 4xx. El 429 va con ellos
+  // aunque sea 4xx: «espera» es transitorio y se reintenta, mientras que
+  // tratarlo como falta de sesión mandaría a login a quien solo tiene que
+  // esperar. Lo destapó la corrida en vivo, con 45 logins seguidos.
+  if (error.status === 429 || (error.status != null && error.status >= 500)) {
     return new NetworkError(error.message, { cause: error });
   }
   return new UnauthenticatedError(error.message, { cause: error });
