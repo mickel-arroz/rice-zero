@@ -46,6 +46,7 @@ npm run dev
 | `npm run db:apply`           | Aplica el esquema al proveedor que dice `NEXT_PUBLIC_BACKEND`. **Persiste** |
 | `npm run verify:neon`        | Verifica el esquema contra Neon. Hace `rollback`                |
 | `npm run verify:supabase`    | Igual, contra un Supabase local en Docker. Bajo demanda         |
+| `npm run account:live`       | Registra la cuenta de usar y tirar que pide la corrida en vivo   |
 | `npm run test:contract:live` | La contract suite contra el proveedor activo. Bajo demanda; falla si no hay credenciales |
 
 ## El Proveedor de Backend
@@ -66,6 +67,23 @@ Dos límites, y ESLint los aplica — no son convenciones de palabra:
 - un SDK de vendedor solo se importa dentro de `lib/backend/adapters/<n>/`;
 - un adaptador solo se importa desde dentro de `lib/backend/`. Fuera, la app
   llama a `getBackend()` y habla con el puerto.
+
+### Probar el adaptador activo
+
+La contract suite en memoria ejercita el núcleo compartido, que es casi todo el
+código — pero no el SDK del proveedor. Eso solo se prueba en vivo, y hace falta
+una cuenta con el email confirmado:
+
+```bash
+npm run account:live        # registra la cuenta y comprueba que NO deja entrar sin confirmar
+# …confirmas el email en tu bandeja…
+npm run test:contract:live  # la contract suite entera contra el proveedor activo
+```
+
+Las dos necesitan `BACKEND_CONTRACT_LIVE=1`, `BACKEND_CONTRACT_EMAIL` y
+`BACKEND_CONTRACT_PASSWORD`, y sin ellas salen con código 1 en lugar de fingir
+que pasaron. ⚠ Esa cuenta es de usar y tirar: la suite **borra todos sus
+Proyectos** entre bloques.
 
 Los errores que el puerto puede lanzar son cinco: `NotFoundError`,
 `ConflictError`, `NetworkError`, `UnauthenticatedError` y `MissingEnvError`. Una

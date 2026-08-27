@@ -13,7 +13,8 @@
     "test:contract:live": "node scripts/contract-live.mjs",
     "db:apply": "node scripts/apply-schema.mjs",
     "verify:neon": "node scripts/verify-schema.mjs neon",
-    "verify:supabase": "bash scripts/verify-supabase-local.sh"
+    "verify:supabase": "bash scripts/verify-supabase-local.sh",
+    "account:live": "node scripts/contract-live.mjs signup"
   },
   "dependencies": {
     "@neondatabase/neon-js": "^0.7.0-beta",
