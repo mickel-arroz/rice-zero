@@ -17,7 +17,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/wizard-lib.sh"
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=7
+TOTAL_STAGES=9
 ENV_FILE=".env.local"
 
 PROJECT_URL="https://console.neon.tech/app/projects/shy-river-68096283"
@@ -79,15 +79,46 @@ note "Es el modo 'con JWK configurado', no el de compatibilidad PostgREST"
 note "que confía en claims puestos por la aplicación."
 open_url "$PROJECT_URL/$BRANCH/auth?tab=configuration"
 step "En Project Info, copia la Auth URL."
-ask NEXT_PUBLIC_NEON_AUTH_URL "Pega la Auth URL:"
-write_env NEXT_PUBLIC_NEON_AUTH_URL "$NEXT_PUBLIC_NEON_AUTH_URL"
+note "Ya NO es NEXT_PUBLIC_: desde el #7 el navegador habla con /api/auth y"
+note "quien necesita esta URL es el servidor, que la proxea."
+ask NEON_AUTH_URL "Pega la Auth URL:"
+write_env NEON_AUTH_URL "$NEON_AUTH_URL"
 step "Copia la JWKS URL."
 ask NEON_JWKS_URL "Pega la JWKS URL:"
 write_env NEON_JWKS_URL "$NEON_JWKS_URL"
 say ""
-note "Better Auth para Next.js documenta además NEON_AUTH_COOKIE_SECRET, que"
-note "la consola no publica. Sale del 'Open quickstart' de la página de Auth."
-SKIPPED+=("NEON_AUTH_COOKIE_SECRET: sacarlo del quickstart de Neon Auth")
+
+# ── 4b ────────────────────────────────────────────────────────────────────
+stage "Secreto de la cookie de sesion"
+say "Esta no sale de la consola: la generas tu. Es con lo que el servidor"
+say "FIRMA la cookie de sesion de primera parte, y sin ella proxy.ts no"
+say "podria distinguir una sesion de verdad de una inventada."
+note "Minimo 32 caracteres. Si cambia, todas las sesiones abiertas caducan."
+if existing_secret=$(grep -E '^NEON_AUTH_COOKIE_SECRET=.+' "$ENV_FILE" 2>/dev/null); then
+  say "Ya habia una en $ENV_FILE; se deja como esta."
+  unset existing_secret
+elif command -v openssl >/dev/null 2>&1; then
+  write_env NEON_AUTH_COOKIE_SECRET "$(openssl rand -base64 32)"
+  say "Generada con openssl."
+else
+  warn "No hay openssl en el PATH."
+  ask_secret NEON_AUTH_COOKIE_SECRET "Pega una cadena de 32+ caracteres:"
+  write_env NEON_AUTH_COOKIE_SECRET "$NEON_AUTH_COOKIE_SECRET"
+fi
+SKIPPED+=("NEON_AUTH_COOKIE_SECRET en Vercel (los tres entornos): es distinta por entorno o compartida, pero tiene que existir")
+
+# ── 4c ────────────────────────────────────────────────────────────────────
+stage "Google OAuth: a donde vuelve el usuario"
+say "Google ya usa las shared keys de Neon, asi que no hay que crear"
+say "credenciales. Lo que si tiene que estar registrado es el origen al que"
+say "el proveedor devuelve al usuario."
+open_url "$PROJECT_URL/$BRANCH/auth?tab=configuration"
+step "Comprueba que http://localhost:3000 esta entre los origenes permitidos,"
+step "y anade el dominio de Vercel cuando despliegues."
+note "La vuelta cae en /projects con un parametro que proxy.ts canjea por la"
+note "cookie de sesion. Si el origen no esta registrado, el login con Google"
+note "termina sin sesion y sin decir por que."
+pause "Enter para seguir"
 
 # ── 5 ─────────────────────────────────────────────────────────────────────
 stage "Aplicar el esquema"

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { DotPattern } from "@/components/backgrounds/dot-pattern";
 import { ArrowUpRightIcon } from "@/components/icons/arrow-up-right-icon";
 import {
   CARD_CLASS,
   LABEL_CLASS,
+  PAGE_CLASS,
   SiteFooter,
   SiteHeader,
 } from "@/components/layout/site-chrome";
@@ -162,7 +162,8 @@ const CREATOR_LINKS = [
   },
 ] as const;
 
-const SECTION_CLASS = "flex flex-col gap-4 px-6 pt-10 lg:px-16 lg:pt-0 lg:pb-14";
+const SECTION_CLASS =
+  "flex flex-col gap-4 px-6 pt-10 lg:px-16 lg:pt-0 lg:pb-14";
 
 const ORDINAL_CLASS = "font-display text-[15px] text-primary";
 
@@ -171,172 +172,168 @@ const ROW_CLASS =
 
 export default function About() {
   return (
-    <>
-      <DotPattern />
+    <div className={PAGE_CLASS}>
+      <SiteHeader current="about" />
 
-      <div className="relative z-10 flex flex-1 flex-col">
-        <SiteHeader current="about" />
+      <main className="flex flex-1 flex-col">
+        <section className="flex flex-col gap-5 px-6 pt-11 pb-10 lg:items-center lg:gap-6 lg:px-16 lg:pt-22 lg:pb-18 lg:text-center">
+          <p className="flex items-center gap-2">
+            <span
+              className="size-2 rounded-full bg-primary"
+              aria-hidden="true"
+            />
+            <span className={`${LABEL_CLASS} lg:text-xs`}>Acerca de</span>
+          </p>
+          <h1 className="text-[44px] leading-none tracking-[0.02em] lg:text-[88px]">
+            MANIFIESTO
+          </h1>
+          <h2 className="max-w-2xl text-[22px] leading-tight font-bold text-pretty lg:text-3xl">
+            {HERO_STATEMENT}
+          </h2>
+          <p className="max-w-xl text-sm leading-relaxed text-pretty text-muted-foreground lg:text-[15px]">
+            {HERO_LEAD}
+          </p>
+        </section>
 
-        <main className="flex flex-1 flex-col">
-          <section className="flex flex-col gap-5 px-6 pt-11 pb-10 lg:items-center lg:gap-6 lg:px-16 lg:pt-22 lg:pb-18 lg:text-center">
-            <p className="flex items-center gap-2">
-              <span
-                className="size-2 rounded-full bg-primary"
-                aria-hidden="true"
-              />
-              <span className={`${LABEL_CLASS} lg:text-xs`}>Acerca de</span>
+        <section className="flex flex-col gap-10 px-6 lg:flex-row lg:items-start lg:gap-8 lg:px-16 lg:pb-14">
+          <div className={`${CARD_CLASS} flex flex-col gap-4 p-7 lg:flex-1`}>
+            <span className={LABEL_CLASS}>El nombre</span>
+            <p className="text-[19px] leading-normal text-pretty lg:text-xl">
+              {NAME_STORY}
             </p>
-            <h1 className="text-[44px] leading-none tracking-[0.02em] lg:text-[88px]">
-              MANIFIESTO
-            </h1>
-            <h2 className="max-w-2xl text-[22px] leading-tight font-bold text-pretty lg:text-3xl">
-              {HERO_STATEMENT}
-            </h2>
-            <p className="max-w-xl text-sm leading-relaxed text-pretty text-muted-foreground lg:text-[15px]">
-              {HERO_LEAD}
+            <p className="font-display text-[15px] text-primary lg:text-base">
+              {TAGLINE}
             </p>
-          </section>
-
-          <section className="flex flex-col gap-10 px-6 lg:flex-row lg:items-start lg:gap-8 lg:px-16 lg:pb-14">
-            <div className={`${CARD_CLASS} flex flex-col gap-4 p-7 lg:flex-1`}>
-              <span className={LABEL_CLASS}>El nombre</span>
-              <p className="text-[19px] leading-normal text-pretty lg:text-xl">
-                {NAME_STORY}
-              </p>
-              <p className="font-display text-[15px] text-primary lg:text-base">
-                {TAGLINE}
-              </p>
-            </div>
-            <div className="flex flex-col gap-4 lg:flex-2">
-              <span className={LABEL_CLASS}>El bucle</span>
-              <div className="flex flex-col lg:grid lg:grid-cols-2 lg:gap-8">
-                {LOOP.map((step) => (
-                  <div key={step.ordinal} className={ROW_CLASS}>
-                    <span className={ORDINAL_CLASS}>{step.ordinal}</span>
-                    <div className="flex flex-col gap-1.5 lg:gap-2">
-                      <h3 className="text-base font-bold lg:text-[17px]">
-                        {step.title}
-                      </h3>
-                      <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
-                        {step.description}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section className={SECTION_CLASS}>
-            <span className={LABEL_CLASS}>Dos vistas, un mismo árbol</span>
-            <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-8">
-              {VIEWS.map((view) => (
-                <div
-                  key={view.title}
-                  className={`${CARD_CLASS} flex flex-col gap-2 p-6 lg:p-7`}
-                >
-                  <span className={LABEL_CLASS}>{view.scope}</span>
-                  <h3 className="text-[17px] font-bold lg:text-lg">
-                    {view.title}
-                  </h3>
-                  <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
-                    {view.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className={SECTION_CLASS}>
-            <span className={LABEL_CLASS}>Claves</span>
-            <div className="flex flex-col lg:grid lg:grid-cols-3 lg:gap-8">
-              {HIGHLIGHTS.map((highlight) => (
-                <div
-                  key={highlight.title}
-                  className="flex flex-col gap-1.5 border-t border-border py-4 lg:gap-2 lg:py-0 lg:pt-4"
-                >
-                  <h3 className="text-[15px] font-bold lg:text-base">
-                    {highlight.title}
-                  </h3>
-                  <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
-                    {highlight.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className={SECTION_CLASS}>
-            <span className={LABEL_CLASS}>Stack técnico</span>
-            <div className="flex flex-col lg:grid lg:grid-cols-3 lg:gap-8">
-              {STACK.map((item) => (
-                <div key={item.ordinal} className={ROW_CLASS}>
-                  <span className={ORDINAL_CLASS}>{item.ordinal}</span>
+          </div>
+          <div className="flex flex-col gap-4 lg:flex-2">
+            <span className={LABEL_CLASS}>El bucle</span>
+            <div className="flex flex-col lg:grid lg:grid-cols-2 lg:gap-8">
+              {LOOP.map((step) => (
+                <div key={step.ordinal} className={ROW_CLASS}>
+                  <span className={ORDINAL_CLASS}>{step.ordinal}</span>
                   <div className="flex flex-col gap-1.5 lg:gap-2">
                     <h3 className="text-base font-bold lg:text-[17px]">
-                      {item.title}
+                      {step.title}
                     </h3>
                     <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
-                      {item.description}
+                      {step.description}
                     </p>
                   </div>
                 </div>
               ))}
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section className="px-6 pt-10 lg:px-16 lg:pt-0 lg:pb-14">
-            <div
-              className={`${CARD_CLASS} flex flex-col gap-4 p-6 lg:flex-row lg:items-start lg:gap-8 lg:p-7`}
-            >
-              <span className={`${LABEL_CLASS} lg:w-50 lg:shrink-0 lg:pt-1`}>
-                Lo que {APP_NAME} no hace
-              </span>
-              <ul className="flex flex-col gap-2.5 lg:grid lg:flex-1 lg:grid-cols-2 lg:gap-x-8 lg:gap-y-3">
-                {LIMITS.map((limit) => (
-                  <li
-                    key={limit}
-                    className="flex gap-2.5 text-[13px] leading-relaxed text-muted-foreground"
-                  >
-                    <span className="text-primary" aria-hidden="true">
-                      —
-                    </span>
-                    <span className="text-pretty">{limit}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </section>
+        <section className={SECTION_CLASS}>
+          <span className={LABEL_CLASS}>Dos vistas, un mismo árbol</span>
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:gap-8">
+            {VIEWS.map((view) => (
+              <div
+                key={view.title}
+                className={`${CARD_CLASS} flex flex-col gap-2 p-6 lg:p-7`}
+              >
+                <span className={LABEL_CLASS}>{view.scope}</span>
+                <h3 className="text-[17px] font-bold lg:text-lg">
+                  {view.title}
+                </h3>
+                <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
+                  {view.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
 
-          <section className={SECTION_CLASS}>
-            <span className={LABEL_CLASS}>El creador</span>
-            <div className="flex flex-col gap-4 lg:grid lg:grid-cols-3 lg:gap-8">
-              {CREATOR_LINKS.map((link) => (
-                <a
-                  key={link.kind}
-                  href={link.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`${CARD_CLASS} flex items-start justify-between gap-4 p-6 hover:text-primary lg:p-7`}
+        <section className={SECTION_CLASS}>
+          <span className={LABEL_CLASS}>Claves</span>
+          <div className="flex flex-col lg:grid lg:grid-cols-3 lg:gap-8">
+            {HIGHLIGHTS.map((highlight) => (
+              <div
+                key={highlight.title}
+                className="flex flex-col gap-1.5 border-t border-border py-4 lg:gap-2 lg:py-0 lg:pt-4"
+              >
+                <h3 className="text-[15px] font-bold lg:text-base">
+                  {highlight.title}
+                </h3>
+                <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
+                  {highlight.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className={SECTION_CLASS}>
+          <span className={LABEL_CLASS}>Stack técnico</span>
+          <div className="flex flex-col lg:grid lg:grid-cols-3 lg:gap-8">
+            {STACK.map((item) => (
+              <div key={item.ordinal} className={ROW_CLASS}>
+                <span className={ORDINAL_CLASS}>{item.ordinal}</span>
+                <div className="flex flex-col gap-1.5 lg:gap-2">
+                  <h3 className="text-base font-bold lg:text-[17px]">
+                    {item.title}
+                  </h3>
+                  <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="px-6 pt-10 lg:px-16 lg:pt-0 lg:pb-14">
+          <div
+            className={`${CARD_CLASS} flex flex-col gap-4 p-6 lg:flex-row lg:items-start lg:gap-8 lg:p-7`}
+          >
+            <span className={`${LABEL_CLASS} lg:w-50 lg:shrink-0 lg:pt-1`}>
+              Lo que {APP_NAME} no hace
+            </span>
+            <ul className="flex flex-col gap-2.5 lg:grid lg:flex-1 lg:grid-cols-2 lg:gap-x-8 lg:gap-y-3">
+              {LIMITS.map((limit) => (
+                <li
+                  key={limit}
+                  className="flex gap-2.5 text-[13px] leading-relaxed text-muted-foreground"
                 >
-                  <span className="flex flex-col gap-2">
-                    <span className={LABEL_CLASS}>{link.kind}</span>
-                    <span className="text-[17px] font-bold lg:text-lg">
-                      {link.title}
-                    </span>
-                    <span className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
-                      {link.description}
-                    </span>
+                  <span className="text-primary" aria-hidden="true">
+                    —
                   </span>
-                  <ArrowUpRightIcon className="mt-0.5 shrink-0" />
-                </a>
+                  <span className="text-pretty">{limit}</span>
+                </li>
               ))}
-            </div>
-          </section>
-        </main>
+            </ul>
+          </div>
+        </section>
 
-        <SiteFooter current="about" />
-      </div>
-    </>
+        <section className={SECTION_CLASS}>
+          <span className={LABEL_CLASS}>El creador</span>
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-3 lg:gap-8">
+            {CREATOR_LINKS.map((link) => (
+              <a
+                key={link.kind}
+                href={link.href}
+                target="_blank"
+                rel="noreferrer"
+                className={`${CARD_CLASS} flex items-start justify-between gap-4 p-6 hover:text-primary lg:p-7`}
+              >
+                <span className="flex flex-col gap-2">
+                  <span className={LABEL_CLASS}>{link.kind}</span>
+                  <span className="text-[17px] font-bold lg:text-lg">
+                    {link.title}
+                  </span>
+                  <span className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
+                    {link.description}
+                  </span>
+                </span>
+                <ArrowUpRightIcon className="mt-0.5 shrink-0" />
+              </a>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      <SiteFooter current="about" />
+    </div>
   );
 }

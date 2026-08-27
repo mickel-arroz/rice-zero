@@ -35,7 +35,7 @@ const run = createRunner((error) =>
 export function createNeonRowStore(client: NeonBrowserClient): RowStore {
   return {
     async select(table, options) {
-      let query = client.from(table).select("*");
+      let query = client.data.from(table).select("*");
       for (const filter of options?.where ?? []) {
         query = query.eq(filter.column, filter.value);
       }
@@ -53,7 +53,11 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
       // pide, y el puerto promete la entidad creada (con el id, el
       // `version_number` que puso el trigger y los timestamps del motor).
       const data = await run(
-        client.from(table).insert(asWritePayload(values)).select().single(),
+        client.data
+          .from(table)
+          .insert(asWritePayload(values))
+          .select()
+          .single(),
         table,
         null,
       );
@@ -65,7 +69,12 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
       // es tuyo», y eso es un `NotFoundError` que pone el núcleo, no un error
       // del motor.
       const data = await run(
-        client.from(table).update(asWritePayload(values)).eq("id", id).select().maybeSingle(),
+        client.data
+          .from(table)
+          .update(asWritePayload(values))
+          .eq("id", id)
+          .select()
+          .maybeSingle(),
         table,
         id,
       );
@@ -73,13 +82,17 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
     },
 
     async delete(table, id) {
-      const data = await run(client.from(table).delete().eq("id", id).select(), table, id);
+      const data = await run(
+        client.data.from(table).delete().eq("id", id).select(),
+        table,
+        id,
+      );
       return asRows(data).length > 0;
     },
 
     async cloneVersion(versionId, label) {
       const data = await run(
-        client.rpc("clone_project_version", {
+        client.data.rpc("clone_project_version", {
           p_version_id: versionId,
           p_label: label,
         }),

@@ -3,7 +3,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { APP_NAME, EXTERNAL_LINKS, ROUTES } from "@/lib/constants";
 
 /** Página pública en la que estamos: decide a dónde apunta la navegación. */
-type PublicPage = "home" | "about";
+type PublicPage = "home" | "about" | "login";
 
 /**
  * Enlace de texto de la app: subrayado punteado que se pone rojo al pasar por
@@ -16,20 +16,44 @@ export const LINK_CLASS =
 export const LABEL_CLASS =
   "text-[11px] uppercase tracking-[0.18em] text-muted-foreground";
 
+/**
+ * El envoltorio de toda página.
+ *
+ * `relative z-10` no es decorativo: el fondo de puntos vive en el layout raíz
+ * (`app/layout.tsx`) como hermano `fixed` del contenido, así que sin esto la
+ * página quedaría DEBAJO del fondo. Está aquí para que ninguna ruta nueva se
+ * olvide de la mitad que la hace visible.
+ */
+export const PAGE_CLASS = "relative z-10 flex flex-1 flex-col";
+
+/** La marca, en NDot. La comparten la cabecera pública y la de la app. */
+export const BRAND_CLASS =
+  "font-display text-[21px] tracking-[0.04em] lg:text-[22px]";
+
 /** Tarjeta con borde sutil que se enciende en rojo al pasar por encima. */
 export const CARD_CLASS =
   "rounded-[20px] border border-border bg-card transition-colors hover:border-primary";
 
-export function SiteHeader({ current }: { current: PublicPage }) {
-  const brandClass =
-    "font-display text-[21px] tracking-[0.04em] lg:text-[22px]";
+/**
+ * La pastilla de acción: versalitas, 15px bold, alto 52 (56 en escritorio).
+ *
+ * Vive aquí y no en la landing porque la comparten la landing y el login, y dos
+ * copias del mismo botón se desincronizan en cuanto alguien toca una.
+ */
+export const CTA_CLASS =
+  "flex h-13 items-center justify-center gap-2.5 rounded-full text-[15px] font-bold uppercase tracking-[0.08em] transition-colors lg:h-14 lg:px-10";
 
+export const CTA_PRIMARY_CLASS = `${CTA_CLASS} bg-primary text-primary-foreground hover:opacity-90`;
+
+export const CTA_SECONDARY_CLASS = `${CTA_CLASS} border border-border hover:border-primary hover:text-primary`;
+
+export function SiteHeader({ current }: { current: PublicPage }) {
   return (
     <header className="flex items-center justify-between border-b border-border bg-background px-6 py-4 lg:px-16">
       {current === "home" ? (
-        <span className={brandClass}>{APP_NAME}</span>
+        <span className={BRAND_CLASS}>{APP_NAME}</span>
       ) : (
-        <Link href={ROUTES.home} className={brandClass}>
+        <Link href={ROUTES.home} className={BRAND_CLASS}>
           {APP_NAME}
         </Link>
       )}
