@@ -184,7 +184,7 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=5
+TOTAL_STAGES=7
 ENV_FILE=".env.local"
 
 PROJECT_URL="https://console.neon.tech/app/projects/shy-river-68096283"
@@ -257,18 +257,46 @@ note "la consola no publica. Sale del 'Open quickstart' de la página de Auth."
 SKIPPED+=("NEON_AUTH_COOKIE_SECRET: sacarlo del quickstart de Neon Auth")
 
 # ── 5 ─────────────────────────────────────────────────────────────────────
+stage "Aplicar el esquema"
+say "El esquema es UNO, compartido por todos los Proveedores de Backend"
+say "(db/migrations/), más un preludio corto por proveedor (db/preludes/)."
+note "El preludio de Neon aporta app.current_user_id() sobre auth.uid() de"
+note "pg_session_jwt, la FK a neon_auth.\"user\" y el nombre del rol anónimo."
+warn "app.current_user_id() es 'security definer' y no es decorativo: el rol"
+warn "'authenticated' NO tiene USAGE sobre el esquema auth en Neon, así que una"
+warn "política que llame a auth.uid() en línea falla con 42501."
+say ""
+say "Va en una sola transacción: si algo falla, no queda un esquema a medias."
+if node scripts/apply-schema.mjs neon; then
+  say "Esquema aplicado."
+else
+  SKIPPED+=("aplicar el esquema: node scripts/apply-schema.mjs neon")
+  warn "la migración falló; revisa el mensaje de arriba antes de seguir"
+fi
+pause "Enter para seguir"
+
+# ── 6 ─────────────────────────────────────────────────────────────────────
+stage "Verificar aislamiento y clonado"
+say "Las dos garantías que sostienen el producto, contra el motor real: que un"
+say "segundo usuario no llega a tus datos, y que clonar una Versión copia el"
+say "árbol completo con la jerarquía remapeada."
+note "Crea dos usuarios de prueba y hace rollback: no deja rastro."
+if node scripts/verify-schema.mjs neon --applied; then
+  say "Aislamiento y clonado verificados."
+else
+  SKIPPED+=("verificar el esquema: node scripts/verify-schema.mjs neon --applied")
+  warn "seguimos, pero revisa esto antes de escribir código"
+fi
+pause "Enter para seguir"
+
+# ── 7 ─────────────────────────────────────────────────────────────────────
 stage "Activar el interruptor"
 say "Una variable decide qué Proveedor de Backend está activo. Cambiarla y"
 say "redesplegar es todo lo que hace falta para volver a Supabase."
 write_env NEXT_PUBLIC_BACKEND "neon"
 say ""
-note "Datos ya verificados contra el motor, para el preludio de Neon:"
-note "  · tabla de usuarios: neon_auth.\"user\"  (entrecomillada: 'user' es"
-note "    palabra reservada en Postgres, sin comillas el alter table falla)"
-note "  · user.id es uuid  →  app.current_user_id() returns uuid"
-note "  · auth.uid() de pg_session_jwt sirve tal cual"
-say ""
-note "El wizard para aquí: portar la migración con el preludio y el shim es"
-note "el trabajo del issue #21."
+note "En Vercel hay que ponerla también, o el despliegue seguirá apuntando al"
+note "otro proveedor."
+SKIPPED+=("NEXT_PUBLIC_BACKEND=neon en Vercel (los tres entornos)")
 
 finish

@@ -1,44 +1,21 @@
 -- Verificación del esquema de RICE(0): RLS owner-only y clonado profundo.
 --
--- Cómo se ejecuta: pégalo entero en el SQL Editor de Supabase (o pásalo por
--- psql) sobre el proyecto donde ya aplicaste la migración. El wizard
--- (`scripts/setup-wizard.sh`) lo abre en su etapa de verificación.
+-- Compartida por todos los Proveedores de Backend. No nombra a ninguno: la
+-- transacción, el alta de los dos usuarios de prueba y el rollback los aporta
+-- el runner (`scripts/verify-schema.mjs`), que compone
 --
--- No deja rastro: crea dos usuarios de prueba, ejerce el esquema con ambos y
--- hace `rollback` al final. Si algo no se cumple, aborta con un mensaje que
--- empieza por FALLO. Si termina imprimiendo `verificacion_ok`, las dos
--- garantías del ticket están comprobadas contra el motor real.
+--   preludio → migración → identity.sql → <proveedor>/users.sql → este archivo
+--
+-- Cómo se ejecuta:  npm run verify:neon  ·  npm run verify:supabase
+--
+-- No deja rastro: el runner hace `rollback` al final. Si algo no se cumple,
+-- aborta con un mensaje que empieza por FALLO. Si termina imprimiendo
+-- `verificacion_ok`, las garantías del esquema están comprobadas contra el
+-- motor real.
 --
 -- Los ids son fijos para que el usuario B pueda apuntar al árbol de A sin
 -- consultarlo: RLS se lo esconde, y ése es justamente el punto. Un atacante
 -- que hubiera filtrado los ids por otro medio tampoco llegaría a los datos.
-
-begin;
-
--- ──────────────────────────────────────────────────────────────────────────
--- Dos usuarios: A construye un árbol; B intenta llegar a él y no puede.
--- ──────────────────────────────────────────────────────────────────────────
-
-insert into auth.users (
-  id, instance_id, aud, role, email, encrypted_password,
-  email_confirmed_at, created_at, updated_at,
-  raw_app_meta_data, raw_user_meta_data
-)
-values
-  (
-    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated', 'authenticated',
-    'verificacion-a@rice-zero.invalid', '',
-    now(), now(), now(), '{}'::jsonb, '{}'::jsonb
-  ),
-  (
-    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated', 'authenticated',
-    'verificacion-b@rice-zero.invalid', '',
-    now(), now(), now(), '{}'::jsonb, '{}'::jsonb
-  );
 
 -- ──────────────────────────────────────────────────────────────────────────
 -- Como la usuaria A: un árbol de 5 Nodos, 2 raíces y 3 niveles de fondo.
@@ -53,7 +30,7 @@ begin
   insert into public.projects (id, owner_id, title, description)
   values (
     '11111111-1111-4111-8111-111111111111',
-    (select auth.uid()),
+    (select app.current_user_id()),
     'Proyecto de verificación',
     'Se borra con el rollback.'
   );
@@ -315,7 +292,7 @@ begin
   insert into public.projects (id, owner_id, title)
   values (
     '44444444-4444-4444-8444-444444444444',
-    (select auth.uid()),
+    (select app.current_user_id()),
     'Proyecto de B'
   );
 
@@ -361,27 +338,67 @@ end;
 $$;
 
 -- ──────────────────────────────────────────────────────────────────────────
--- Sin sesión no hay datos: `anon` no tiene ni el privilegio de tabla.
+-- Sin sesión no hay datos
+--
+-- El rol anónimo se llama distinto en cada proveedor, así que en vez de
+-- cambiarse a él se comprueba lo que lo hace inofensivo: que no tiene ni un
+-- privilegio sobre las cuatro tablas ni EXECUTE sobre ninguna de las funciones
+-- del esquema. Es más fuerte que un `select` que devuelve cero filas: RLS ni
+-- llega a evaluarse.
 -- ──────────────────────────────────────────────────────────────────────────
 
+-- Vuelta al rol de la migración: `app.anonymous_role()` es un metadato del
+-- esquema y `authenticated` no tiene EXECUTE sobre él, por diseño.
 reset role;
-set local role anon;
 
 do $$
 declare
+  v_anon constant text := app.anonymous_role();
   v_count integer;
+  v_offenders text;
 begin
-  begin
-    select count(*) into v_count from public.projects;
-    raise exception 'FALLO: un visitante anónimo pudo consultar Proyectos (vio % filas).', v_count;
-  exception
-    when insufficient_privilege then null;
-  end;
+  select count(*), string_agg(distinct table_name || ':' || privilege_type, ', ')
+    into v_count, v_offenders
+    from information_schema.role_table_grants
+   where grantee = v_anon
+     and table_schema = 'public'
+     and table_name in ('projects', 'project_versions', 'nodes', 'ai_analyses');
+  if v_count <> 0 then
+    raise exception 'FALLO: el rol % tiene privilegios de tabla: %.', v_anon, v_offenders;
+  end if;
+
+  select count(*), string_agg(p.proname, ', ')
+    into v_count, v_offenders
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and has_function_privilege(v_anon, p.oid, 'execute');
+  if v_count <> 0 then
+    raise exception 'FALLO: el rol % puede ejecutar: %.', v_anon, v_offenders;
+  end if;
+
+  -- Control positivo: `authenticated` sí llega a las tablas, a la RPC y a los
+  -- helpers. Sin esto, las dos comprobaciones de arriba pasarían con un esquema
+  -- que no deja tocar nada a nadie.
+  select count(*) into v_count
+    from information_schema.role_table_grants
+   where grantee = 'authenticated'
+     and table_schema = 'public'
+     and table_name in ('projects', 'project_versions', 'nodes', 'ai_analyses');
+  -- 4 en projects/project_versions/nodes + 3 en ai_analyses, que no se edita.
+  if v_count <> 15 then
+    raise exception 'FALLO: authenticated tiene % privilegios de tabla, se esperaban 15.', v_count;
+  end if;
+
+  if not has_function_privilege(
+       'authenticated', 'public.clone_project_version(uuid, text)', 'execute') then
+    raise exception 'FALLO: authenticated no puede ejecutar clone_project_version.';
+  end if;
+  if not has_function_privilege(
+       'authenticated', 'public.is_version_owner(uuid)', 'execute') then
+    raise exception 'FALLO: authenticated no puede ejecutar is_version_owner.';
+  end if;
 end;
 $$;
 
-reset role;
-
 select 'verificacion_ok' as resultado;
-
-rollback;

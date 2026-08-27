@@ -184,7 +184,7 @@ finish() {
 # STAGES: author this section. One stage() per step the human takes.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=7
+TOTAL_STAGES=8
 
 # RICE(0) guarda su configuración local en .env.local: es lo que lee `next
 # dev` y lo que .gitignore mantiene fuera del repo.
@@ -192,29 +192,6 @@ ENV_FILE=".env.local"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
-
-MIGRATION_FILE="$(ls supabase/migrations/*_initial_schema.sql 2>/dev/null | head -n1 || true)"
-VERIFY_FILE="supabase/tests/verify_rls_and_clone.sql"
-
-# copy_file FILE mete el archivo en el portapapeles cuando el sistema tiene
-# con qué. Es la diferencia entre "pega esto" y "abre el archivo, selecciona
-# todo, copia": el SQL de este repo pasa de 300 líneas.
-copy_file() {
-  local file="$1"
-  # En Windows va PowerShell y no clip.exe: clip.exe pasa la entrada por la
-  # codepage OEM y convierte «Versión» y «Raíz» en basura antes de que el SQL
-  # llegue al editor.
-  if   command -v powershell.exe >/dev/null 2>&1; then
-    powershell.exe -NoProfile -Command       "Set-Clipboard -Value (Get-Content -Raw -Encoding UTF8 '$file')" >/dev/null 2>&1
-  elif command -v pbcopy   >/dev/null 2>&1; then pbcopy   < "$file"
-  elif command -v wl-copy  >/dev/null 2>&1; then wl-copy  < "$file"
-  elif command -v xclip    >/dev/null 2>&1; then xclip -selection clipboard < "$file"
-  else
-    note "no hay portapapeles en este sistema: abre $file y cópialo a mano"
-    return 1
-  fi
-  printf '  %s✓ copiado%s %s al portapapeles\n' "$GREEN" "$RESET" "$file"
-}
 
 # project_ref extrae la referencia del proyecto de la URL de Supabase
 # (https://<ref>.supabase.co), que es lo que arma todas las URLs del panel.
@@ -224,7 +201,7 @@ project_ref() {
   printf '%s' "${url%%.supabase.co*}"
 }
 
-banner "RICE(0) · Supabase + Vercel"
+banner "RICE(0) — provisionar Supabase"
 
 # ── 1 ─────────────────────────────────────────────────────────────────────
 stage "Supabase: crear el proyecto"
@@ -261,45 +238,45 @@ fi
 
 # ── 3 ─────────────────────────────────────────────────────────────────────
 stage "Supabase: aplicar el esquema"
-say "Una sola migración crea las cuatro tablas (projects, project_versions,"
-say "nodes, ai_analyses), activa RLS owner-only y define la RPC que clona una"
-say "Versión con su árbol entero."
-if [[ -z "$MIGRATION_FILE" ]]; then
-  warn "no encuentro la migración en supabase/migrations/"
-  SKIPPED+=("aplicar supabase/migrations/*_initial_schema.sql")
+say "El esquema es UNO, compartido por todos los Proveedores de Backend"
+say "(db/migrations/), más un preludio corto por proveedor (db/preludes/) que"
+say "aporta la identidad del usuario, la FK a su tabla de cuentas y el nombre"
+say "del rol anónimo."
+note "Crea las cuatro tablas, activa RLS owner-only y define la RPC que clona"
+note "una Versión con su árbol entero. Va en una sola transacción: si algo"
+note "falla, no queda un esquema a medias."
+say ""
+say "Para aplicarlo hace falta una conexión directa a Postgres."
+open_url "https://supabase.com/dashboard/project/$REF/settings/database"
+step "En 'Connection string' → 'URI', copia la cadena y sustituye [YOUR-PASSWORD]"
+step "por la contraseña de la base de datos de la etapa 1."
+warn "Es del rol postgres, que se salta TODAS las políticas. Sirve para aplicar"
+warn "migraciones y para nada más. Nunca en código de aplicación ni en una"
+warn "variable NEXT_PUBLIC_."
+ask_secret SUPABASE_DB_URL "Pega la connection string:"
+write_env SUPABASE_DB_URL "$SUPABASE_DB_URL"
+
+if SUPABASE_DB_URL="$SUPABASE_DB_URL" node scripts/apply-schema.mjs supabase; then
+  say "Esquema aplicado."
 else
-  copy_file "$MIGRATION_FILE" || true
-  open_url "https://supabase.com/dashboard/project/$REF/sql/new"
-  step "Pega el SQL en el editor (Ctrl-V / Cmd-V)."
-  step "Pulsa 'Run'."
-  step "Debe terminar en 'Success. No rows returned'."
-  note "'already exists' significa que el esquema ya estaba aplicado: no pasa nada, sigue."
-  warn "Cualquier OTRO error revierte la migración entera (el editor la corre en una transacción): no queda medio aplicada, pero tampoco aplicada. Corrígelo y vuelve a lanzarla."
-  pause "¿La migración terminó en Success?"
+  SKIPPED+=("aplicar el esquema: node scripts/apply-schema.mjs supabase")
+  warn "la migración falló; revisa el mensaje de arriba antes de seguir"
 fi
+pause "Enter para seguir"
 
 # ── 4 ─────────────────────────────────────────────────────────────────────
 stage "Supabase: verificar aislamiento y clonado"
 say "Ahora comprobamos las dos garantías que sostienen el producto, contra el"
 say "motor real: que un segundo usuario no llega a tus datos, y que clonar una"
 say "Versión copia el árbol completo con la jerarquía remapeada."
-note "El script crea dos usuarios de prueba y hace rollback: no deja rastro."
-if [[ ! -f "$VERIFY_FILE" ]]; then
-  warn "no encuentro $VERIFY_FILE"
-  SKIPPED+=("ejecutar $VERIFY_FILE en el SQL Editor")
+note "Crea dos usuarios de prueba y hace rollback: no deja rastro."
+if SUPABASE_DB_URL="$SUPABASE_DB_URL" node scripts/verify-schema.mjs supabase --applied; then
+  say "Aislamiento y clonado verificados."
 else
-  copy_file "$VERIFY_FILE" || true
-  open_url "https://supabase.com/dashboard/project/$REF/sql/new"
-  step "Pega el SQL y pulsa 'Run'."
-  step "Debe devolver una fila con resultado = verificacion_ok."
-  warn "Cualquier mensaje que empiece por FALLO significa que el esquema no quedó bien: no sigas."
-  if confirm "¿Salió verificacion_ok?"; then
-    say "Aislamiento y clonado verificados."
-  else
-    SKIPPED+=("verificar el esquema con $VERIFY_FILE (salió FALLO o no se ejecutó)")
-    warn "seguimos con la configuración, pero revisa esto antes de escribir código"
-  fi
+  SKIPPED+=("verificar el esquema: node scripts/verify-schema.mjs supabase --applied")
+  warn "seguimos con la configuración, pero revisa esto antes de escribir código"
 fi
+pause "Enter para seguir"
 
 # ── 5 ─────────────────────────────────────────────────────────────────────
 stage "Google Cloud: cliente OAuth"
@@ -377,5 +354,15 @@ else
   step "Vuelve a la configuración de URLs de Supabase y añade https://<tu-dominio>/** como Redirect URL."
   pause "¿Añadida?"
 fi
+
+# ── 8 ─────────────────────────────────────────────────────────────────────
+stage "Activar el interruptor"
+say "Una variable decide qué Proveedor de Backend está activo. Sin esta línea,"
+say "la app sigue hablando con el otro proveedor por bien configurado que esté"
+say "éste."
+write_env NEXT_PUBLIC_BACKEND "supabase"
+note "En Vercel hay que ponerla también, o el despliegue seguirá apuntando a"
+note "Neon."
+SKIPPED+=("NEXT_PUBLIC_BACKEND=supabase en Vercel (los tres entornos)")
 
 finish

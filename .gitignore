@@ -37,6 +37,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# stack local de Supabase (npm run verify:supabase). Es scratch de Docker: el
+# esquema de verdad vive en db/, compartido por todos los proveedores.
+/supabase/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

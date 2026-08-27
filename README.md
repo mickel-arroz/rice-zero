@@ -9,16 +9,21 @@ El vocabulario del producto (Proyecto, Versión, Nodo, Análisis…) vive en
 
 ## Puesta en marcha
 
-La app necesita un proyecto de Supabase con el esquema aplicado. El wizard lo
-monta entero — crea el proyecto, captura las credenciales en `.env.local`,
-aplica la migración, verifica el aislamiento entre usuarios y configura Vercel:
+La app necesita un **Proveedor de Backend** con el esquema aplicado. Neon es el
+activo; Supabase se mantiene como implementación alternativa. Solo uno está
+activo a la vez, y lo decide `NEXT_PUBLIC_BACKEND`
+([ADR](docs/adr/0001-proveedor-de-backend-intercambiable.md)).
+
+Un wizard por proveedor: captura las credenciales en `.env.local`, aplica el
+esquema, verifica el aislamiento entre usuarios y deja el interruptor puesto.
 
 ```bash
-bash scripts/setup-wizard.sh
+bash scripts/setup-neon.sh       # el activo
+bash scripts/setup-supabase.sh   # el alternativo
 ```
 
-Es idempotente: puedes cortarlo con Ctrl-C y volver a lanzarlo, que recuerda lo
-que ya guardó. Al terminar:
+Son idempotentes: puedes cortarlos con Ctrl-C y volver a lanzarlos, que
+recuerdan lo que ya guardaron. Al terminar:
 
 ```bash
 npm install
@@ -27,25 +32,57 @@ npm run dev
 
 ## Comandos
 
-| Comando             | Qué hace                                  |
-| ------------------- | ----------------------------------------- |
-| `npm run dev`       | Servidor de desarrollo en `localhost:3000` |
-| `npm run build`     | Build de producción                       |
-| `npm test`          | Tests (Vitest)                            |
-| `npm run typecheck` | TypeScript sin emitir                     |
-| `npm run lint`      | ESLint                                    |
+| Comando                      | Qué hace                                                        |
+| ---------------------------- | --------------------------------------------------------------- |
+| `npm run dev`                | Servidor de desarrollo en `localhost:3000`                      |
+| `npm run build`              | Build de producción                                             |
+| `npm test`                   | Tests (Vitest). Incluye la contract suite en memoria            |
+| `npm run typecheck`          | TypeScript sin emitir. Es lo que mantiene vivo el adaptador dormido |
+| `npm run lint`               | ESLint                                                          |
+| `npm run db:apply`           | Aplica el esquema al proveedor activo. **Persiste**             |
+| `npm run verify:neon`        | Verifica el esquema contra Neon. Hace `rollback`                |
+| `npm run verify:supabase`    | Igual, contra un Supabase local en Docker. Bajo demanda         |
+| `npm run test:contract:live` | La contract suite contra el proveedor activo. Bajo demanda      |
+
+## El Proveedor de Backend
+
+```
+lib/backend/
+├── index.ts       el interruptor: NEXT_PUBLIC_BACKEND, mapa estático
+├── ports/         entidades de dominio, repositorios, taxonomía de errores
+├── adapters/
+│   ├── postgrest/ núcleo compartido por los dos (no importa ningún SDK)
+│   ├── neon/      @neondatabase/* + Managed Better Auth
+│   └── supabase/  @supabase/*
+└── testing/       adaptador en memoria + contract suite compartida
+```
+
+Dos límites, y ESLint los aplica — no son convenciones de palabra:
+
+- un SDK de vendedor solo se importa dentro de `lib/backend/adapters/<n>/`;
+- un adaptador solo se importa desde dentro de `lib/backend/`. Fuera, la app
+  llama a `getBackend()` y habla con el puerto.
+
+Los errores que el puerto puede lanzar son cinco: `NotFoundError`,
+`ConflictError`, `NetworkError`, `UnauthenticatedError` y `MissingEnvError`. Una
+denegación por RLS se reporta como `NotFoundError` a propósito: bajo RLS «no es
+tuyo» y «no existe» son cero filas, y distinguirlas confirmaría que el recurso
+existe.
 
 ## Base de datos
 
-- `supabase/migrations/` — las migraciones, en orden. Se aplican pegándolas en
-  el SQL Editor de Supabase (el wizard lo hace por ti).
-- `supabase/tests/verify_rls_and_clone.sql` — comprueba contra el motor real
-  que RLS aísla a cada usuario y que clonar una Versión copia el árbol entero
-  con la jerarquía remapeada. Hace `rollback`: no deja rastro.
-- `lib/supabase/database.types.ts` — la forma del esquema en TypeScript.
-  Regenerable con `npx supabase gen types typescript --project-id <ref>
-  --schema public`. Si tocas una migración, actualízalo en el mismo commit.
+Una sola migración compartida y un preludio corto por proveedor. Esa es la razón
+por la que las políticas llaman a `app.current_user_id()` y nunca a `auth.uid()`.
 
-Solo `lib/supabase/` y `lib/services/` pueden importar los SDKs de Supabase;
-todo lo demás recibe datos ya resueltos por servicios tipados. ESLint lo
-impide, no es una convención de palabra.
+- `db/migrations/` — el esquema, sin nombrar a ningún proveedor.
+- `db/preludes/<proveedor>.sql` — la identidad del usuario, la FK a su tabla de
+  cuentas y el nombre del rol anónimo (`anon` en Supabase, `anonymous` en Neon).
+- `db/tests/verify_rls_and_clone.sql` — comprueba contra el motor real que RLS
+  aísla a cada usuario y que clonar una Versión copia el árbol entero con la
+  jerarquía remapeada. Corre dentro de una transacción que se rueda atrás.
+- `db/tests/<proveedor>/users.sql` — el alta de los dos usuarios de prueba, lo
+  único de la verificación que sabe de qué proveedor se trata.
+- `lib/backend/adapters/<proveedor>/database.types.ts` — la forma del esquema en
+  TypeScript, una copia por adaptador porque las genera cada CLI. Si tocas la
+  migración, actualízalas en el mismo commit: `schema-check.ts` rompe el
+  typecheck si dejan de encajar con `rows.ts`.

@@ -1,14 +1,18 @@
 /**
- * Forma de la base de datos, espejo de `supabase/migrations/`.
+ * Forma de la base de datos, espejo de `db/migrations/` con el preludio de
+ * Supabase.
  *
- * Escrito a mano con la forma que produce `supabase gen types typescript`,
- * para poder regenerarlo sobre este mismo archivo cuando el proyecto exista:
+ * Vive DENTRO del adaptador y nunca aparece en la firma del puerto: eso es lo
+ * que permite que el otro adaptador tenga su propio archivo generado sin que la
+ * app se entere. Ver `docs/adr/0001-proveedor-de-backend-intercambiable.md`.
  *
- *     npx supabase gen types typescript --project-id <ref> --schema public \
- *       > lib/supabase/database.types.ts
+ * Escrito a mano con la forma que produce `supabase gen types typescript`, para
+ * poder regenerarlo sobre este mismo archivo:
  *
- * Si tocas una migración, actualiza esto en el mismo commit: es el único
- * punto donde el esquema y TypeScript se ponen de acuerdo.
+ *     npx supabase gen types typescript --project-id <ref> --schema public  *       > lib/backend/adapters/supabase/database.types.ts
+ *
+ * Si tocas la migración, actualiza esto en el mismo commit. Lo que atrapa un
+ * olvido es `schema-check.ts`, que compara estos tipos con `rows.ts`.
  */
 
 export type Json =

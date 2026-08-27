@@ -1,9 +1,21 @@
--- RICE(0) — esquema inicial.
+-- RICE(0) — esquema inicial. Compartido por todos los Proveedores de Backend.
 --
 -- Proyecto → Versión → árbol de Nodos, más los Análisis de IA por Versión.
 -- Todo es privado por dueño: cada tabla lleva RLS owner-only y no hay ninguna
 -- ruta de lectura entre usuarios. No existen adjuntos ni posiciones de canvas
 -- (el layout es siempre automático), por diseño del producto.
+--
+-- Este archivo no nombra a ningún proveedor. Lo que varía entre ellos lo
+-- aporta el preludio de `db/preludes/`, que se aplica antes:
+--
+--   · `app.current_user_id() -> uuid`  la identidad del usuario de la sesión
+--   · `app.users_table() -> text`      destino de la FK de `projects.owner_id`
+--   · `app.anonymous_role() -> text`   `anon` en Supabase, `anonymous` en Neon
+--
+-- Las políticas llaman a `app.current_user_id()`, nunca a `app.current_user_id()`: así la
+-- incógnita del tipo de id de usuario queda absorbida por una función en vez
+-- de propagarse por el archivo entero. Ver
+-- `docs/adr/0001-proveedor-de-backend-intercambiable.md`.
 
 -- ──────────────────────────────────────────────────────────────────────────
 -- Tablas
@@ -11,7 +23,8 @@
 
 create table public.projects (
   id uuid primary key default gen_random_uuid(),
-  owner_id uuid not null references auth.users (id) on delete cascade,
+  -- La FK se añade abajo: su destino lo decide el preludio del proveedor.
+  owner_id uuid not null,
   title text not null check (char_length(btrim(title)) between 1 and 200),
   description text check (char_length(description) <= 2000),
   created_at timestamptz not null default now(),
@@ -20,6 +33,20 @@ create table public.projects (
 
 comment on table public.projects is
   'Contenedor raíz de una idea. Pertenece a un único usuario.';
+
+-- Borrar la cuenta se lleva sus Proyectos, y con ellos (por cascade) sus
+-- Versiones, Nodos y Análisis. DDL dinámico porque no hay forma de
+-- parametrizar el destino de una FK.
+do $$
+begin
+  execute format(
+    'alter table public.projects
+       add constraint projects_owner_id_fkey
+       foreign key (owner_id) references %s (id) on delete cascade',
+    app.users_table()
+  );
+end;
+$$;
 
 create index projects_owner_id_updated_at_idx
   on public.projects (owner_id, updated_at desc);
@@ -208,7 +235,7 @@ as $$
     select 1
       from public.projects p
      where p.id = p_project_id
-       and p.owner_id = (select auth.uid())
+       and p.owner_id = (select app.current_user_id())
   );
 $$;
 
@@ -224,19 +251,19 @@ as $$
       from public.project_versions v
       join public.projects p on p.id = v.project_id
      where v.id = p_version_id
-       and p.owner_id = (select auth.uid())
+       and p.owner_id = (select app.current_user_id())
   );
 $$;
 
 -- Las funciones de trigger no son invocables a mano de forma útil, pero se
 -- les quita el EXECUTE por defecto igual que a las demás: son `security
 -- definer` y la superficie se cierra entera o no se cierra.
-revoke execute on function public.touch_updated_at() from public, anon, authenticated;
-revoke execute on function public.assign_version_number() from public, anon, authenticated;
-revoke execute on function public.enforce_node_parent_same_version() from public, anon, authenticated;
+revoke execute on function public.touch_updated_at() from public, authenticated;
+revoke execute on function public.assign_version_number() from public, authenticated;
+revoke execute on function public.enforce_node_parent_same_version() from public, authenticated;
 
-revoke execute on function public.is_project_owner(uuid) from public, anon;
-revoke execute on function public.is_version_owner(uuid) from public, anon;
+revoke execute on function public.is_project_owner(uuid) from public;
+revoke execute on function public.is_version_owner(uuid) from public;
 grant execute on function public.is_project_owner(uuid) to authenticated;
 grant execute on function public.is_version_owner(uuid) to authenticated;
 
@@ -255,20 +282,20 @@ alter table public.ai_analyses enable row level security;
 
 create policy projects_select_own on public.projects
   for select to authenticated
-  using (owner_id = (select auth.uid()));
+  using (owner_id = (select app.current_user_id()));
 
 create policy projects_insert_own on public.projects
   for insert to authenticated
-  with check (owner_id = (select auth.uid()));
+  with check (owner_id = (select app.current_user_id()));
 
 create policy projects_update_own on public.projects
   for update to authenticated
-  using (owner_id = (select auth.uid()))
-  with check (owner_id = (select auth.uid()));
+  using (owner_id = (select app.current_user_id()))
+  with check (owner_id = (select app.current_user_id()));
 
 create policy projects_delete_own on public.projects
   for delete to authenticated
-  using (owner_id = (select auth.uid()));
+  using (owner_id = (select app.current_user_id()));
 
 create policy project_versions_select_own on public.project_versions
   for select to authenticated
@@ -333,17 +360,17 @@ create policy ai_analyses_delete_own on public.ai_analyses
 -- ──────────────────────────────────────────────────────────────────────────
 -- Privilegios de tabla
 --
--- RLS filtra filas, pero solo después de que el rol tenga el privilegio. Los
--- default privileges de Supabase reparten permisos a `anon` y `authenticated`
--- en cuanto se crea una tabla, así que aquí se revoca todo y se concede
--- exactamente lo necesario: sin sesión no hay datos, y un Análisis no se
--- edita ni por accidente.
+-- RLS filtra filas, pero solo después de que el rol tenga el privilegio. Hay
+-- proveedores que reparten permisos a sus roles de PostgREST en cuanto se crea
+-- una tabla (Supabase lo hace por default privileges), así que aquí se revoca
+-- todo y se concede exactamente lo necesario: sin sesión no hay datos, y un
+-- Análisis no se edita ni por accidente. Es idempotente en cualquier motor.
 -- ──────────────────────────────────────────────────────────────────────────
 
-revoke all on public.projects from public, anon, authenticated;
-revoke all on public.project_versions from public, anon, authenticated;
-revoke all on public.nodes from public, anon, authenticated;
-revoke all on public.ai_analyses from public, anon, authenticated;
+revoke all on public.projects from public, authenticated;
+revoke all on public.project_versions from public, authenticated;
+revoke all on public.nodes from public, authenticated;
+revoke all on public.ai_analyses from public, authenticated;
 
 grant select, insert, update, delete on public.projects to authenticated;
 grant select, insert, update, delete on public.project_versions to authenticated;
@@ -413,5 +440,42 @@ $$;
 comment on function public.clone_project_version(uuid, text) is
   'Snapshot profundo e independiente del árbol de una Versión, con la jerarquía remapeada. No copia Análisis.';
 
-revoke execute on function public.clone_project_version(uuid, text) from public, anon;
+revoke execute on function public.clone_project_version(uuid, text) from public;
 grant execute on function public.clone_project_version(uuid, text) to authenticated;
+
+-- ──────────────────────────────────────────────────────────────────────────
+-- El rol anónimo
+--
+-- Se llama `anon` en Supabase y `anonymous` en Neon, así que sus revokes no
+-- pueden ir en línea. Van juntos aquí, al final, por dos razones: revocar es
+-- independiente del orden (basta con que el objeto exista) y así queda una
+-- sola frase que decir sobre un visitante sin sesión — no llega a nada, ni
+-- tabla ni función.
+-- ──────────────────────────────────────────────────────────────────────────
+
+do $$
+declare
+  v_anon text := app.anonymous_role();
+  v_object text;
+begin
+  foreach v_object in array array[
+    'table public.projects',
+    'table public.project_versions',
+    'table public.nodes',
+    'table public.ai_analyses'
+  ] loop
+    execute format('revoke all on %s from %I', v_object, v_anon);
+  end loop;
+
+  foreach v_object in array array[
+    'public.touch_updated_at()',
+    'public.assign_version_number()',
+    'public.enforce_node_parent_same_version()',
+    'public.is_project_owner(uuid)',
+    'public.is_version_owner(uuid)',
+    'public.clone_project_version(uuid, text)'
+  ] loop
+    execute format('revoke execute on function %s from %I', v_object, v_anon);
+  end loop;
+end;
+$$;
