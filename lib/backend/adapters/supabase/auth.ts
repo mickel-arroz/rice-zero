@@ -5,7 +5,12 @@
  * Supabase en ningún sitio.
  */
 
-import type { AuthError, Session } from "@supabase/supabase-js";
+import {
+  isAuthError,
+  isAuthRetryableFetchError,
+  type AuthError,
+  type Session,
+} from "@supabase/supabase-js";
 
 import { keepBackendError } from "@/lib/backend/adapters/postgrest/errors";
 import type { SupabaseBrowserClient } from "@/lib/backend/adapters/supabase/client";
@@ -30,17 +35,35 @@ function toAuthSession(session: Session): AuthSession {
   };
 }
 
+/**
+ * El SDK puede LANZAR su error en vez de devolverlo en `error`. Sin este filtro
+ * acababa en `translateThrown` y salía como `NetworkError` —reintentable—, así
+ * que la interfaz habría ofrecido «reintentar» ante una contraseña mal escrita.
+ *
+ * Es el mismo agujero que la corrida en vivo destapó en el adaptador de Neon.
+ * Aquí se cierra por simetría y sin esperar a que alguien accione el
+ * interruptor: un adaptador dormido que solo es correcto a medias no sirve de
+ * plan B.
+ */
+function translateThrownAuth(error: unknown): Error {
+  return isAuthError(error) ? translateAuthError(error) : keepBackendError(error);
+}
+
 function translateAuthError(error: AuthError): Error {
   if (error.code && ALREADY_REGISTERED.has(error.code)) {
     return new ConflictError("email-registrado", "Ese email ya tiene cuenta.", {
       cause: error,
     });
   }
-  // Un 5xx o un fallo de red llegan también como AuthError; se distinguen por
-  // el status, que en los errores de credenciales es 4xx. El 429 va con ellos
-  // aunque sea 4xx: «espera» es transitorio y se reintenta, mientras que
-  // tratarlo como falta de sesión mandaría a login a quien solo tiene que
-  // esperar. Lo destapó la corrida en vivo, con 45 logins seguidos.
+  // El SDK ya sabe qué es reintentable, así que no hay que deducirlo: este
+  // guard cubre el `fetch` que falla, el timeout y el DNS.
+  if (isAuthRetryableFetchError(error)) {
+    return new NetworkError(error.message, { cause: error });
+  }
+  // Y el resto por status. El 429 va con los 5xx aunque sea 4xx: «espera» es
+  // transitorio y se reintenta, mientras que tratarlo como falta de sesión
+  // mandaría a login a quien solo tiene que esperar. Lo destapó la corrida en
+  // vivo del otro adaptador, con 45 logins seguidos.
   if (error.status === 429 || (error.status != null && error.status >= 500)) {
     return new NetworkError(error.message, { cause: error });
   }
@@ -78,7 +101,7 @@ export function createSupabaseAuthProvider(
         // caso normal: el spec exige verificación obligatoria.
         return { needsEmailVerification: data.session === null };
       } catch (error) {
-        throw keepBackendError(error);
+        throw translateThrownAuth(error);
       }
     },
 
@@ -92,7 +115,7 @@ export function createSupabaseAuthProvider(
         if (!data.session) throw new UnauthenticatedError();
         return toAuthSession(data.session);
       } catch (error) {
-        throw keepBackendError(error);
+        throw translateThrownAuth(error);
       }
     },
 
@@ -104,7 +127,7 @@ export function createSupabaseAuthProvider(
         });
         if (error) throw translateAuthError(error);
       } catch (error) {
-        throw keepBackendError(error);
+        throw translateThrownAuth(error);
       }
     },
 
@@ -113,7 +136,7 @@ export function createSupabaseAuthProvider(
         const { error } = await client.auth.signOut();
         if (error) throw translateAuthError(error);
       } catch (error) {
-        throw keepBackendError(error);
+        throw translateThrownAuth(error);
       }
     },
   };
