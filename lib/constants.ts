@@ -11,6 +11,13 @@ export const NAME_STORY =
 
 export const TAGLINE = "Aquí nacen los proyectos.";
 
+/** El titular del hero. Lo comparten la landing y la columna del login. */
+export const HERO_TAGLINE =
+  "Vuelca tus ideas en un árbol. Conviértelas en prompts.";
+
+/** La etiqueta del marcador del hero, sin punto final. */
+export const HERO_LABEL = "Aquí nacen los proyectos";
+
 export const ROUTES = {
   home: "/",
   about: "/about",
@@ -99,6 +106,11 @@ export const AUTH_COPY = {
   /** El botón cuando el fallo es reintentable, y solo entonces. */
   retry: "Reintentar",
   aboutLink: "¿Qué es RICE(0)? →",
+  /** Solo en escritorio: la columna que acompaña al formulario. */
+  heroLead:
+    "Entra para abrir tus Proyectos. Cada Proyecto es privado: las políticas del backend solo dejan ver lo que es tuyo.",
+  confirmLabel: "Repite la contraseña",
+  forgotPassword: "¿Olvidaste tu contraseña?",
 
   signIn: {
     tab: "Entrar",

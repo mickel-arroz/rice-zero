@@ -136,14 +136,95 @@ function ConfirmEmail({
   );
 }
 
+/**
+ * Un campo de contraseña con su ojo, su error y su pista.
+ *
+ * Existe porque al crear cuenta hay DOS, y dos copias del mismo bloque de 40
+ * líneas se desincronizan en cuanto alguien toca una: el `aria-describedby`, el
+ * borde rojo o el `autoComplete` acabarían distintos.
+ */
+function PasswordField({
+  id,
+  label,
+  autoComplete,
+  value,
+  onChange,
+  error,
+  hint,
+  visible,
+  onToggleVisible,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  autoComplete: "new-password" | "current-password";
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  hint?: string;
+  visible: boolean;
+  onToggleVisible: () => void;
+  disabled: boolean;
+}) {
+  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
+  return (
+    <div className={`flex flex-col gap-2 ${disabled ? "opacity-45" : ""}`}>
+      <label htmlFor={id} className={LABEL_CLASS}>
+        {label}
+      </label>
+      <div className="relative flex items-center">
+        <input
+          id={id}
+          type={visible ? "text" : "password"}
+          name={id}
+          autoComplete={autoComplete}
+          placeholder={AUTH_COPY.passwordPlaceholder}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          className={`${error ? FIELD_ERROR_CLASS : FIELD_CLASS} pr-12`}
+        />
+        <button
+          type="button"
+          onClick={onToggleVisible}
+          aria-label={visible ? AUTH_COPY.hidePassword : AUTH_COPY.showPassword}
+          aria-pressed={visible}
+          className="absolute right-4 flex text-muted-foreground transition-colors hover:text-primary"
+        >
+          <EyeIcon className="size-5" />
+        </button>
+      </div>
+      {error ? (
+        <span
+          id={`${id}-error`}
+          className="text-xs leading-relaxed text-primary"
+        >
+          {error}
+        </span>
+      ) : hint ? (
+        <span
+          id={`${id}-hint`}
+          className="text-xs leading-relaxed text-pretty text-muted-foreground"
+        >
+          {hint}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function LoginForm({ destination }: { destination: string }) {
   const router = useRouter();
   const emailId = useId();
   const passwordId = useId();
+  const confirmId = useId();
 
   const [action, setAction] = useState<AuthAction>("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [visible, setVisible] = useState(false);
   const [fields, setFields] = useState<FieldErrors>({});
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -152,10 +233,14 @@ export function LoginForm({ destination }: { destination: string }) {
   const busy = status.kind === "submitting" || pending;
   const failure = status.kind === "failed" ? status.failure : null;
   /** Empty: sin nada escrito el CTA se ve inerte, pero no se deshabilita. */
-  const empty = email.trim() === "" || password === "";
+  const empty =
+    email.trim() === "" ||
+    password === "" ||
+    (action === "signUp" && confirm === "");
 
   function switchTo(next: AuthAction) {
     setAction(next);
+    setConfirm("");
     setFields({});
     setStatus({ kind: "idle" });
   }
@@ -175,10 +260,16 @@ export function LoginForm({ destination }: { destination: string }) {
     event.preventDefault();
     if (busy) return;
 
-    const credentials = { email: email.trim(), password };
+    // `confirm` solo viaja al crear cuenta; el puerto nunca lo ve, se queda en
+    // la validación local.
+    const credentials = {
+      email: email.trim(),
+      password,
+      ...(action === "signUp" ? { confirm } : {}),
+    };
     const invalid = validateCredentials(credentials, action);
     setFields(invalid);
-    if (invalid.email || invalid.password) {
+    if (invalid.email || invalid.password || invalid.confirm) {
       setStatus({ kind: "idle" });
       return;
     }
@@ -186,9 +277,12 @@ export function LoginForm({ destination }: { destination: string }) {
     setStatus({ kind: "submitting", via: "email" });
     try {
       const auth = getBackend().auth;
+      const forPort = {
+        email: credentials.email,
+        password: credentials.password,
+      };
       if (action === "signUp") {
-        const { needsEmailVerification } =
-          await auth.signUpWithEmail(credentials);
+        const { needsEmailVerification } = await auth.signUpWithEmail(forPort);
         // Si el proveedor NO exige confirmación, la cuenta ya está dentro y
         // mandarla a «revisa tu correo» sería mentir.
         if (needsEmailVerification) {
@@ -196,7 +290,7 @@ export function LoginForm({ destination }: { destination: string }) {
           return;
         }
       } else {
-        await auth.signInWithEmail(credentials);
+        await auth.signInWithEmail(forPort);
       }
       // El estado se queda en `submitting` a propósito: la navegación ya está en
       // marcha y volver a `idle` haría que el botón dejara de decir «Entrando»
@@ -330,60 +424,40 @@ export function LoginForm({ destination }: { destination: string }) {
             ) : null}
           </div>
 
-          <div className={`flex flex-col gap-2 ${busy ? "opacity-45" : ""}`}>
-            <label htmlFor={passwordId} className={LABEL_CLASS}>
-              {copy.passwordLabel}
-            </label>
-            <div className="relative flex items-center">
-              <input
-                id={passwordId}
-                type={visible ? "text" : "password"}
-                name="password"
-                autoComplete={
-                  action === "signUp" ? "new-password" : "current-password"
-                }
-                placeholder={AUTH_COPY.passwordPlaceholder}
-                value={password}
-                disabled={busy}
-                onChange={(event) => setPassword(event.target.value)}
-                aria-invalid={fields.password ? true : undefined}
-                aria-describedby={
-                  fields.password
-                    ? `${passwordId}-error`
-                    : action === "signUp"
-                      ? `${passwordId}-hint`
-                      : undefined
-                }
-                className={`${fields.password ? FIELD_ERROR_CLASS : FIELD_CLASS} pr-12`}
-              />
-              <button
-                type="button"
-                onClick={() => setVisible((shown) => !shown)}
-                aria-label={
-                  visible ? AUTH_COPY.hidePassword : AUTH_COPY.showPassword
-                }
-                aria-pressed={visible}
-                className="absolute right-4 flex text-muted-foreground transition-colors hover:text-primary"
-              >
-                <EyeIcon className="size-5" />
-              </button>
-            </div>
-            {fields.password ? (
-              <span
-                id={`${passwordId}-error`}
-                className="text-xs leading-relaxed text-primary"
-              >
-                {fields.password}
-              </span>
-            ) : action === "signUp" ? (
-              <span
-                id={`${passwordId}-hint`}
-                className="text-xs leading-relaxed text-pretty text-muted-foreground"
-              >
-                {AUTH_COPY.passwordHint(MIN_PASSWORD_LENGTH)}
-              </span>
-            ) : null}
-          </div>
+          <PasswordField
+            id={passwordId}
+            label={copy.passwordLabel}
+            autoComplete={
+              action === "signUp" ? "new-password" : "current-password"
+            }
+            value={password}
+            onChange={setPassword}
+            error={fields.password}
+            hint={
+              action === "signUp"
+                ? AUTH_COPY.passwordHint(MIN_PASSWORD_LENGTH)
+                : undefined
+            }
+            visible={visible}
+            onToggleVisible={() => setVisible((shown) => !shown)}
+            disabled={busy}
+          />
+
+          {/* El ojo es uno solo para los dos campos a propósito: al repetir una
+              contraseña lo que quieres es compararlas, y eso pide verlas juntas. */}
+          {action === "signUp" ? (
+            <PasswordField
+              id={confirmId}
+              label={AUTH_COPY.confirmLabel}
+              autoComplete="new-password"
+              value={confirm}
+              onChange={setConfirm}
+              error={fields.confirm}
+              visible={visible}
+              onToggleVisible={() => setVisible((shown) => !shown)}
+              disabled={busy}
+            />
+          ) : null}
 
           <button
             type="submit"

@@ -76,7 +76,10 @@ function translateAuthFailure(failure: BetterAuthFailure): Error {
   // reintenta, mientras que tratarlo como falta de sesión mandaría a login a
   // quien solo tiene que esperar. Lo destapó la corrida en vivo, con 45 logins
   // seguidos.
-  if (failure.status === 429 || (failure.status != null && failure.status >= 500)) {
+  if (
+    failure.status === 429 ||
+    (failure.status != null && failure.status >= 500)
+  ) {
     return new NetworkError(message, { cause: failure });
   }
   return new UnauthenticatedError(message, { cause: failure });
@@ -92,7 +95,9 @@ function nameFromEmail(email: string): string {
   return email.split("@")[0] || email;
 }
 
-export function createNeonAuthProvider(client: NeonBrowserClient): AuthProvider {
+export function createNeonAuthProvider(
+  client: NeonBrowserClient,
+): AuthProvider {
   async function currentSession(): Promise<AuthSession | null> {
     try {
       const { data } = await client.auth.getSession();
@@ -168,6 +173,16 @@ export function createNeonAuthProvider(client: NeonBrowserClient): AuthProvider 
         const { error } = await client.auth.signIn.social({
           provider: "google",
           callbackURL: redirectTo,
+          // La MISMA URL, y no es redundante: Better Auth decide el destino con
+          //
+          //     result.isRegister ? newUserURL || callbackURL : callbackURL
+          //
+          // así que la PRIMERA vez —la que crea la cuenta— usa una URL distinta.
+          // Sin mandarla, Neon pone la suya por defecto (la Site URL de la
+          // consola, que es la raíz) y el consentimiento inicial acababa en `/`
+          // en vez de donde el usuario iba. Los intentos siguientes «funcionaban»
+          // por otro motivo: ya había sesión de la primera vez.
+          newUserCallbackURL: redirectTo,
         });
         if (error) throw translateAuthFailure(error);
       } catch (error) {

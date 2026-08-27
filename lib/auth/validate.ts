@@ -21,6 +21,7 @@ import type { AuthAction } from "@/lib/auth/messages";
 export type FieldErrors = {
   readonly email?: string;
   readonly password?: string;
+  readonly confirm?: string;
 };
 
 /** Lo mínimo que exige el registro. Aparece también como pista en el formulario. */
@@ -29,6 +30,12 @@ export const MIN_PASSWORD_LENGTH = 8;
 export type Credentials = {
   readonly email: string;
   readonly password: string;
+  /**
+   * La repetición, solo al crear cuenta. Se compara aquí y no en el proveedor
+   * porque el proveedor no la ve: es una comprobación contra el dedo del
+   * usuario, no contra ninguna regla del backend.
+   */
+  readonly confirm?: string;
 };
 
 /**
@@ -46,6 +53,8 @@ const MESSAGES = {
   emailShape: "Ese email no parece un email. Revisa que tenga una arroba.",
   passwordMissing: "Escribe tu contraseña.",
   passwordShort: `Usa al menos ${MIN_PASSWORD_LENGTH} caracteres.`,
+  confirmMissing: "Repite la contraseña.",
+  confirmMismatch: "Las dos contraseñas no coinciden.",
 } as const;
 
 /**
@@ -65,7 +74,7 @@ export function validateCredentials(
   credentials: Credentials,
   action: AuthAction,
 ): FieldErrors {
-  const errors: { email?: string; password?: string } = {};
+  const errors: { email?: string; password?: string; confirm?: string } = {};
 
   if (credentials.email === "") errors.email = MESSAGES.emailMissing;
   else if (!EMAIL_SHAPE.test(credentials.email))
@@ -81,6 +90,16 @@ export function validateCredentials(
     // proveedor pudo endurecerse después: rechazarla aquí dejaría a su dueño
     // sin poder entrar nunca, y con un mensaje que además le echa la culpa.
     errors.password = MESSAGES.passwordShort;
+  }
+
+  // La repetición solo existe al crear cuenta, y solo se compara cuando la
+  // contraseña en sí es válida: decirle «no coinciden» a quien todavía no ha
+  // terminado de escribir la primera es ruido.
+  if (action === "signUp" && !errors.password) {
+    if (!credentials.confirm) errors.confirm = MESSAGES.confirmMissing;
+    else if (credentials.confirm !== credentials.password) {
+      errors.confirm = MESSAGES.confirmMismatch;
+    }
   }
 
   return errors;

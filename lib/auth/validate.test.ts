@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { MIN_PASSWORD_LENGTH, validateCredentials } from "@/lib/auth/validate";
 
-const ok = { email: "mickel@avilatek.dev", password: "contrasena-larga" };
+const ok = {
+  email: "mickel@avilatek.dev",
+  password: "contrasena-larga",
+  confirm: "contrasena-larga",
+};
 
 describe("validateCredentials", () => {
   it("deja pasar unas credenciales completas, en los dos modos", () => {
@@ -63,14 +67,49 @@ describe("validateCredentials", () => {
   it("no se inventa reglas de complejidad", () => {
     // Ni mayúsculas, ni dígitos, ni símbolos: eso lo decide el proveedor, y
     // adivinarlo aquí rechaza contraseñas que el backend habría aceptado.
-    const simple = { ...ok, password: "aaaaaaaaaa" };
+    const simple = { ...ok, password: "aaaaaaaaaa", confirm: "aaaaaaaaaa" };
     expect(validateCredentials(simple, "signUp")).toEqual({});
+  });
+
+  describe("repetir la contraseña", () => {
+    it("la exige al crear cuenta", () => {
+      const { confirm } = validateCredentials({ ...ok, confirm: "" }, "signUp");
+      expect(confirm).toBeTruthy();
+    });
+
+    it("avisa cuando no coinciden", () => {
+      const { confirm } = validateCredentials(
+        { ...ok, confirm: "otra-cosa" },
+        "signUp",
+      );
+      expect(confirm).toMatch(/no coinciden/i);
+    });
+
+    it("no la exige al entrar", () => {
+      // Al entrar no hay segundo campo, así que no hay nada que comparar.
+      expect(
+        validateCredentials({ ...ok, confirm: undefined }, "signIn"),
+      ).toEqual({});
+    });
+
+    it("calla mientras la contraseña en sí no sea válida", () => {
+      // Decir «no coinciden» a quien aún no ha escrito una contraseña válida es
+      // un segundo error por el mismo problema.
+      const errors = validateCredentials(
+        { ...ok, password: "", confirm: "" },
+        "signUp",
+      );
+      expect(errors.password).toBeTruthy();
+      expect(errors.confirm).toBeUndefined();
+    });
   });
 
   it("reporta los dos campos a la vez", () => {
     // El formulario pinta el mensaje debajo de cada campo, así que devolver solo
     // el primer fallo obligaría al usuario a enviar dos veces para verlos.
-    expect(validateCredentials({ email: "", password: "" }, "signUp")).toEqual({
+    expect(
+      validateCredentials({ email: "", password: "", confirm: "" }, "signUp"),
+    ).toEqual({
       email: expect.any(String),
       password: expect.any(String),
     });

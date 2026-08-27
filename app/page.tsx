@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   CARD_CLASS,
   CTA_PRIMARY_CLASS,
-  CTA_SECONDARY_CLASS,
   LABEL_CLASS,
   LINK_CLASS,
   PAGE_CLASS,
@@ -12,12 +11,11 @@ import {
 import {
   APP_DESCRIPTION,
   APP_NAME,
+  HERO_TAGLINE,
   NAME_STORY,
   ROUTES,
   TAGLINE,
 } from "@/lib/constants";
-
-const HERO_TAGLINE = "Vuelca tus ideas en un árbol. Conviértelas en prompts.";
 
 const FEATURES = [
   {
@@ -65,12 +63,12 @@ export default function Home() {
           <p className="max-w-xl text-sm leading-relaxed text-muted-foreground lg:text-[15px]">
             {APP_DESCRIPTION}
           </p>
+          {/* Una sola acción: /login ya ofrece crear cuenta en su propio
+              conmutador, así que un segundo CTA competía con el primero sin
+              llevar a ningún sitio distinto. */}
           <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
             <Link href={ROUTES.login} className={CTA_PRIMARY_CLASS}>
               Entrar
-            </Link>
-            <Link href={ROUTES.login} className={CTA_SECONDARY_CLASS}>
-              Crear cuenta
             </Link>
           </div>
           <Link
