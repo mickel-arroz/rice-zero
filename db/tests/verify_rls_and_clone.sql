@@ -340,17 +340,44 @@ $$;
 -- ──────────────────────────────────────────────────────────────────────────
 -- Sin sesión no hay datos
 --
--- El rol anónimo se llama distinto en cada proveedor, así que en vez de
--- cambiarse a él se comprueba lo que lo hace inofensivo: que no tiene ni un
--- privilegio sobre las cuatro tablas ni EXECUTE sobre ninguna de las funciones
--- del esquema. Es más fuerte que un `select` que devuelve cero filas: RLS ni
--- llega a evaluarse.
+-- Dos comprobaciones, porque responden a preguntas distintas:
+--
+--   1. El motor le dice NO a un visitante anónimo de verdad. Es la prueba
+--      end-to-end, y el rol se nombra por DDL dinámico porque se llama `anon`
+--      en Supabase y `anonymous` en Neon.
+--   2. Ese rol no tiene NI UN privilegio sobre las cuatro tablas ni EXECUTE
+--      sobre ninguna función del esquema. Cubre lo que la primera no ve: la
+--      primera solo prueba `projects`, y quedarse ahí dejaría pasar un GRANT
+--      olvidado en las otras tres o en la RPC de clonado.
 -- ──────────────────────────────────────────────────────────────────────────
 
 -- Vuelta al rol de la migración: `app.anonymous_role()` es un metadato del
 -- esquema y `authenticated` no tiene EXECUTE sobre él, por diseño.
 reset role;
 
+-- 1. Un visitante anónimo de verdad, contra el motor.
+do $$
+declare
+  v_anon constant text := app.anonymous_role();
+  v_count integer;
+begin
+  execute format('set local role %I', v_anon);
+
+  begin
+    select count(*) into v_count from public.projects;
+    raise exception 'FALLO: un visitante anónimo (%) pudo consultar Proyectos (vio % filas).',
+      v_anon, v_count;
+  exception
+    when insufficient_privilege then null;
+  end;
+end;
+$$;
+
+-- `set local role` dentro de un bloque plpgsql sobrevive al bloque, así que
+-- hace falta deshacerlo a mano antes de volver a leer el catálogo.
+reset role;
+
+-- 2. Y no tiene ni un privilegio, en ninguna de las cuatro tablas.
 do $$
 declare
   v_anon constant text := app.anonymous_role();

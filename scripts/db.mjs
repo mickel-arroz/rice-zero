@@ -30,6 +30,15 @@ export const PROVIDERS = {
 
 const sql = (...parts) => readFileSync(join(ROOT, ...parts), "utf8");
 
+/**
+ * El proveedor activo, según el mismo interruptor que lee la app. Que los
+ * scripts lo lean de aquí es lo que hace cierto que cambiar de proveedor no
+ * obliga a tocar nada fuera de `lib/backend/` y `.env.local`.
+ */
+export function activeProvider() {
+  return process.env.NEXT_PUBLIC_BACKEND?.trim() || "";
+}
+
 /** Preludio + migración: lo que deja el esquema en pie. */
 export function schemaSql(provider) {
   return [

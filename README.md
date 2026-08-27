@@ -22,6 +22,10 @@ bash scripts/setup-neon.sh       # el activo
 bash scripts/setup-supabase.sh   # el alternativo
 ```
 
+Los dos sourcean `scripts/wizard-lib.sh`, que es la biblioteca agnóstica: no
+sabe de ningún proveedor y existe una sola vez, para que la UX no pueda
+divergir entre wizards.
+
 Son idempotentes: puedes cortarlos con Ctrl-C y volver a lanzarlos, que
 recuerdan lo que ya guardaron. Al terminar:
 
@@ -39,10 +43,10 @@ npm run dev
 | `npm test`                   | Tests (Vitest). Incluye la contract suite en memoria            |
 | `npm run typecheck`          | TypeScript sin emitir. Es lo que mantiene vivo el adaptador dormido |
 | `npm run lint`               | ESLint                                                          |
-| `npm run db:apply`           | Aplica el esquema al proveedor activo. **Persiste**             |
+| `npm run db:apply`           | Aplica el esquema al proveedor que dice `NEXT_PUBLIC_BACKEND`. **Persiste** |
 | `npm run verify:neon`        | Verifica el esquema contra Neon. Hace `rollback`                |
 | `npm run verify:supabase`    | Igual, contra un Supabase local en Docker. Bajo demanda         |
-| `npm run test:contract:live` | La contract suite contra el proveedor activo. Bajo demanda      |
+| `npm run test:contract:live` | La contract suite contra el proveedor activo. Bajo demanda; falla si no hay credenciales |
 
 ## El Proveedor de Backend
 
@@ -82,6 +86,12 @@ por la que las políticas llaman a `app.current_user_id()` y nunca a `auth.uid()
   jerarquía remapeada. Corre dentro de una transacción que se rueda atrás.
 - `db/tests/<proveedor>/users.sql` — el alta de los dos usuarios de prueba, lo
   único de la verificación que sabe de qué proveedor se trata.
+- `db/tests/identity.sql` — comprueba la forma de `app.current_user_id()` que
+  dejó el preludio (firma, retorno, `security definer`, `stable`, quién la
+  ejecuta) y la sustituye por una que lee los claims de la sesión. Hace falta
+  porque en producción la identidad sale de un JWT firmado y desde psql no hay
+  JWT que presentar; apoyarse en el modo de compatibilidad del motor hacía que la
+  verificación fallara de forma intermitente.
 - `lib/backend/adapters/<proveedor>/database.types.ts` — la forma del esquema en
   TypeScript, una copia por adaptador porque las genera cada CLI. Si tocas la
   migración, actualízalas en el mismo commit: `schema-check.ts` rompe el

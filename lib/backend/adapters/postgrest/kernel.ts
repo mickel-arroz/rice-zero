@@ -18,6 +18,7 @@ import {
   toProjectVersion,
   toTreeNode,
 } from "@/lib/backend/adapters/postgrest/mapping";
+import { RESOURCE } from "@/lib/backend/adapters/postgrest/rows";
 import type { Row, RowStore } from "@/lib/backend/adapters/postgrest/store";
 import {
   ConflictError,
@@ -71,7 +72,7 @@ export function createProjectRepository(store: RowStore): ProjectRepository {
         where: [{ column: "id", value: id }],
       });
       const row = rows[0];
-      if (!row) throw new NotFoundError("el Proyecto", id);
+      if (!row) throw new NotFoundError(RESOURCE.projects, id);
       return toProject(row);
     },
 
@@ -87,13 +88,13 @@ export function createProjectRepository(store: RowStore): ProjectRepository {
 
     async update(id, patch: ProjectPatch): Promise<Project> {
       const row = await store.update("projects", id, patchToRow(patch));
-      if (!row) throw new NotFoundError("el Proyecto", id);
+      if (!row) throw new NotFoundError(RESOURCE.projects, id);
       return toProject(row);
     },
 
     async delete(id): Promise<void> {
       if (!(await store.delete("projects", id))) {
-        throw new NotFoundError("el Proyecto", id);
+        throw new NotFoundError(RESOURCE.projects, id);
       }
     },
   };
@@ -105,7 +106,7 @@ export function createVersionRepository(store: RowStore): VersionRepository {
       where: [{ column: "id", value: id }],
     });
     const row = rows[0];
-    if (!row) throw new NotFoundError("la Versión", id);
+    if (!row) throw new NotFoundError(RESOURCE.project_versions, id);
     return toProjectVersion(row);
   }
 
@@ -132,7 +133,7 @@ export function createVersionRepository(store: RowStore): VersionRepository {
 
     async clone(id, label): Promise<ProjectVersion> {
       const row = await store.cloneVersion(id, normalizeLabel(label));
-      if (!row) throw new NotFoundError("la Versión", id);
+      if (!row) throw new NotFoundError(RESOURCE.project_versions, id);
       return toProjectVersion(row);
     },
 
@@ -140,7 +141,7 @@ export function createVersionRepository(store: RowStore): VersionRepository {
       const row = await store.update("project_versions", id, {
         label: normalizeLabel(label),
       });
-      if (!row) throw new NotFoundError("la Versión", id);
+      if (!row) throw new NotFoundError(RESOURCE.project_versions, id);
       return toProjectVersion(row);
     },
 
@@ -161,7 +162,7 @@ export function createVersionRepository(store: RowStore): VersionRepository {
         );
       }
       if (!(await store.delete("project_versions", id))) {
-        throw new NotFoundError("la Versión", id);
+        throw new NotFoundError(RESOURCE.project_versions, id);
       }
     },
   };
@@ -203,13 +204,13 @@ export function createNodeRepository(store: RowStore): NodeRepository {
           order_index: patch.orderIndex,
         }),
       );
-      if (!row) throw new NotFoundError("el Nodo", id);
+      if (!row) throw new NotFoundError(RESOURCE.nodes, id);
       return toTreeNode(row);
     },
 
     async delete(id): Promise<void> {
       if (!(await store.delete("nodes", id))) {
-        throw new NotFoundError("el Nodo", id);
+        throw new NotFoundError(RESOURCE.nodes, id);
       }
     },
   };
@@ -230,7 +231,7 @@ export function createAnalysisRepository(store: RowStore): AnalysisRepository {
         where: [{ column: "id", value: id }],
       });
       const row = rows[0];
-      if (!row) throw new NotFoundError("el Análisis", id);
+      if (!row) throw new NotFoundError(RESOURCE.ai_analyses, id);
       return toAnalysis(row);
     },
 
@@ -251,7 +252,7 @@ export function createAnalysisRepository(store: RowStore): AnalysisRepository {
 
     async delete(id): Promise<void> {
       if (!(await store.delete("ai_analyses", id))) {
-        throw new NotFoundError("el Análisis", id);
+        throw new NotFoundError(RESOURCE.ai_analyses, id);
       }
     },
   };

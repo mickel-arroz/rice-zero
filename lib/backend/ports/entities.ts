@@ -38,6 +38,13 @@ export type ProjectVersion = {
  *
  * `orderIndex` ordena entre hermanos. La posición en el Canvas no se guarda:
  * el layout es siempre automático.
+ *
+ * Se llama `TreeNode` y no `Node` porque `Node` es un global del DOM y el
+ * puerto se importa desde código de navegador: la colisión sería silenciosa y
+ * confusa. El criterio, para que sea uniforme: los TIPOS llevan el prefijo
+ * (`TreeNode`, `NewTreeNode`, `TreeNodePatch`) y todo lo que nombra al dominio
+ * usa el término de `CONTEXT.md` sin prefijo (`NodeRepository`,
+ * `backend.nodes`).
  */
 export type TreeNode = {
   id: string;

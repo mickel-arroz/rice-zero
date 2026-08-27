@@ -7,10 +7,9 @@
 
 import type { AuthError, Session } from "@supabase/supabase-js";
 
-import { translateThrown } from "@/lib/backend/adapters/postgrest/errors";
+import { keepBackendError } from "@/lib/backend/adapters/postgrest/errors";
 import type { SupabaseBrowserClient } from "@/lib/backend/adapters/supabase/client";
 import {
-  BackendError,
   ConflictError,
   NetworkError,
   UnauthenticatedError,
@@ -76,7 +75,7 @@ export function createSupabaseAuthProvider(
         // caso normal: el spec exige verificación obligatoria.
         return { needsEmailVerification: data.session === null };
       } catch (error) {
-        throw rethrow(error);
+        throw keepBackendError(error);
       }
     },
 
@@ -90,7 +89,7 @@ export function createSupabaseAuthProvider(
         if (!data.session) throw new UnauthenticatedError();
         return toAuthSession(data.session);
       } catch (error) {
-        throw rethrow(error);
+        throw keepBackendError(error);
       }
     },
 
@@ -102,7 +101,7 @@ export function createSupabaseAuthProvider(
         });
         if (error) throw translateAuthError(error);
       } catch (error) {
-        throw rethrow(error);
+        throw keepBackendError(error);
       }
     },
 
@@ -111,19 +110,8 @@ export function createSupabaseAuthProvider(
         const { error } = await client.auth.signOut();
         if (error) throw translateAuthError(error);
       } catch (error) {
-        throw rethrow(error);
+        throw keepBackendError(error);
       }
     },
   };
-}
-
-/**
- * Deja pasar lo que ya es un error del puerto y envuelve lo demás.
- *
- * Los `catch` de arriba están para el `fetch` que rechaza, no para el error que
- * ellos mismos acaban de lanzar; sin este filtro se lo comerían y lo
- * reetiquetarían como fallo de red.
- */
-function rethrow(error: unknown): Error {
-  return error instanceof BackendError ? error : translateThrown(error);
 }

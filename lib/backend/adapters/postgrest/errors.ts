@@ -7,6 +7,7 @@
  */
 
 import {
+  BackendError,
   ConflictError,
   NetworkError,
   NotFoundError,
@@ -37,14 +38,27 @@ const CONFLICT_CODES = new Map([
  *
  * `P0002` (no_data_found) es lo que lanza `clone_project_version` cuando la
  * Versión de origen no existe o no es tuya.
- *
- * `42501` (insufficient_privilege) es una denegación por RLS: escribir fuera de
- * tus datos. Va aquí y no a un error de permisos propio porque es la decisión
- * del ADR — bajo RLS «no es tuyo» y «no existe» son el mismo resultado, y
- * distinguirlos le confirmaría a un atacante que el recurso existe. Sin sesión
- * ni se llega a la tabla: PostgREST responde antes con PGRST301.
  */
-const NOT_FOUND_CODES = new Set(["P0002", "PGRST116", "42501"]);
+const NOT_FOUND_CODES = new Set(["P0002", "PGRST116"]);
+
+/**
+ * `42501` (insufficient_privilege) llega por dos caminos que Postgres no
+ * distingue por código, solo por mensaje:
+ *
+ *   · el `with check` de una política — escribir fuera de tus datos;
+ *   · un GRANT que falta — el rol no tiene el privilegio de tabla.
+ *
+ * El primero es la denegación por RLS que el ADR manda reportar como
+ * `NotFoundError`: bajo RLS «no es tuyo» y «no existe» son cero filas, y
+ * distinguirlos le confirmaría a un atacante que el recurso existe.
+ *
+ * El segundo NO puede reportarse igual. Un despliegue al que se le olvidó un
+ * GRANT contestaría «no existe» a todo, y el síntoma sería una app vacía en vez
+ * de un error. Se reporta como falta de sesión, que es su causa abrumadoramente
+ * más probable —con los privilegios bien puestos, el único rol al que le faltan
+ * es el anónimo— y que además es ruidoso: manda a login en lugar de callarse.
+ */
+const RLS_DENIAL = /row[- ]level security/i;
 
 /**
  * Convierte un fallo de PostgREST en un error del puerto.
@@ -62,6 +76,11 @@ export function translatePostgrestFailure(
   if (NOT_FOUND_CODES.has(code)) {
     return new NotFoundError(resource, id, { cause: failure });
   }
+  if (code === "42501") {
+    return RLS_DENIAL.test(failure.message)
+      ? new NotFoundError(resource, id, { cause: failure })
+      : new UnauthenticatedError(failure.message, { cause: failure });
+  }
   if (UNAUTHENTICATED_CODES.has(code)) {
     return new UnauthenticatedError(undefined, { cause: failure });
   }
@@ -71,9 +90,18 @@ export function translatePostgrestFailure(
     return new ConflictError(rule, failure.message, { cause: failure });
   }
 
-  // Sin código es un fallo de transporte: `fetch` rechazado, DNS, 5xx sin
-  // cuerpo. Es el único caso que tiene sentido reintentar.
-  return new NetworkError(failure.message, { cause: failure });
+  // Sin código es un fallo de transporte: 5xx sin cuerpo, un gateway que
+  // contesta con texto. Es el único caso que tiene sentido reintentar.
+  if (!code) {
+    return new NetworkError(failure.message, { cause: failure });
+  }
+
+  // Con código, pero uno que no conocemos. Reintentar no lo va a arreglar, así
+  // que NO puede ser `NetworkError`: un `22P02` (uuid mal formado) reintentado
+  // en bucle es peor que un error a la cara. `ConflictError` es lo que la
+  // taxonomía tiene para «el motor lo rechazó y volver a pedirlo no cambia
+  // nada»; el código exacto viaja en `cause`.
+  return new ConflictError(`motor:${code}`, failure.message, { cause: failure });
 }
 
 /**
@@ -89,4 +117,15 @@ export function translateThrown(error: unknown): Error {
     error instanceof Error ? error.message : "Fallo desconocido del backend.",
     { cause: error },
   );
+}
+
+/**
+ * Deja pasar lo que ya es un error del puerto y envuelve lo demás.
+ *
+ * Los `catch` de los adaptadores están para el `fetch` que rechaza, no para el
+ * error que ellos mismos acaban de lanzar; sin este filtro se lo comerían y lo
+ * reetiquetarían como fallo de red.
+ */
+export function keepBackendError(error: unknown): Error {
+  return error instanceof BackendError ? error : translateThrown(error);
 }

@@ -3,22 +3,13 @@
  *
  * Existe por la corrida en vivo de la contract suite
  * (`lib/backend/testing/live.test.ts`), que necesita las credenciales del
- * proveedor activo. No sobreescribe nada que ya venga del entorno: en CI las
- * variables llegan por ahí y el archivo no existe.
+ * proveedor activo. El resto de los tests no la necesita, y no le molesta: el
+ * cargador nunca sobreescribe lo que ya venga del entorno.
  */
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+// El mismo cargador que usan `npm run verify:neon` y los demás scripts de
+// esquema: una sola copia, para que el comportamiento no pueda divergir entre
+// los tests y los scripts.
+import { loadEnvLocal } from "./scripts/env-local.mjs";
 
-try {
-  const raw = readFileSync(fileURLToPath(new URL("./.env.local", import.meta.url)), "utf8");
-  for (const line of raw.split(/\r?\n/)) {
-    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
-    if (!match) continue;
-    const [, key, value] = match;
-    if (process.env[key] === undefined) process.env[key] = value;
-  }
-} catch {
-  // Sin `.env.local` no hay nada que cargar, y la mayoría de los tests no lo
-  // necesitan.
-}
+loadEnvLocal();

@@ -1,10 +1,13 @@
 /**
- * Lo que ambos adaptadores hacen igual con una respuesta de PostgREST.
+ * El borde del SDK: lo que ambos adaptadores hacen igual a los dos lados de una
+ * llamada a PostgREST.
  *
- * No importa ningún SDK: los dos devuelven la misma forma `{ data, error }` y
- * los mismos códigos, porque son del motor. Lo que sí es de cada proveedor —qué
- * cliente construye la consulta y qué lanza su SDK antes de salir a la red— se
- * queda en su `store.ts`.
+ * No importa ningún SDK. A la ida, adaptar la fila genérica del núcleo al tipo
+ * que el cliente exige; a la vuelta, traducir `{ data, error }` a entidades o a
+ * errores del puerto. Las dos cosas son iguales en los dos proveedores porque la
+ * forma y los códigos son del motor. Lo que sí es de cada uno —qué cliente
+ * construye la consulta y qué lanza su SDK antes de salir a la red— se queda en
+ * su `store.ts`.
  */
 
 import type { PostgrestFailure } from "@/lib/backend/adapters/postgrest/errors";
@@ -12,35 +15,31 @@ import {
   translatePostgrestFailure,
   translateThrown,
 } from "@/lib/backend/adapters/postgrest/errors";
-import type { TableName } from "@/lib/backend/adapters/postgrest/rows";
+import { RESOURCE, type TableName } from "@/lib/backend/adapters/postgrest/rows";
 import type { Row } from "@/lib/backend/adapters/postgrest/store";
 
 /** La respuesta de PostgREST, reducida a lo que se mira. */
 export type PostgrestResponse = { data: unknown; error: PostgrestFailure | null };
-
-/**
- * Qué recurso nombra un `NotFoundError` que venga de esta tabla. En el puerto
- * los nombres son de dominio, no de tabla.
- */
-export const RESOURCE: Record<TableName, string> = {
-  projects: "el Proyecto",
-  project_versions: "la Versión",
-  nodes: "el Nodo",
-  ai_analyses: "el Análisis",
-};
 
 export function asRows(data: unknown): Row[] {
   return Array.isArray(data) ? (data as Row[]) : [];
 }
 
 /**
- * El núcleo manda filas genéricas y los SDKs piden el tipo `Insert`/`Update`
- * exacto de la tabla, que en el store llega como unión de las cuatro. Este es el
- * único cast de la capa, y lo que lo respalda es `rows.ts` (el contrato de
- * columnas) más el `schema-check.ts` de cada adaptador, que rompe el typecheck
- * si los tipos generados dejan de encajar con él.
+ * Adapta una fila genérica al tipo `Insert`/`Update` que el SDK exige.
+ *
+ * El núcleo trabaja con filas sin tipar por diseño y los SDKs piden el tipo
+ * exacto de la tabla, que en el store llega como unión de las cuatro. Devuelve
+ * `never` porque es el único tipo asignable a esa unión: no es una promesa de
+ * que no retorne, es la forma de decirle al compilador «aquí la comprobación la
+ * hace otro».
+ *
+ * Ese otro es `rows.ts` (el contrato de columnas) más el `schema-check.ts` de
+ * cada adaptador, que rompe el typecheck si los tipos generados dejan de encajar
+ * con él. Es el único cast del camino de escritura; los del camino de lectura
+ * están en `mapping.ts`, respaldados por el mismo contrato.
  */
-export function untyped(values: Row): never {
+export function asWritePayload(values: Row): never {
   return values as unknown as never;
 }
 

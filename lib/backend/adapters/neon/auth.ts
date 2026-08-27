@@ -6,10 +6,9 @@
  * servicio esté en Beta — si se rompe, este archivo es el único a tocar.
  */
 
-import { translateThrown } from "@/lib/backend/adapters/postgrest/errors";
+import { keepBackendError } from "@/lib/backend/adapters/postgrest/errors";
 import type { NeonBrowserClient } from "@/lib/backend/adapters/neon/client";
 import {
-  BackendError,
   ConflictError,
   NetworkError,
   UnauthenticatedError,
@@ -104,7 +103,7 @@ export function createNeonAuthProvider(client: NeonBrowserClient): AuthProvider 
         // como el caso normal: hay que verificar el email antes de entrar.
         return { needsEmailVerification: !(data as { user?: unknown })?.user };
       } catch (error) {
-        throw rethrow(error);
+        throw keepBackendError(error);
       }
     },
 
@@ -127,7 +126,7 @@ export function createNeonAuthProvider(client: NeonBrowserClient): AuthProvider 
         }
         return toAuthSession(user);
       } catch (error) {
-        throw rethrow(error);
+        throw keepBackendError(error);
       }
     },
 
@@ -139,7 +138,7 @@ export function createNeonAuthProvider(client: NeonBrowserClient): AuthProvider 
         });
         if (error) throw translateAuthFailure(error);
       } catch (error) {
-        throw rethrow(error);
+        throw keepBackendError(error);
       }
     },
 
@@ -148,19 +147,8 @@ export function createNeonAuthProvider(client: NeonBrowserClient): AuthProvider 
         const { error } = await client.auth.signOut();
         if (error) throw translateAuthFailure(error);
       } catch (error) {
-        throw rethrow(error);
+        throw keepBackendError(error);
       }
     },
   };
-}
-
-/**
- * Deja pasar lo que ya es un error del puerto y envuelve lo demás.
- *
- * Los `catch` de arriba están para el `fetch` que rechaza, no para el error que
- * ellos mismos acaban de lanzar; sin este filtro se lo comerían y lo
- * reetiquetarían como fallo de red.
- */
-function rethrow(error: unknown): Error {
-  return error instanceof BackendError ? error : translateThrown(error);
 }

@@ -68,3 +68,19 @@ export type AnalysisRow = {
 };
 
 export type TableName = "projects" | "project_versions" | "nodes" | "ai_analyses";
+
+/**
+ * Cómo se llama cada tabla en el vocabulario de `CONTEXT.md`.
+ *
+ * Vive aquí, pegado a `TableName`, porque es lo único que traduce entre los dos
+ * lados de este archivo: los nombres del motor y los del dominio. Lo usan el
+ * núcleo (para construir `NotFoundError`) y los stores (para traducir un fallo
+ * del motor), y tenerlo una sola vez es lo que hace que renombrar un término
+ * canónico sea un cambio de una línea.
+ */
+export const RESOURCE: Record<TableName, string> = {
+  projects: "el Proyecto",
+  project_versions: "la Versión",
+  nodes: "el Nodo",
+  ai_analyses: "el Análisis",
+};

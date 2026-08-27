@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:contract:live": "vitest run lib/backend/testing/live.test.ts",
-    "db:apply": "node scripts/apply-schema.mjs neon",
+    "test:contract:live": "node scripts/contract-live.mjs",
+    "db:apply": "node scripts/apply-schema.mjs",
     "verify:neon": "node scripts/verify-schema.mjs neon",
     "verify:supabase": "bash scripts/verify-supabase-local.sh"
   },

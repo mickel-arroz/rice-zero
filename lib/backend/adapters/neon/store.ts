@@ -14,9 +14,9 @@ import { AuthRequiredError } from "@neondatabase/neon-js";
 import type { NeonBrowserClient } from "@/lib/backend/adapters/neon/client";
 import {
   asRows,
+  asWritePayload,
   createRunner,
   filteredId,
-  untyped,
 } from "@/lib/backend/adapters/postgrest/response";
 import type { Row, RowStore } from "@/lib/backend/adapters/postgrest/store";
 import { UnauthenticatedError } from "@/lib/backend/ports";
@@ -53,7 +53,7 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
       // pide, y el puerto promete la entidad creada (con el id, el
       // `version_number` que puso el trigger y los timestamps del motor).
       const data = await run(
-        client.from(table).insert(untyped(values)).select().single(),
+        client.from(table).insert(asWritePayload(values)).select().single(),
         table,
         null,
       );
@@ -65,7 +65,7 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
       // es tuyo», y eso es un `NotFoundError` que pone el núcleo, no un error
       // del motor.
       const data = await run(
-        client.from(table).update(untyped(values)).eq("id", id).select().maybeSingle(),
+        client.from(table).update(asWritePayload(values)).eq("id", id).select().maybeSingle(),
         table,
         id,
       );

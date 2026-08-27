@@ -12,7 +12,7 @@
 --   · `app.users_table() -> text`      destino de la FK de `projects.owner_id`
 --   · `app.anonymous_role() -> text`   `anon` en Supabase, `anonymous` en Neon
 --
--- Las políticas llaman a `app.current_user_id()`, nunca a `app.current_user_id()`: así la
+-- Las políticas llaman a `app.current_user_id()`, nunca a `auth.uid()`: así la
 -- incógnita del tipo de id de usuario queda absorbida por una función en vez
 -- de propagarse por el archivo entero. Ver
 -- `docs/adr/0001-proveedor-de-backend-intercambiable.md`.

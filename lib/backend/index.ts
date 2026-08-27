@@ -33,7 +33,10 @@ export type BackendName = keyof typeof ADAPTERS;
 export const BACKEND_NAMES = Object.keys(ADAPTERS) as BackendName[];
 
 function isBackendName(value: string): value is BackendName {
-  return value in ADAPTERS;
+  // `Object.hasOwn` y no `in`: `in` recorre la cadena de prototipos, así que
+  // `NEXT_PUBLIC_BACKEND=constructor` pasaba el filtro y salía a llamar a
+  // `Object` como si fuera una fábrica de adaptadores.
+  return Object.hasOwn(ADAPTERS, value);
 }
 
 /**
@@ -41,7 +44,7 @@ function isBackendName(value: string): value is BackendName {
  *
  * @throws MissingEnvError si la variable falta o nombra un proveedor que no
  * existe. Un nombre inventado no cae a un default: elegir por él sería mandar
- * la app a la base de datos equivocada sin decir nada.
+ * la app a un Proveedor de Backend que nadie pidió, sin decir nada.
  */
 export function readBackendName(): BackendName {
   // Literal a propósito: Next incrusta los `NEXT_PUBLIC_*` en tiempo de build
