@@ -48,3 +48,9 @@ Texto opcional que el usuario escribe antes de generar un Análisis; se inyecta 
 
 **Proveedor de IA**:
 Implementación intercambiable detrás de la capa de IA (entrada y salida normalizadas). Gemini es el primero; el proyecto es indiferente a cuál se usa.
+
+### Backend
+
+**Proveedor de Backend**:
+Implementación intercambiable de almacenamiento y autenticación, detrás de una interfaz que habla en términos de dominio (Proyecto, Versión, Nodo, Análisis) y no de tablas. Neon es el activo; Supabase se mantiene como implementación alternativa. Solo uno está activo a la vez, y cambiarlo no toca código de la aplicación.
+_Avoid_: base de datos, BD, Supabase (como sinónimo de "el backend")
