@@ -47,6 +47,7 @@ npm run dev
 | `npm run verify:neon`        | Verifica el esquema contra Neon. Hace `rollback`                |
 | `npm run verify:supabase`    | Igual, contra un Supabase local en Docker. Bajo demanda         |
 | `npm run account:live`       | Registra la cuenta de usar y tirar que pide la corrida en vivo   |
+| `npm run account:verify`     | Confirma su email sin buzón, con la conexión de dueño            |
 | `npm run test:contract:live` | La contract suite contra el proveedor activo. Bajo demanda; falla si no hay credenciales |
 
 ## El Proveedor de Backend
@@ -76,9 +77,14 @@ una cuenta con el email confirmado:
 
 ```bash
 npm run account:live        # registra la cuenta y comprueba que NO deja entrar sin confirmar
-# …confirmas el email en tu bandeja…
+npm run account:verify      # confirma el email sin buzón, con la conexión de dueño
 npm run test:contract:live  # la contract suite entera contra el proveedor activo
 ```
+
+`account:verify` hace lo que haría el enlace del correo. Existe para que la
+cuenta de test no dependa de un buzón real; lo que no cubre es el envío del
+correo, que es del ticket de auth (#7). Si prefieres el flujo completo, salta
+ese paso y pincha el enlace que manda el proveedor.
 
 Las dos necesitan `BACKEND_CONTRACT_LIVE=1`, `BACKEND_CONTRACT_EMAIL` y
 `BACKEND_CONTRACT_PASSWORD`, y sin ellas salen con código 1 en lugar de fingir
