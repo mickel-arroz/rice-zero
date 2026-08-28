@@ -24,6 +24,15 @@ export const ROUTES = {
   login: "/login",
   projects: "/projects",
   /**
+   * La pantalla de un Proyecto: su Vista Registro sobre la Versión activa.
+   *
+   * Es una función y no un texto porque lleva un id dentro, y aun así vive
+   * aquí con las demás: «cero magic strings» incluye las rutas construidas a
+   * mano, que son justo las que se escriben mal sin que nadie se entere hasta
+   * pulsar. Cae BAJO `/projects`, así que la sidebar la marca activa sola.
+   */
+  project: (projectId: string) => `/projects/${projectId}`,
+  /**
    * Donde se monta el handler de auth del Proveedor de Backend activo. Lo nombra
    * el backend, no la app: la ruta existe porque el proveedor la necesita.
    */
@@ -232,4 +241,114 @@ export const PROJECTS_COPY = {
   versions: (n: number) => (n === 1 ? "Versión" : "Versiones"),
   nodes: (n: number) => (n === 1 ? "Nodo" : "Nodos"),
   analyses: "Análisis",
+} as const;
+
+/**
+ * Todo el texto de la Vista Registro, en un sitio.
+ *
+ * Mismo criterio que `AUTH_COPY`, `SHELL_COPY` y `PROJECTS_COPY`: «la interfaz
+ * es toda en español» es un criterio de aceptación, y un criterio repartido
+ * por doce componentes no se puede revisar de una lectura.
+ *
+ * Lo que NO está aquí son los mensajes de los rechazos del árbol: viven en
+ * `NODE_ERRORS`, junto a la regla del dominio que los provoca, y la pantalla
+ * los lee de allí. Copiarlos aquí sería tener la misma frase en dos sitios
+ * esperando a que alguien toque uno.
+ */
+export const REGISTRO_COPY = {
+  /** El marcador de sección, sobre el título del Proyecto. */
+  label: "Registro",
+  /** La vuelta a la lista, en la cabecera de la pantalla. */
+  back: "Proyectos",
+
+  /** El pie del Autoguardado. No hay botón de guardar. */
+  saved: "Guardado",
+  saving: "Guardando…",
+  saveFailed: "No se guardó",
+
+  loading: "Cargando el árbol",
+  errorTitle: "No se pudo cargar el árbol.",
+  errorBody:
+    "Parece que no hay conexión. Lo ya abierto se puede seguir consultando; para editar hace falta red.",
+  retry: "Reintentar",
+
+  emptyTitle: "Esta Versión aún no tiene Nodos.",
+  emptyBody: "Empieza por una idea suelta. Después le cuelgas las partes.",
+  firstNode: "Primer Nodo",
+  /** La llamada al pie de la lista, y la de la cabecera en escritorio. */
+  newRoot: "Nodo raíz",
+
+  /** Dentro de un Nodo recién creado, mientras no tenga texto. */
+  nodePlaceholder: "Escribe tu idea…",
+  /**
+   * Cómo se cita un Nodo dentro de una frase: entrecomillado, o por lo que es
+   * si todavía no tiene texto.
+   *
+   * Es una función y no dos textos sueltos porque la decisión —¿comillas
+   * españolas?, ¿qué se dice de uno vacío?— la toman cuatro sitios (la fila, la
+   * barra y los dos diálogos), y cuatro copias de una decisión de copy se
+   * desincronizan en cuanto alguien toca una.
+   */
+  nodeLabel: (content: string) =>
+    content.trim() ? `«${content.trim()}»` : "este Nodo",
+  /** Cuántas bajas quedan sin enumerar en la confirmación de borrado. */
+  andMore: (n: number) => `y ${n} más`,
+  /**
+   * Cuando una operación se para porque lo tecleado no llegó a guardarse.
+   *
+   * Se para a propósito: mover un Nodo cuyo texto no se persistió acabaría
+   * enseñando «Guardado» sobre una idea perdida.
+   */
+  blockedByText:
+    "No se pudo guardar lo que escribiste, así que no se hizo el cambio. Revisa la conexión.",
+
+
+  /** La Versión abierta: su etiqueta si la tiene, si no su número. */
+  versionName: (versionNumber: number, label: string | null) =>
+    label ?? `Versión ${versionNumber}`,
+  versionChip: (versionNumber: number) => `v${versionNumber}`,
+  nodeCount: (n: number) => `${n} ${n === 1 ? "Nodo" : "Nodos"}`,
+  subnodeCount: (n: number) => `${n} ${n === 1 ? "subnodo" : "subnodos"}`,
+
+  /** Lo que lee un lector de pantalla en cada fila y en el campo. */
+  select: (text: string) => `Seleccionar ${text}`,
+  edit: (text: string) => `Editar el texto de ${text}`,
+  deselect: "Quitar la selección",
+
+  /** La barra de acciones del Nodo seleccionado. */
+  actions: {
+    up: "Subir",
+    down: "Bajar",
+    child: "Subnodo",
+    sibling: "Hermano",
+    move: "Mover a…",
+    remove: "Borrar",
+  },
+
+  moveLabel: "Mover",
+  moveLead: "Elige su nuevo padre. Se colocará el último de sus hermanos nuevos.",
+  moveRoot: "Sin padre — dejarlo como raíz",
+  /**
+   * Por qué un destino no vale, a la derecha de su fila.
+   *
+   * Los destinos bloqueados SE ENSEÑAN, no se filtran: quitarlos de la lista
+   * dejaría al usuario buscando un Nodo que desapareció sin explicación, que
+   * es peor que un «no puedes» dicho a la cara. Ver `reparentTargets`.
+   */
+  moveBlockedSelf: "es el propio Nodo",
+  moveBlockedDescendant: "es un subnodo suyo",
+  moveBlockedGone: "ya no está aquí",
+  moveCurrent: "es su padre actual",
+  moveSubmit: "Mover aquí",
+
+  deleteLabel: "Borrar",
+  deleteTitle: (text: string) => `¿Borrar ${text}?`,
+  deleteBody: "Se lleva su subárbol entero. No se puede deshacer.",
+  /** El pie de la cifra grande de la confirmación. */
+  deleteFalls: (n: number) =>
+    n === 1 ? "subnodo cae con él" : "subnodos caen con él",
+  deleteSubmit: "Borrar",
+
+  cancel: "Cancelar",
+  close: "Cerrar",
 } as const;

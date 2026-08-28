@@ -16,6 +16,7 @@ import {
   nextOrderIndex,
   reorderPlan,
   reparentRejection,
+  siblingIndexOf,
 } from "@/lib/tree/model";
 import type { TreeNode } from "@/lib/backend/ports";
 import { treeNode as node } from "@/lib/tree/testing";
@@ -170,5 +171,26 @@ describe("dominio del árbol: orden entre hermanos", () => {
 
   it("un Nodo que no está en la Versión no genera plan", () => {
     expect(reorderPlan(forest(), "fantasma", 0)).toEqual([]);
+  });
+});
+
+describe("dominio del árbol: sitio entre hermanos", () => {
+  it("da la posición de un Nodo entre los suyos", () => {
+    expect(siblingIndexOf(forest(), "a2")).toBe(1);
+  });
+
+  it("cuenta a las raíces como hermanas entre sí", () => {
+    expect(siblingIndexOf(forest(), "b")).toBe(1);
+  });
+
+  it("va por el orden del árbol, no por el `orderIndex` guardado", () => {
+    // Índices con hueco: `a1` sigue siendo el primero de los dos.
+    const nodes = [node("a", null, 0), node("a1", "a", 5), node("a2", "a", 9)];
+
+    expect(siblingIndexOf(nodes, "a2")).toBe(1);
+  });
+
+  it("un Nodo que no está en la Versión no tiene sitio", () => {
+    expect(siblingIndexOf(forest(), "fantasma")).toBe(-1);
   });
 });

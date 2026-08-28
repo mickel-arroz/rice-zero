@@ -89,7 +89,6 @@ export function DashboardNav({
 
   const projectsActive = active === "projects";
   const aboutActive = active === "about";
-  const projectHref = (id: string) => `${ROUTES.projects}/${id}`;
 
   /** Los accesos directos, o el aviso de que todavía no hay ninguno. */
   function shortcutList(
@@ -108,11 +107,11 @@ export function DashboardNav({
     return projects.map((project) => (
       <ProjectRow
         key={project.id}
-        href={projectHref(project.id)}
+        href={ROUTES.project(project.id)}
         name={project.title}
         // Nunca lanza: una clave que no reconoce cae al icono por defecto.
         icon={projectIconFor(project.icon)}
-        active={pathname === projectHref(project.id)}
+        active={pathname === ROUTES.project(project.id)}
         collapsed={isCollapsed}
         height={height}
         fontSize={fontSize}

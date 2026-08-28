@@ -191,6 +191,25 @@ export function nextOrderIndex(nodes: TreeNode[], parentId: string | null): numb
   return siblingsOf(nodes, parentId).length;
 }
 
+/**
+ * En qué puesto está un Nodo entre sus hermanos, o `-1` si no está en la lista.
+ *
+ * Es el sitio REAL, contado sobre el árbol ya ordenado, y no su `orderIndex`
+ * guardado: los índices admiten huecos —`reparent` deja uno cada vez que se
+ * lleva un Nodo— y quien pregunta esto quiere el puesto que ve el usuario.
+ *
+ * Existe para «crear hermano»: el Nodo nuevo nace el último de la lista y hay
+ * que traerlo justo detrás de la referencia, así que hace falta saber dónde
+ * estaba ella. La Vista Registro lo lee de `outlineRows`, que ya lo trae.
+ */
+export function siblingIndexOf(nodes: TreeNode[], nodeId: string): number {
+  const node = nodes.find((candidate) => candidate.id === nodeId);
+  if (!node) return -1;
+  return siblingsOf(nodes, node.parentId).findIndex(
+    (sibling) => sibling.id === nodeId,
+  );
+}
+
 /** Un `orderIndex` nuevo para un Nodo: lo que hay que escribir, y nada más. */
 export type OrderWrite = {
   id: string;

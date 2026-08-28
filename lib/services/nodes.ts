@@ -33,6 +33,7 @@ import {
   REPARENT_RULES,
   reorderPlan,
   reparentRejection,
+  siblingIndexOf,
   type ReparentRule,
   type Subtree,
 } from "@/lib/tree/model";
@@ -57,6 +58,20 @@ export type NodeService = {
   createChild(
     versionId: string,
     parentId: string,
+    content?: string,
+  ): Promise<TreeNode>;
+  /**
+   * Un Nodo al lado de otro: mismo padre, justo detrás de él.
+   *
+   * Es la operación que la Vista Registro necesita y que `createChild` no
+   * cubre: al escribir una lista de ideas, lo siguiente que se quiere no es un
+   * subnodo del último, sino otro a su altura — y en su sitio, no al final.
+   *
+   * @throws NotFoundError si la referencia no está en la Versión.
+   */
+  createSibling(
+    versionId: string,
+    siblingId: string,
     content?: string,
   ): Promise<TreeNode>;
   /** El texto, tal cual se teclea. @throws NotFoundError */
@@ -188,6 +203,33 @@ export function createNodeService(backend: BackendProvider): NodeService {
         content,
         orderIndex: nextOrderIndex(nodes, parentId),
       });
+    },
+
+    async createSibling(versionId, siblingId, content = "") {
+      const nodes = await read(versionId);
+      const sibling = requireNode(nodes, siblingId);
+
+      // Nace el último —es lo único que sabe hacer el repositorio— y después
+      // se le trae a su sitio. Dos escrituras y no una porque el puesto de un
+      // Nodo es su `orderIndex` RELATIVO a sus hermanos: insertarlo en medio
+      // de verdad obligaría a correr a todos los que van detrás, que es
+      // exactamente lo que `reorderPlan` ya sabe planear.
+      const created = await backend.nodes.create({
+        versionId,
+        parentId: sibling.parentId,
+        content,
+        orderIndex: nextOrderIndex(nodes, sibling.parentId),
+      });
+
+      // El puesto se cuenta sobre el árbol de ANTES, que es donde estaba la
+      // referencia; el recién nacido va justo detrás. `reorder` vuelve a leer
+      // —y ahí ya se ve a sí mismo—, así que el destino cae dentro del rango.
+      await this.reorder(versionId, created.id, siblingIndexOf(nodes, siblingId) + 1);
+
+      // Se devuelve la fila del alta y no una relectura: lo único que cambió
+      // después fue su `orderIndex`, y quien llama lo que necesita es el id
+      // para poner el foco en el campo recién creado.
+      return created;
     },
 
     edit(id, content) {

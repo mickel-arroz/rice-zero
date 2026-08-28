@@ -125,6 +125,75 @@ describe("capa de servicios: Nodos", () => {
     });
   });
 
+  describe("crear hermano", () => {
+    /** Los hijos de un padre, por contenido y en el orden en que quedaron. */
+    async function childrenOf(parentId: string): Promise<string[]> {
+      const tree = await nodes.tree(version.id);
+      const parent = tree
+        .flatMap((root) => [root, ...root.children])
+        .find((subtree) => subtree.node.id === parentId);
+      return (parent?.children ?? []).map((child) => child.node.content);
+    }
+
+    it("lo coloca justo detrás de su referencia, no al final", async () => {
+      const raiz = await nodes.createRoot(version.id, "Raíz");
+      const primero = await nodes.createChild(version.id, raiz.id, "Primero");
+      await nodes.createChild(version.id, raiz.id, "Último");
+
+      await nodes.createSibling(version.id, primero.id, "En medio");
+
+      expect(await childrenOf(raiz.id)).toEqual([
+        "Primero",
+        "En medio",
+        "Último",
+      ]);
+    });
+
+    it("el hermano de una raíz es otra raíz", async () => {
+      const primera = await nodes.createRoot(version.id, "Primera");
+      await nodes.createRoot(version.id, "Última");
+
+      const nueva = await nodes.createSibling(version.id, primera.id, "Segunda");
+
+      expect(nueva.parentId).toBeNull();
+      const tree = await nodes.tree(version.id);
+      expect(tree.map((root) => root.node.content)).toEqual([
+        "Primera",
+        "Segunda",
+        "Última",
+      ]);
+    });
+
+    it("el hermano del último se queda el último", async () => {
+      const raiz = await nodes.createRoot(version.id, "Raíz");
+      const unico = await nodes.createChild(version.id, raiz.id, "Único");
+
+      await nodes.createSibling(version.id, unico.id, "Detrás");
+
+      expect(await childrenOf(raiz.id)).toEqual(["Único", "Detrás"]);
+    });
+
+    it("nace vacío si no se le da texto", async () => {
+      const raiz = await nodes.createRoot(version.id, "Raíz");
+
+      expect((await nodes.createSibling(version.id, raiz.id)).content).toBe("");
+    });
+
+    it("no hay hermano de un Nodo que no está en la Versión", async () => {
+      await expect(
+        nodes.createSibling(version.id, "00000000-0000-4000-8000-999999999999"),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it("una referencia inválida no llega a escribir nada", async () => {
+      await nodes
+        .createSibling(version.id, "00000000-0000-4000-8000-999999999999")
+        .catch(() => {});
+
+      expect(await ids()).toEqual([]);
+    });
+  });
+
   describe("editar el texto", () => {
     it("guarda lo que se escribe", async () => {
       const raiz = await nodes.createRoot(version.id, "Antes");
