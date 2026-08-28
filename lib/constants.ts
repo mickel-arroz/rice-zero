@@ -139,13 +139,37 @@ export const AUTH_COPY = {
   sentCta: "Ir a Entrar",
 } as const;
 
+/**
+ * Todo el texto del shell del dashboard, en un sitio.
+ *
+ * Las etiquetas visibles y las de accesibilidad viven juntas por lo mismo que
+ * `AUTH_COPY`: «la interfaz es toda en español» es un criterio que no se puede
+ * revisar si está repartido por doce componentes.
+ */
+export const SHELL_COPY = {
+  /** La marca cuando la sidebar está plegada y no cabe entera. */
+  brandShort: "R(0)",
+  /** La etiqueta del destino `/about`, dentro y fuera del shell. */
+  about: "Acerca de",
+  openMenu: "Abrir el menú de navegación",
+  closeMenu: "Cerrar el menú de navegación",
+  collapseSidebar: "Plegar la barra lateral",
+  expandSidebar: "Desplegar la barra lateral",
+  collapse: "Plegar",
+  theme: "Tema",
+  signOut: "Cerrar sesión",
+  /** Lo que lee un lector de pantalla en la fila de cuenta plegada. */
+  account: "Tu cuenta",
+  /** Bajo «Proyectos» en la sidebar, mientras no haya ninguno. */
+  noShortcuts: "Aún no hay Proyectos",
+} as const;
+
 /** El texto de la ruta protegida que demuestra la sesión. */
 export const PROJECTS_COPY = {
   label: "Ruta protegida",
   title: "Proyectos",
-  sessionLabel: "Sesión activa",
+  /** En el desplegable de cuenta: la única cuenta que puede entrar es la que confirmó. */
   verified: "Email confirmado",
-  signOut: "Cerrar sesión",
   signingOut: "Saliendo",
   emptyTitle: "Aún no hay Proyectos.",
   emptyBody: "Tu próximo proyecto empieza con un nodo.",

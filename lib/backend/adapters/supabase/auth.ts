@@ -26,11 +26,20 @@ import {
 const ALREADY_REGISTERED = new Set(["user_already_exists", "email_exists"]);
 
 function toAuthSession(session: Session): AuthSession {
+  // Supabase no normaliza el perfil social: nombre y foto llegan dentro de
+  // `user_metadata` con las claves que puso el proveedor. Se leen las dos
+  // grafías que usa Google porque son las que este proyecto puede recibir.
+  const meta = session.user.user_metadata as Record<string, unknown> | null;
+  const text = (key: string) =>
+    typeof meta?.[key] === "string" && meta[key] ? (meta[key] as string) : null;
+
   return {
     user: {
       id: session.user.id,
       email: session.user.email ?? "",
       emailVerified: session.user.email_confirmed_at != null,
+      name: text("full_name") ?? text("name"),
+      image: text("avatar_url") ?? text("picture"),
     },
   };
 }

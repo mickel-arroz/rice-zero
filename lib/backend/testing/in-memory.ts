@@ -369,7 +369,14 @@ export function createInMemoryBackend(): InMemoryBackend {
 
   function toSession(user: StoredUser): AuthSession {
     return {
-      user: { id: user.id, email: user.email, emailVerified: user.emailVerified },
+      user: {
+        id: user.id,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        // El doble no simula proveedores sociales: aquí nadie tiene foto.
+        name: null,
+        image: null,
+      },
     };
   }
 

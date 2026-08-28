@@ -55,11 +55,19 @@ function readConfig(): SupabaseServerConfig {
 }
 
 function toAuthSession(user: User): AuthSession {
+  // Igual que en el cliente: Supabase deja el perfil social crudo en
+  // `user_metadata`, con las claves que puso el proveedor.
+  const meta = user.user_metadata as Record<string, unknown> | null;
+  const text = (key: string) =>
+    typeof meta?.[key] === "string" && meta[key] ? (meta[key] as string) : null;
+
   return {
     user: {
       id: user.id,
       email: user.email ?? "",
       emailVerified: user.email_confirmed_at != null,
+      name: text("full_name") ?? text("name"),
+      image: text("avatar_url") ?? text("picture"),
     },
   };
 }

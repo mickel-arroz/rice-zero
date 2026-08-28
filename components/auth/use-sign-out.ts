@@ -3,12 +3,17 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { LogoutIcon } from "@/components/icons/logout-icon";
-import { CTA_SECONDARY_CLASS } from "@/components/layout/site-chrome";
 import { getBackend } from "@/lib/backend";
-import { PROJECTS_COPY, ROUTES } from "@/lib/constants";
+import { ROUTES } from "@/lib/constants";
 
-export function SignOutButton() {
+/**
+ * Cerrar sesión, sin decidir cómo se pinta.
+ *
+ * Lo usa el desplegable de cuenta del shell, en escritorio y en móvil. Vive
+ * suelto y no dentro de ese componente porque el matiz de abajo —salir igual si
+ * la llamada falla— es fácil de perder al copiarlo a un segundo sitio.
+ */
+export function useSignOut() {
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -34,16 +39,5 @@ export function SignOutButton() {
     }
   }
 
-  return (
-    <button
-      type="button"
-      onClick={signOut}
-      disabled={busy}
-      aria-busy={busy}
-      className={`${CTA_SECONDARY_CLASS} ${busy ? "opacity-45" : ""}`}
-    >
-      <LogoutIcon />
-      {busy ? PROJECTS_COPY.signingOut : PROJECTS_COPY.signOut}
-    </button>
-  );
+  return { signOut, busy };
 }

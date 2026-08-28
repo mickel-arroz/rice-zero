@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ArrowUpRightIcon } from "@/components/icons/arrow-up-right-icon";
+import { AppShell } from "@/components/layout/app-shell";
 import {
   CARD_CLASS,
   LABEL_CLASS,
@@ -7,10 +8,18 @@ import {
   SiteFooter,
   SiteHeader,
 } from "@/components/layout/site-chrome";
-import { APP_NAME, EXTERNAL_LINKS, NAME_STORY, TAGLINE } from "@/lib/constants";
+import { requestSession } from "@/lib/auth/session";
+import { canAct } from "@/lib/backend/ports";
+import {
+  APP_NAME,
+  EXTERNAL_LINKS,
+  NAME_STORY,
+  SHELL_COPY,
+  TAGLINE,
+} from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Acerca de",
+  title: SHELL_COPY.about,
   description: `El manifiesto de ${APP_NAME}, su stack técnico y los enlaces de su creador.`,
 };
 
@@ -170,19 +179,23 @@ const ORDINAL_CLASS = "font-display text-[15px] text-primary";
 const ROW_CLASS =
   "flex gap-4 border-t border-border py-5 lg:py-0 lg:pt-4 lg:pb-0";
 
-export default function About() {
+/**
+ * El manifiesto en sí, sin marco.
+ *
+ * El marco lo pone quien lo monta: la cabecera pública para un visitante, el
+ * shell del dashboard para quien ya entró. El texto es el mismo en los dos —
+ * una sola copia, que es de lo que se trata.
+ */
+function AboutContent() {
   return (
-    <div className={PAGE_CLASS}>
-      <SiteHeader current="about" />
-
-      <main className="flex flex-1 flex-col">
+    <main className="flex flex-1 flex-col">
         <section className="flex flex-col gap-5 px-6 pt-11 pb-10 lg:items-center lg:gap-6 lg:px-16 lg:pt-22 lg:pb-18 lg:text-center">
           <p className="flex items-center gap-2">
             <span
               className="size-2 rounded-full bg-primary"
               aria-hidden="true"
             />
-            <span className={`${LABEL_CLASS} lg:text-xs`}>Acerca de</span>
+            <span className={`${LABEL_CLASS} lg:text-xs`}>{SHELL_COPY.about}</span>
           </p>
           <h1 className="text-[44px] leading-none tracking-[0.02em] lg:text-[88px]">
             MANIFIESTO
@@ -332,7 +345,37 @@ export default function About() {
           </div>
         </section>
       </main>
+  );
+}
 
+/**
+ * Leer la sesión toca las cookies de la petición, así que esta página deja de
+ * prerenderizarse. Es el precio de que «Acerca de» sea un destino del shell: sin
+ * saber si hay sesión no se puede decidir con qué marco sale.
+ */
+export const dynamic = "force-dynamic";
+
+export default async function About() {
+  const session = await requestSession();
+
+  // Con sesión se dibuja DENTRO del shell. Si saliera con la cabecera pública,
+  // pulsar «Acerca de» en la sidebar expulsaría al usuario del dashboard y le
+  // tocaría volver por su propio pie.
+  if (canAct(session)) {
+    return (
+      <AppShell email={session.user.email}
+        name={session.user.name}
+        image={session.user.image}
+      >
+        <AboutContent />
+      </AppShell>
+    );
+  }
+
+  return (
+    <div className={PAGE_CLASS}>
+      <SiteHeader current="about" />
+      <AboutContent />
       <SiteFooter current="about" />
     </div>
   );

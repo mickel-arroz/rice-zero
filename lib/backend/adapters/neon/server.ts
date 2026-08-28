@@ -85,7 +85,14 @@ type SessionDataUser = {
   id?: unknown;
   email?: unknown;
   emailVerified?: unknown;
+  name?: unknown;
+  image?: unknown;
 };
+
+/** Lo que venga de la cookie solo pasa si es texto; cualquier otra cosa, `null`. */
+function optionalText(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
 
 function toAuthSession(user: SessionDataUser): AuthSession | null {
   if (typeof user.id !== "string" || typeof user.email !== "string")
@@ -95,6 +102,8 @@ function toAuthSession(user: SessionDataUser): AuthSession | null {
       id: user.id,
       email: user.email,
       emailVerified: user.emailVerified === true,
+      name: optionalText(user.name),
+      image: optionalText(user.image),
     },
   };
 }

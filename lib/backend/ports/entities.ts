@@ -99,6 +99,15 @@ export type AuthUser = {
   email: string;
   /** El spec exige verificación obligatoria: sin esto no se entra. */
   emailVerified: boolean;
+  /**
+   * Nombre y foto tal cual los da el proveedor, o `null`.
+   *
+   * Son opcionales de verdad y no un descuido: quien entra con email y
+   * contraseña no tiene ninguno de los dos, así que toda la interfaz que los
+   * use tiene que saber pintarse sin ellos. Ver `components/ui/avatar.tsx`.
+   */
+  name: string | null;
+  image: string | null;
 };
 
 /** Sesión activa. No expone el token: el adaptador lo inyecta él solo. */

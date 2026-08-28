@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { APP_NAME, EXTERNAL_LINKS, ROUTES } from "@/lib/constants";
+import { APP_NAME, EXTERNAL_LINKS, ROUTES, SHELL_COPY } from "@/lib/constants";
 
 /** Página pública en la que estamos: decide a dónde apunta la navegación. */
 type PublicPage = "home" | "about" | "login";
@@ -47,6 +47,14 @@ export const CTA_PRIMARY_CLASS = `${CTA_CLASS} bg-primary text-primary-foregroun
 
 export const CTA_SECONDARY_CLASS = `${CTA_CLASS} border border-border hover:border-primary hover:text-primary`;
 
+/**
+ * El botón redondo de 36 px con borde que se enciende: el toggle de tema en las
+ * páginas públicas, la hamburguesa en la cabecera del dashboard. Vive aquí
+ * porque dos copias del mismo botón se desincronizan en cuanto alguien toca una.
+ */
+export const ICON_BUTTON_CLASS =
+  "flex size-9 shrink-0 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-primary hover:text-primary";
+
 export function SiteHeader({ current }: { current: PublicPage }) {
   return (
     <header className="flex items-center justify-between border-b border-border bg-background px-6 py-4 lg:px-16">
@@ -64,7 +72,7 @@ export function SiteHeader({ current }: { current: PublicPage }) {
             href={ROUTES.about}
             className={`hidden text-sm sm:inline ${LINK_CLASS}`}
           >
-            Acerca de
+            {SHELL_COPY.about}
           </Link>
         ) : (
           <Link
@@ -86,7 +94,7 @@ export function SiteFooter({ current }: { current: PublicPage }) {
       <div className="flex gap-4 text-[13px] lg:gap-5">
         {current === "home" ? (
           <Link href={ROUTES.about} className={LINK_CLASS}>
-            Acerca de
+            {SHELL_COPY.about}
           </Link>
         ) : (
           <Link href={ROUTES.home} className={LINK_CLASS}>

@@ -8,18 +8,9 @@
  */
 
 import { NEXT_PARAM, PUBLIC_ROUTES, ROUTES } from "@/lib/constants";
-
-/** `/about` y `/about/lo-que-sea`, pero nunca `/aboutus`. */
-function isSameOrUnder(pathname: string, route: string): boolean {
-  return pathname === route || pathname.startsWith(`${route}/`);
-}
-
-/** La barra final no cambia de página: `/about/` es `/about`. */
-function normalize(pathname: string): string {
-  if (pathname.length > 1 && pathname.endsWith("/"))
-    return pathname.slice(0, -1);
-  return pathname;
-}
+// La comparación de rutas vive en `lib/path.ts` desde el #8: el shell la
+// necesita para marcar el destino activo, y las dos tienen que coincidir.
+import { isSameOrUnder, normalizePath } from "@/lib/path";
 
 /**
  * ¿Se puede ver esta ruta sin sesión?
@@ -28,7 +19,7 @@ function normalize(pathname: string): string {
  * sería pública.
  */
 export function isPublicPath(pathname: string): boolean {
-  const path = normalize(pathname);
+  const path = normalizePath(pathname);
   return PUBLIC_ROUTES.some((route) =>
     route === ROUTES.home ? path === route : isSameOrUnder(path, route),
   );

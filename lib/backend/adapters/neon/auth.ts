@@ -52,6 +52,8 @@ type BetterAuthUser = {
   id: string;
   email: string;
   emailVerified: boolean;
+  name?: string | null;
+  image?: string | null;
 };
 
 function toAuthSession(user: BetterAuthUser): AuthSession {
@@ -60,6 +62,8 @@ function toAuthSession(user: BetterAuthUser): AuthSession {
       id: user.id,
       email: user.email,
       emailVerified: user.emailVerified,
+      name: user.name ?? null,
+      image: user.image ?? null,
     },
   };
 }
