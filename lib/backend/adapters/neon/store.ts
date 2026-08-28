@@ -33,7 +33,52 @@ const run = createRunner((error) =>
     : null,
 );
 
+/**
+ * ¿Es el tropiezo de sesión del Data API?
+ *
+ * Neon establece la sesión JWT sobre una conexión de su pool, y de vez en
+ * cuando la PRIMERA escritura llega antes de que esa sesión esté puesta:
+ * `auth.uid()` sale nulo, `owner_id` se queda sin dueño y la política lo
+ * rechaza con un 42501. La misma petición, con el mismo token y el mismo
+ * cuerpo, funciona al segundo intento — así lo reprodujo la corrida en vivo y
+ * así lo vio el navegador.
+ *
+ * Se distingue por el MENSAJE y no solo por el código, y la diferencia importa:
+ * «permission denied for table» sería un GRANT que falta —un fallo nuestro, que
+ * reintentar no arregla— mientras que «new row violates row-level security
+ * policy» con un token válido solo puede ser esto.
+ */
+function isSessionHiccup(error: unknown): boolean {
+  const cause = (error as { cause?: { code?: string; message?: string } })?.cause;
+  return (
+    cause?.code === "42501" &&
+    /row[- ]level security/i.test(cause.message ?? "")
+  );
+}
+
 export function createNeonRowStore(client: NeonBrowserClient): RowStore {
+  /**
+   * Una escritura, y un segundo intento si fue el tropiezo de arriba.
+   *
+   * Reintentar una escritura solo es seguro porque un rechazo de RLS aborta la
+   * sentencia: no se escribió nada, así que no hay forma de duplicar un
+   * Proyecto. Por eso NO envuelve a `select`: una lectura con `auth.uid()` nulo
+   * no falla, devuelve cero filas en silencio, y ahí no hay nada que detectar.
+   *
+   * Uno y no un bucle: si el segundo intento también choca, es que no era esto.
+   */
+  async function retryOnce<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!isSessionHiccup(error)) throw error;
+      // Se tira el token cacheado de paso: no consta que sea la causa, pero el
+      // reintento tiene que ser el intento más limpio posible.
+      client.forgetToken();
+      return operation();
+    }
+  }
+
   return {
     async select(source, options) {
       let query = client.data.from(asRelation(source)).select("*");
@@ -53,14 +98,16 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
       // `.select()` tras el insert: PostgREST no devuelve la fila si no se le
       // pide, y el puerto promete la entidad creada (con el id, el
       // `version_number` que puso el trigger y los timestamps del motor).
-      const data = await run(
-        client.data
-          .from(table)
-          .insert(asWritePayload(values))
-          .select()
-          .single(),
-        table,
-        null,
+      const data = await retryOnce(() =>
+        run(
+          client.data
+            .from(table)
+            .insert(asWritePayload(values))
+            .select()
+            .single(),
+          table,
+          null,
+        ),
       );
       return data as Row;
     },
@@ -92,14 +139,16 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
     },
 
     async createProjectWithVersion(title, description, icon) {
-      const data = await run(
-        client.data.rpc("create_project_with_version", {
-          p_title: title,
-          p_description: description,
-          p_icon: icon,
-        }),
-        "projects",
-        null,
+      const data = await retryOnce(() =>
+        run(
+          client.data.rpc("create_project_with_version", {
+            p_title: title,
+            p_description: description,
+            p_icon: icon,
+          }),
+          "projects",
+          null,
+        ),
       );
       return data as Row;
     },

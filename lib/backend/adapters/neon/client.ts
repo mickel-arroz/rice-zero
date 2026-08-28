@@ -147,9 +147,18 @@ function buildClient(): NeonBrowserClient {
    */
   let cached: { token: string; until: number } | null = null;
 
-  async function accessToken(): Promise<string | null> {
-    if (cached && Date.now() < cached.until) return cached.token;
+  /**
+   * La petición que está en vuelo, si hay alguna.
+   *
+   * Sin esto, dos consultas que arrancan a la vez fallan las dos la caché y
+   * piden el token por separado. Pasa de verdad y en el primer render: React en
+   * modo estricto monta los efectos DOS veces en desarrollo, así que el provider
+   * carga la lista dos veces y el proveedor de auth recibe dos peticiones
+   * simultáneas para la misma sesión.
+   */
+  let inFlight: Promise<string | null> | null = null;
 
+  async function fetchToken(): Promise<string | null> {
     // Por `fetch` y no por el SDK: el cliente vanilla no expone este endpoint,
     // y la petición no tiene nada de particular — misma ruta, mismas cookies.
     const response = await fetch(`${authUrl}/${TOKEN_ENDPOINT}`, {
@@ -172,6 +181,15 @@ function buildClient(): NeonBrowserClient {
     return cached.token;
   }
 
+  async function accessToken(): Promise<string | null> {
+    if (cached && Date.now() < cached.until) return cached.token;
+
+    inFlight ??= fetchToken().finally(() => {
+      inFlight = null;
+    });
+    return inFlight;
+  }
+
   const data = createClient<Database>({
     dataApi: {
       url: dataApiUrl,
@@ -185,6 +203,7 @@ function buildClient(): NeonBrowserClient {
     accessToken,
     forgetToken: () => {
       cached = null;
+      inFlight = null;
     },
   };
 }
