@@ -17,6 +17,7 @@ import type {
   AnalysisFeature,
   FeaturePrompt,
   Project,
+  ProjectOverview,
   ProjectVersion,
   TreeNode,
 } from "@/lib/backend/ports/entities";
@@ -24,22 +25,45 @@ import type {
 export type NewProject = {
   title: string;
   description?: string | null;
+  /** Ausente = el icono por defecto. Ver `Project.icon` sobre por qué es `string`. */
+  icon?: string;
 };
 
 export type ProjectPatch = {
   title?: string;
   description?: string | null;
+  icon?: string;
 };
 
 export interface ProjectRepository {
   /** Los Proyectos del usuario, del más recientemente tocado al más viejo. */
   list(): Promise<Project[]>;
+  /**
+   * Lo mismo, con las cifras de cada Proyecto y ordenado por última actividad.
+   *
+   * Está en el puerto y no resuelto a base de llamar a `list()` y contar porque
+   * el coste es la razón de existir: son cuatro agregados por Proyecto, y
+   * pedirlos uno a uno es N+1 sobre la lista entera. Cada adaptador promete
+   * resolverlo en UNA consulta.
+   */
+  listOverviews(): Promise<ProjectOverview[]>;
   /** @throws NotFoundError si no existe o no es tuyo. */
   get(id: string): Promise<Project>;
+  /**
+   * Da de alta el Proyecto **y su Versión inicial**, de forma atómica.
+   *
+   * Las dos cosas, y no solo la primera, porque «todo Proyecto nace con una
+   * Versión» es una invariante del dominio: un Proyecto sin Versiones es un
+   * estado que la app no sabe dibujar. Dejarlo en manos del llamante lo
+   * convertiría en una regla que hay que recordar, y con dos escrituras
+   * separadas no habría forma de sostenerla si la segunda falla.
+   *
+   * La Versión inicial nace sin etiqueta: su nombre es su número.
+   */
   create(input: NewProject): Promise<Project>;
   /** @throws NotFoundError */
   update(id: string, patch: ProjectPatch): Promise<Project>;
-  /** @throws NotFoundError */
+  /** Se lleva sus Versiones, Nodos y Análisis. @throws NotFoundError */
   delete(id: string): Promise<void>;
 }
 

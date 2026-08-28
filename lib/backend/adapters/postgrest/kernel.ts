@@ -15,6 +15,7 @@
 import {
   toAnalysis,
   toProject,
+  toProjectOverview,
   toProjectVersion,
   toTreeNode,
 } from "@/lib/backend/adapters/postgrest/mapping";
@@ -31,6 +32,7 @@ import {
   type NewTreeNode,
   type NodeRepository,
   type Project,
+  type ProjectOverview,
   type ProjectPatch,
   type ProjectRepository,
   type ProjectVersion,
@@ -67,6 +69,21 @@ export function createProjectRepository(store: RowStore): ProjectRepository {
       return rows.map(toProject);
     },
 
+    async listOverviews(): Promise<ProjectOverview[]> {
+      // Se ordena por la columna calculada de la vista y NO por
+      // `projects.updated_at`: el índice `projects_owner_id_updated_at_idx` no
+      // sirve para este orden, porque la clave es un agregado que solo existe
+      // tras los laterales. Con la lista de un solo usuario da igual; el día
+      // que deje de darlo, la salida es materializar la columna, no cambiar el
+      // criterio por uno que ordena mal.
+      const rows = await store.select("project_overviews", {
+        order: [
+          { column: "last_activity_at", ascending: false, nullsFirst: false },
+        ],
+      });
+      return rows.map(toProjectOverview);
+    },
+
     async get(id): Promise<Project> {
       const rows = await store.select("projects", {
         where: [{ column: "id", value: id }],
@@ -77,12 +94,17 @@ export function createProjectRepository(store: RowStore): ProjectRepository {
     },
 
     async create(input: NewProject): Promise<Project> {
-      // `owner_id` no se manda: lo pone el motor desde la sesión. Ver el
-      // comentario de `repositories.ts` sobre por qué no está en el puerto.
-      const row = await store.insert("projects", {
-        title: input.title,
-        description: input.description ?? null,
-      });
+      // Por la RPC y no por un `insert`: el alta son DOS escrituras —el
+      // Proyecto y su Versión inicial— y tienen que ir juntas. `owner_id` sigue
+      // sin mandarse; lo pone el motor desde la sesión.
+      const row = await store.createProjectWithVersion(
+        input.title,
+        input.description ?? null,
+        // `null` y no una cadena vacía: el puerto ya usa `null` para «lo que
+        // decida el motor», y un centinela distinto para lo mismo obliga a
+        // recordar cuál toca en cada sitio.
+        input.icon ?? null,
+      );
       return toProject(row);
     },
 

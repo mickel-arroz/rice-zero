@@ -15,7 +15,7 @@ import {
   translatePostgrestFailure,
   translateThrown,
 } from "@/lib/backend/adapters/postgrest/errors";
-import { RESOURCE, type TableName } from "@/lib/backend/adapters/postgrest/rows";
+import { RESOURCE, type SourceName } from "@/lib/backend/adapters/postgrest/rows";
 import type { Row } from "@/lib/backend/adapters/postgrest/store";
 
 /** La respuesta de PostgREST, reducida a lo que se mira. */
@@ -44,6 +44,20 @@ export function asWritePayload(values: Row): never {
 }
 
 /**
+ * Adapta el nombre de la fuente al literal que el SDK exige en `from()`.
+ *
+ * Hermana de `asWritePayload`, y por la misma razón: el núcleo lee de una unión
+ * de tablas y de la vista, mientras que `from()` está SOBRECARGADO —una firma
+ * por relación—, y TypeScript no resuelve una sobrecarga con un argumento que
+ * es la unión de varias. La comprobación no desaparece, se mueve: la hace
+ * `rows.ts` más el `schema-check.ts` de cada adaptador, que rompen el typecheck
+ * si el nombre deja de existir en el esquema.
+ */
+export function asRelation(source: SourceName): never {
+  return source as unknown as never;
+}
+
+/**
  * Traduce lo que un SDK lanza ANTES de que el motor conteste. Devolver `null`
  * significa «no lo reconozco», y entonces es un fallo de transporte.
  */
@@ -56,7 +70,7 @@ export type RecoverThrown = (error: unknown) => Error | null;
 export function createRunner(recover?: RecoverThrown) {
   return async function run(
     query: PromiseLike<PostgrestResponse>,
-    table: TableName,
+    source: SourceName,
     id: string | null,
   ): Promise<unknown> {
     let response: PostgrestResponse;
@@ -72,7 +86,7 @@ export function createRunner(recover?: RecoverThrown) {
       // Neon, que salía como «problema de red» en vez de «no hay sesión».
       throw (
         recover?.(response.error) ??
-        translatePostgrestFailure(response.error, RESOURCE[table], id)
+        translatePostgrestFailure(response.error, RESOURCE[source], id)
       );
     }
     return response.data;

@@ -13,7 +13,7 @@
  * `ConflictError` cuando choca una regla.
  */
 
-import type { TableName } from "@/lib/backend/adapters/postgrest/rows";
+import type { SourceName, TableName } from "@/lib/backend/adapters/postgrest/rows";
 
 /** Una fila cruda, tal y como viaja por el cable. */
 export type Row = Record<string, unknown>;
@@ -43,8 +43,9 @@ export type Order = {
 };
 
 export interface RowStore {
+  /** Lee de una tabla o de una vista: `SourceName`, no `TableName`. */
   select(
-    table: TableName,
+    source: SourceName,
     options?: { where?: Filter[]; order?: Order[] },
   ): Promise<Row[]>;
 
@@ -57,6 +58,22 @@ export interface RowStore {
   /** `false` cuando no se borró ninguna fila. */
   delete(table: TableName, id: string): Promise<boolean>;
 
-  /** Clona una Versión. La única RPC del esquema. */
+  /** Clona una Versión. @see `clone_project_version` */
   cloneVersion(versionId: string, label: string | null): Promise<Row | null>;
+
+  /**
+   * Da de alta un Proyecto con su Versión inicial y devuelve el Proyecto.
+   *
+   * Es una RPC y no dos `insert` porque la atomicidad la tiene que dar el
+   * motor: contra PostgREST, dos escrituras son dos peticiones, y entre una y
+   * otra cabe un fallo que dejaría un Proyecto sin Versiones.
+   *
+   * @see `create_project_with_version`
+   */
+  createProjectWithVersion(
+    title: string,
+    description: string | null,
+    /** `null` = el que ponga el motor por defecto. */
+    icon: string | null,
+  ): Promise<Row>;
 }

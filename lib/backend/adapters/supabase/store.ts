@@ -10,6 +10,7 @@
  */
 
 import {
+  asRelation,
   asRows,
   asWritePayload,
   createRunner,
@@ -24,8 +25,8 @@ const run = createRunner();
 
 export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore {
   return {
-    async select(table, options) {
-      let query = client.from(table).select("*");
+    async select(source, options) {
+      let query = client.from(asRelation(source)).select("*");
       for (const filter of options?.where ?? []) {
         query = query.eq(filter.column, filter.value);
       }
@@ -35,7 +36,7 @@ export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore 
           nullsFirst: order.nullsFirst,
         });
       }
-      return asRows(await run(query, table, filteredId(options?.where)));
+      return asRows(await run(query, source, filteredId(options?.where)));
     },
 
     async insert(table, values) {
@@ -65,6 +66,19 @@ export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore 
     async delete(table, id) {
       const data = await run(client.from(table).delete().eq("id", id).select(), table, id);
       return asRows(data).length > 0;
+    },
+
+    async createProjectWithVersion(title, description, icon) {
+      const data = await run(
+        client.rpc("create_project_with_version", {
+          p_title: title,
+          p_description: description,
+          p_icon: icon,
+        }),
+        "projects",
+        null,
+      );
+      return data as Row;
     },
 
     async cloneVersion(versionId, label) {

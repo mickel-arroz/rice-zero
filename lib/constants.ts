@@ -164,14 +164,72 @@ export const SHELL_COPY = {
   noShortcuts: "Aún no hay Proyectos",
 } as const;
 
-/** El texto de la ruta protegida que demuestra la sesión. */
+/**
+ * Todo el texto de la pantalla de Proyectos, en un sitio.
+ *
+ * Mismo criterio que `AUTH_COPY` y `SHELL_COPY`: «la interfaz es toda en
+ * español» es un criterio de aceptación, y un criterio repartido por doce
+ * componentes no se puede revisar de una lectura.
+ */
 export const PROJECTS_COPY = {
-  label: "Ruta protegida",
+  /** El marcador de sección. El boceto lo llama por lo que es, no por su ruta. */
+  label: "Tu espacio",
   title: "Proyectos",
   /** En el desplegable de cuenta: la única cuenta que puede entrar es la que confirmó. */
   verified: "Email confirmado",
   signingOut: "Saliendo",
+
   emptyTitle: "Aún no hay Proyectos.",
   emptyBody: "Tu próximo proyecto empieza con un nodo.",
-  emptyCta: "Nuevo proyecto",
+  /** La llamada a crear. La misma en la cabecera y dentro del recuadro vacío. */
+  newProject: "Nuevo proyecto",
+
+  /** Mientras la lista viaja. La silueta ya dice la forma; esto es para quien no la ve. */
+  loading: "Cargando tus Proyectos",
+  errorTitle: "No se pudieron cargar tus Proyectos.",
+  errorBody:
+    "Parece que no hay conexión. Lo ya abierto se puede seguir consultando; para editar hace falta red.",
+  retry: "Reintentar",
+
+  /** Las acciones de una tarjeta, tras el botón de tres puntos. */
+  actions: (title: string) => `Acciones de ${title}`,
+  edit: "Editar",
+  delete: "Borrar",
+
+  createLabel: "Crear",
+  createSubmit: "Crear proyecto",
+  creating: "Creando",
+
+  editLabel: "Editar",
+  editTitle: "Editar proyecto",
+  /** El diálogo de edición no tiene botón de guardar: la app autoguarda. */
+  saved: "Guardado — cada cambio se persiste solo",
+  saving: "Guardando…",
+  done: "Listo",
+
+  titleField: "Título",
+  titlePlaceholder: "Tienda online",
+  descriptionField: "Descripción — opcional",
+  descriptionPlaceholder: "En una línea, de qué va.",
+  iconField: "Icono",
+  close: "Cerrar",
+
+  deleteTitle: (title: string) => `¿Borrar «${title}»?`,
+  /**
+   * Lo que se lleva por delante, en cifras y no en abstracto — el mismo
+   * criterio que el spec pide al podar un Nodo.
+   */
+  deleteBody: "No se puede deshacer.",
+  deleteCounts: "Se van con él",
+  cancel: "Cancelar",
+  deleting: "Borrando",
+
+  /**
+   * Las tres métricas de la tarjeta. Las dos primeras se doblan en plural;
+   * «Análisis» es invariable, así que es un texto y no una función que finge
+   * decidir algo.
+   */
+  versions: (n: number) => (n === 1 ? "Versión" : "Versiones"),
+  nodes: (n: number) => (n === 1 ? "Nodo" : "Nodos"),
+  analyses: "Análisis",
 } as const;

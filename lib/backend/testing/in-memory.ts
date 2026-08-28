@@ -12,6 +12,9 @@
  *   · `updated_at` se toca en cada update.
  *   · un Nodo y su padre viven siempre en la misma Versión.
  *   · los `check` de longitud de título y etiqueta.
+ *   · el icono por defecto, y una descripción en blanco que queda nula.
+ *   · un Proyecto nace SIEMPRE con su Versión inicial.
+ *   · la vista `project_overviews`, con sus cuatro cifras por Proyecto.
  *   · borrar cascadea: Proyecto → Versiones → Nodos y Análisis; Nodo → subárbol.
  *   · clonar copia el árbol entero con la jerarquía remapeada, y no los Análisis.
  *
@@ -21,7 +24,7 @@
  * verifica contra el motor real (`npm run verify:neon`).
  */
 
-import type { TableName } from "@/lib/backend/adapters/postgrest/rows";
+import type { SourceName, TableName } from "@/lib/backend/adapters/postgrest/rows";
 import type { Filter, Order, Row, RowStore } from "@/lib/backend/adapters/postgrest/store";
 import { createRepositories } from "@/lib/backend/adapters/postgrest/kernel";
 import {
@@ -62,8 +65,19 @@ function nextId(): string {
   return `00000000-0000-4000-8000-${hex}`;
 }
 
+let clock = 0;
+
+/**
+ * Una marca de tiempo que SIEMPRE avanza.
+ *
+ * `new Date()` a secas no vale: un test hace varias escrituras en el mismo
+ * milisegundo, y entonces «lo editado hace menos, primero» no se puede ni
+ * comprobar ni distinguir de un orden equivocado. Contra el motor real esto no
+ * pasa porque el reloj corre entre peticiones; aquí se fuerza a mano.
+ */
 function nowIso(): string {
-  return new Date().toISOString();
+  clock = Math.max(clock + 1, Date.now());
+  return new Date(clock).toISOString();
 }
 
 function requireText(value: unknown, field: string, min: number, max: number): void {
@@ -74,6 +88,19 @@ function requireText(value: unknown, field: string, min: number, max: number): v
       `${field} debe tener entre ${min} y ${max} caracteres.`,
     );
   }
+}
+
+/**
+ * Lo que hace la migración con el icono: recorta, y si no queda nada, el nodo
+ * cero. NO comprueba que la clave esté en el catálogo — el motor tampoco lo
+ * hace, y fingir que sí escondería que quien valida es la capa de servicios.
+ */
+function normalizeIcon(value: unknown): string {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (text.length > 40) {
+    throw new ConflictError("check", "El icono no puede pasar de 40 caracteres.");
+  }
+  return text || "node";
 }
 
 function matches(row: Row, where: Filter[]): boolean {
@@ -126,9 +153,10 @@ export function createInMemoryBackend(): InMemoryBackend {
     return version ? ownsProject(version.project_id) : false;
   }
 
-  function isVisible(table: TableName, row: Row): boolean {
+  function isVisible(table: SourceName, row: Row): boolean {
     switch (table) {
       case "projects":
+      case "project_overviews":
         return row.owner_id === currentUserId();
       case "project_versions":
         return ownsProject(row.project_id);
@@ -138,8 +166,47 @@ export function createInMemoryBackend(): InMemoryBackend {
     }
   }
 
-  function visible(table: TableName): Row[] {
-    return tables[table].filter((row) => isVisible(table, row));
+  function visible(source: SourceName): Row[] {
+    const rows = source === "project_overviews" ? overviews() : tables[source];
+    return rows.filter((row) => isVisible(source, row));
+  }
+
+  /**
+   * La vista `project_overviews`, calculada.
+   *
+   * Se materializa al leer en vez de mantenerse al día porque es exactamente lo
+   * que hace el motor: la vista no guarda nada. Y como se calcula sobre las
+   * tablas CRUDAS —antes de filtrar por dueño—, las cifras de un Proyecto no
+   * dependen de quién pregunte; quien esconde la fila entera es `isVisible`,
+   * igual que la RLS de la migración.
+   */
+  function overviews(): Row[] {
+    return tables.projects.map((project) => {
+      const versions = tables.project_versions.filter(
+        (row) => row.project_id === project.id,
+      );
+      const versionIds = new Set(versions.map((row) => row.id));
+      const nodes = tables.nodes.filter((row) => versionIds.has(row.version_id as string));
+      const analyses = tables.ai_analyses.filter((row) =>
+        versionIds.has(row.version_id as string),
+      );
+
+      // El `greatest()` de la vista: la fila del Proyecto no se mueve cuando se
+      // edita un Nodo, así que la última actividad mira también hacia abajo.
+      const stamps = [
+        project.updated_at as string,
+        ...versions.map((row) => row.updated_at as string),
+        ...nodes.map((row) => row.updated_at as string),
+      ];
+
+      return {
+        ...project,
+        version_count: versions.length,
+        node_count: nodes.length,
+        analysis_count: analyses.length,
+        last_activity_at: stamps.reduce((a, b) => (a > b ? a : b)),
+      };
+    });
   }
 
   // ── Invariantes del esquema ────────────────────────────────────────────
@@ -223,6 +290,9 @@ export function createInMemoryBackend(): InMemoryBackend {
             owner_id: currentUserId(),
             title: values.title,
             description: values.description ?? null,
+            // El default de la columna: el motor no distingue entre «no lo
+            // mandé» y «lo mandé vacío», y aquí tampoco.
+            icon: normalizeIcon(values.icon),
             created_at: stamp,
             updated_at: stamp,
           };
@@ -296,6 +366,9 @@ export function createInMemoryBackend(): InMemoryBackend {
       if (table === "projects" && "title" in values) {
         requireText(next.title, "El título", 1, 200);
       }
+      if (table === "projects" && "icon" in values) {
+        next.icon = normalizeIcon(next.icon);
+      }
       if (table === "project_versions" && next.label != null) {
         requireText(next.label, "La etiqueta", 1, 120);
       }
@@ -327,6 +400,20 @@ export function createInMemoryBackend(): InMemoryBackend {
       else tables.ai_analyses = tables.ai_analyses.filter((r) => r.id !== id);
 
       return true;
+    },
+
+    async createProjectWithVersion(title, description, icon) {
+      // Las dos escrituras, aquí sí, sin nada que pueda colarse entre medias.
+      // Lo que este doble NO reproduce es la transacción: en el motor, un fallo
+      // en la segunda deshace la primera; aquí no hay forma de que la segunda
+      // falle, así que no habría nada que deshacer.
+      const project = await store.insert("projects", {
+        title,
+        description: description?.trim() ? description : null,
+        icon,
+      });
+      await store.insert("project_versions", { project_id: project.id });
+      return project;
     },
 
     async cloneVersion(versionId, label) {

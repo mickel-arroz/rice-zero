@@ -12,12 +12,14 @@ import type {
   AnalysisFeature,
   FeaturePrompt,
   Project,
+  ProjectOverview,
   ProjectVersion,
   TreeNode,
 } from "@/lib/backend/ports";
 import type {
   AnalysisRow,
   NodeRow,
+  ProjectOverviewRow,
   ProjectRow,
   ProjectVersionRow,
 } from "@/lib/backend/adapters/postgrest/rows";
@@ -30,8 +32,25 @@ export function toProject(row: Row): Project {
     ownerId: r.owner_id,
     title: r.title,
     description: r.description,
+    icon: r.icon,
     createdAt: new Date(r.created_at),
     updatedAt: new Date(r.updated_at),
+  };
+}
+
+/**
+ * La fila de la vista trae las mismas columnas del Proyecto más las cuatro
+ * cifras, así que se reutiliza `toProject` en vez de repetirlas: el día que el
+ * Proyecto gane un campo, la lista lo gana sola.
+ */
+export function toProjectOverview(row: Row): ProjectOverview {
+  const r = row as unknown as ProjectOverviewRow;
+  return {
+    ...toProject(row),
+    versionCount: r.version_count,
+    nodeCount: r.node_count,
+    analysisCount: r.analysis_count,
+    lastActivityAt: new Date(r.last_activity_at),
   };
 }
 

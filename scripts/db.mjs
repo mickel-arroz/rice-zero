@@ -63,6 +63,9 @@ export function verifySql(provider) {
     sql("db", "tests", "identity.sql"),
     sql("db", "tests", provider, "users.sql"),
     sql("db", "tests", "verify_rls_and_clone.sql"),
+    // El escenario que deja el bloque de arriba es el que verifica éste, así
+    // que el orden importa: la vista se comprueba sobre datos ya creados.
+    sql("db", "tests", "verify_overviews_and_create.sql"),
   ];
 }
 

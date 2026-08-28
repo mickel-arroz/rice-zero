@@ -34,6 +34,7 @@ export type Database = {
           owner_id: string;
           title: string;
           description: string | null;
+          icon: string;
           created_at: string;
           updated_at: string;
         };
@@ -42,6 +43,7 @@ export type Database = {
           owner_id: string;
           title: string;
           description?: string | null;
+          icon?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -50,6 +52,7 @@ export type Database = {
           owner_id?: string;
           title?: string;
           description?: string | null;
+          icon?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -147,8 +150,31 @@ export type Database = {
         Relationships: [];
       };
     };
-    Views: Record<never, never>;
+    Views: {
+      // Los contadores llegan como `int` porque la vista los castea: PostgREST
+      // serializa un `bigint` como cadena, y `count(*)` es `bigint`.
+      project_overviews: {
+        Row: {
+          id: string;
+          owner_id: string;
+          title: string;
+          description: string | null;
+          icon: string;
+          created_at: string;
+          updated_at: string;
+          version_count: number;
+          node_count: number;
+          analysis_count: number;
+          last_activity_at: string;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
+      create_project_with_version: {
+        Args: { p_title: string; p_description?: string | null; p_icon?: string | null };
+        Returns: Database["public"]["Tables"]["projects"]["Row"];
+      };
       clone_project_version: {
         Args: { p_version_id: string; p_label?: string | null };
         Returns: Database["public"]["Tables"]["project_versions"]["Row"];
@@ -167,3 +193,6 @@ export type TablesInsert<T extends keyof Database["public"]["Tables"]> =
 
 export type TablesUpdate<T extends keyof Database["public"]["Tables"]> =
   Database["public"]["Tables"][T]["Update"];
+
+export type Views<T extends keyof Database["public"]["Views"]> =
+  Database["public"]["Views"][T]["Row"];

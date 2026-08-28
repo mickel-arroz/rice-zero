@@ -1,9 +1,7 @@
 import { cookies } from "next/headers";
 
-import {
-  DashboardNav,
-  type ProjectShortcut,
-} from "@/components/layout/dashboard-nav";
+import { DashboardNav } from "@/components/layout/dashboard-nav";
+import { ProjectsProvider } from "@/components/projects/projects-provider";
 import { SIDEBAR_COOKIE, isSidebarCollapsed } from "@/lib/shell/sidebar";
 
 /**
@@ -19,20 +17,22 @@ import { SIDEBAR_COOKIE, isSidebarCollapsed } from "@/lib/shell/sidebar";
  * Lee la cookie de la sidebar en servidor para que el primer HTML ya traiga el
  * ancho correcto. Ver `lib/shell/sidebar.ts` sobre por qué es cookie y no
  * `localStorage`.
+ *
+ * Monta también el `ProjectsProvider`, y AQUÍ y no en la página porque los
+ * accesos directos de la sidebar y la lista de la pantalla son los MISMOS
+ * datos: cargados dos veces serían dos peticiones, dos verdades y una sidebar
+ * que sigue enseñando el Proyecto que acabas de borrar.
  */
 export async function AppShell({
   email,
   name = null,
   image = null,
-  shortcuts = [],
   children,
 }: {
   email: string;
   /** Nombre y foto del proveedor. `null` con email y contraseña. */
   name?: string | null;
   image?: string | null;
-  /** Los Proyectos del usuario. Vacío hasta el #9, que trae el CRUD. */
-  shortcuts?: ProjectShortcut[];
   children: React.ReactNode;
 }) {
   const collapsed = isSidebarCollapsed(
@@ -40,14 +40,15 @@ export async function AppShell({
   );
 
   return (
-    <DashboardNav
-      initialCollapsed={collapsed}
-      shortcuts={shortcuts}
-      email={email}
-      name={name}
-      image={image}
-    >
-      {children}
-    </DashboardNav>
+    <ProjectsProvider>
+      <DashboardNav
+        initialCollapsed={collapsed}
+        email={email}
+        name={name}
+        image={image}
+      >
+        {children}
+      </DashboardNav>
+    </ProjectsProvider>
   );
 }

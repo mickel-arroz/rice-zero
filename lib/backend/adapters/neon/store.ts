@@ -13,6 +13,7 @@ import { AuthRequiredError } from "@neondatabase/neon-js";
 
 import type { NeonBrowserClient } from "@/lib/backend/adapters/neon/client";
 import {
+  asRelation,
   asRows,
   asWritePayload,
   createRunner,
@@ -34,8 +35,8 @@ const run = createRunner((error) =>
 
 export function createNeonRowStore(client: NeonBrowserClient): RowStore {
   return {
-    async select(table, options) {
-      let query = client.data.from(table).select("*");
+    async select(source, options) {
+      let query = client.data.from(asRelation(source)).select("*");
       for (const filter of options?.where ?? []) {
         query = query.eq(filter.column, filter.value);
       }
@@ -45,7 +46,7 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
           nullsFirst: order.nullsFirst,
         });
       }
-      return asRows(await run(query, table, filteredId(options?.where)));
+      return asRows(await run(query, source, filteredId(options?.where)));
     },
 
     async insert(table, values) {
@@ -88,6 +89,19 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
         id,
       );
       return asRows(data).length > 0;
+    },
+
+    async createProjectWithVersion(title, description, icon) {
+      const data = await run(
+        client.data.rpc("create_project_with_version", {
+          p_title: title,
+          p_description: description,
+          p_icon: icon,
+        }),
+        "projects",
+        null,
+      );
+      return data as Row;
     },
 
     async cloneVersion(versionId, label) {

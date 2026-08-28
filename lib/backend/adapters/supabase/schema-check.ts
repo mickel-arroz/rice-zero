@@ -9,14 +9,19 @@ import type { Exact } from "@/lib/backend/adapters/postgrest/schema-contract";
 import type {
   AnalysisRow,
   NodeRow,
+  ProjectOverviewRow,
   ProjectRow,
   ProjectVersionRow,
 } from "@/lib/backend/adapters/postgrest/rows";
-import type { Tables } from "@/lib/backend/adapters/supabase/database.types";
+import type { Tables, Views } from "@/lib/backend/adapters/supabase/database.types";
 
 export const SUPABASE_SCHEMA_MATCHES_ROWS: [
   Exact<Tables<"projects">, ProjectRow>,
   Exact<Tables<"project_versions">, ProjectVersionRow>,
   Exact<Tables<"nodes">, NodeRow>,
   Exact<Tables<"ai_analyses">, AnalysisRow>,
-] = [true, true, true, true];
+  // La vista entra en la misma aserción que las tablas: es de donde sale la
+  // lista, así que una columna que cambie ahí tiene que romper el typecheck
+  // igual que si cambiara en `projects`.
+  Exact<Views<"project_overviews">, ProjectOverviewRow>,
+] = [true, true, true, true, true];

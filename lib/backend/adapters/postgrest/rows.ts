@@ -29,8 +29,24 @@ export type ProjectRow = {
   owner_id: string;
   title: string;
   description: string | null;
+  icon: string;
   created_at: string;
   updated_at: string;
+};
+
+/**
+ * La fila de `project_overviews`, la vista que resuelve la lista y sus cuatro
+ * cifras de una vez.
+ *
+ * Los contadores llegan como `int` y no como el `bigint` que devuelve
+ * `count(*)`: la vista los castea, porque PostgREST serializa un `bigint` como
+ * cadena y `24` habría llegado a la interfaz siendo `"24"`.
+ */
+export type ProjectOverviewRow = ProjectRow & {
+  version_count: number;
+  node_count: number;
+  analysis_count: number;
+  last_activity_at: string;
 };
 
 export type ProjectVersionRow = {
@@ -70,6 +86,19 @@ export type AnalysisRow = {
 export type TableName = "projects" | "project_versions" | "nodes" | "ai_analyses";
 
 /**
+ * Lo que se puede LEER pero no escribir.
+ *
+ * Aparte de `TableName` y no dentro para que el tipo diga la verdad: `insert`,
+ * `update` y `delete` solo aceptan tablas, así que nadie puede intentar
+ * escribir en una vista ni por error. Es la misma distinción que hace el
+ * `grant` de la migración, dicha en TypeScript.
+ */
+export type ViewName = "project_overviews";
+
+/** Cualquier cosa de la que se pueda leer. */
+export type SourceName = TableName | ViewName;
+
+/**
  * Cómo se llama cada tabla en el vocabulario de `CONTEXT.md`.
  *
  * Vive aquí, pegado a `TableName`, porque es lo único que traduce entre los dos
@@ -78,8 +107,11 @@ export type TableName = "projects" | "project_versions" | "nodes" | "ai_analyses
  * del motor), y tenerlo una sola vez es lo que hace que renombrar un término
  * canónico sea un cambio de una línea.
  */
-export const RESOURCE: Record<TableName, string> = {
+export const RESOURCE: Record<SourceName, string> = {
   projects: "el Proyecto",
+  // La vista habla de lo mismo que la tabla, así que un fallo leyéndola tiene
+  // que sonar igual: al usuario no le importa por dónde se pidió.
+  project_overviews: "el Proyecto",
   project_versions: "la Versión",
   nodes: "el Nodo",
   ai_analyses: "el Análisis",

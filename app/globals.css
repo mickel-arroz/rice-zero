@@ -16,6 +16,11 @@
   --muted-foreground: oklch(0.52 0 0);
   --node-bg: oklch(1 0 0);
   --edge-color: oklch(0.7 0 0);
+  /* La sombra de lo que flota sobre la página (menús, diálogos). Es un token
+     y no un valor suelto porque en oscuro tiene que pesar más: la misma
+     sombra que despega una tarjeta de un fondo claro no se ve sobre uno
+     oscuro. */
+  --popover-shadow: 0 14px 34px rgb(0 0 0 / 0.16);
   /* Fondo dot-pattern: el halo es --primary; la base se lee desde JS y va en hex. */
   --dot-base: #8a8a8a;
 }
@@ -32,6 +37,7 @@
   --muted-foreground: oklch(0.65 0 0);
   --node-bg: oklch(0.205 0 0);
   --edge-color: oklch(0.45 0 0);
+  --popover-shadow: 0 16px 40px rgb(0 0 0 / 0.55);
   --dot-base: #8a8a8a;
 }
 
@@ -53,6 +59,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-node-bg: var(--node-bg);
   --color-edge: var(--edge-color);
+  --shadow-popover: var(--popover-shadow);
   --font-sans: var(--font-iosevka);
   --font-mono: var(--font-iosevka);
   --font-display: var(--font-ndot57);

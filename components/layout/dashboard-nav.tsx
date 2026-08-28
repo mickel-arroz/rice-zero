@@ -12,6 +12,7 @@ import { FolderIcon } from "@/components/icons/folder-icon";
 import { InfoIcon } from "@/components/icons/info-icon";
 import { MenuIcon } from "@/components/icons/menu-icon";
 import { projectIconFor } from "@/components/icons/projects";
+import { useProjects } from "@/components/projects/projects-provider";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { NavRow, ProjectRow, ProjectTree } from "@/components/layout/nav-row";
 import {
@@ -30,24 +31,9 @@ import {
   THEME_TOGGLE_LABEL,
 } from "@/lib/constants";
 
-/** Un acceso directo a un Proyecto en la navegación. */
-export interface ProjectShortcut {
-  id: string;
-  name: string;
-  /**
-   * Clave del catálogo de `components/icons/projects`.
-   *
-   * `string` y no `ProjectIconKey` a propósito: llega de una fila de base de
-   * datos, que puede haberla escrito una versión anterior de la app. Quien la
-   * valida es `projectIconFor`, que cae al icono por defecto.
-   */
-  icon: string;
-}
-
 interface DashboardNavProps {
   /** Lo lee el servidor de la cookie, para que el primer HTML ya venga bien. */
   initialCollapsed: boolean;
-  shortcuts: ProjectShortcut[];
   email: string;
   name: string | null;
   image: string | null;
@@ -71,7 +57,6 @@ const MOBILE_ROW = 52;
 
 export function DashboardNav({
   initialCollapsed,
-  shortcuts,
   email,
   name,
   image,
@@ -87,6 +72,10 @@ export function DashboardNav({
   // menú del teléfono con los accesos escondidos.
   const [sidebarProjectsOpen, setSidebarProjectsOpen] = useState(true);
   const [menuProjectsOpen, setMenuProjectsOpen] = useState(true);
+
+  // Los mismos Proyectos que pinta la pantalla, del mismo provider: crear uno
+  // lo hace aparecer aquí sin recargar, y borrarlo lo quita.
+  const { projects } = useProjects();
 
   const pathname = usePathname();
   const active = activeDestination(pathname);
@@ -109,18 +98,19 @@ export function DashboardNav({
     fontSize = 14,
     isCollapsed = false
   ) {
-    if (shortcuts.length === 0) {
+    if (projects.length === 0) {
       return isCollapsed ? null : (
         <span className={`${LABEL_CLASS} block px-3 py-2`}>
           {SHELL_COPY.noShortcuts}
         </span>
       );
     }
-    return shortcuts.map((project) => (
+    return projects.map((project) => (
       <ProjectRow
         key={project.id}
         href={projectHref(project.id)}
-        name={project.name}
+        name={project.title}
+        // Nunca lanza: una clave que no reconoce cae al icono por defecto.
         icon={projectIconFor(project.icon)}
         active={pathname === projectHref(project.id)}
         collapsed={isCollapsed}

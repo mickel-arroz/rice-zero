@@ -39,13 +39,20 @@ export function describeBackendContract(harness: BackendContractHarness): void {
   describe(`Proveedor de Backend: ${harness.name}`, () => {
     let backend: BackendProvider;
 
-    /** Un Proyecto con su primera Versión, que es el estado de partida real. */
+    /**
+     * Un Proyecto con su primera Versión, que es el estado de partida real.
+     *
+     * La Versión NO se crea aquí: la trae el alta. Es la invariante del puerto
+     * —«todo Proyecto nace con una Versión»— y por eso el harness la LEE en vez
+     * de fabricarla: montar el escenario a mano dejaría los tests pasando el
+     * día que el alta dejara de cumplirla.
+     */
     async function seedProject(): Promise<{
       project: Project;
       version: ProjectVersion;
     }> {
       const project = await backend.projects.create({ title: "Proyecto de prueba" });
-      const version = await backend.versions.create({ projectId: project.id });
+      const [version] = await backend.versions.listByProject(project.id);
       return { project, version };
     }
 
@@ -157,6 +164,130 @@ export function describeBackendContract(harness: BackendContractHarness): void {
           ConflictError,
         );
       });
+
+      it("asigna el nodo cero cuando no se elige icono", async () => {
+        const project = await backend.projects.create({ title: "Sin elegir" });
+
+        expect(project.icon).toBe("node");
+      });
+
+      it("guarda el icono elegido, al crear y al editar", async () => {
+        const project = await backend.projects.create({
+          title: "Con icono",
+          icon: "rocket",
+        });
+        expect(project.icon).toBe("rocket");
+
+        const updated = await backend.projects.update(project.id, { icon: "flask" });
+        expect(updated.icon).toBe("flask");
+      });
+
+      it("acepta una clave de icono que no conoce", async () => {
+        // El puerto NO valida contra el catálogo: es una constante de la
+        // interfaz, y el motor solo guarda texto. Quien valida es la capa de
+        // servicios, y quien ataja lo que ya esté escrito es `projectIconFor`.
+        // Este test fija esa frontera para que nadie la mueva sin querer.
+        const project = await backend.projects.create({
+          title: "De otra versión",
+          icon: "hologram",
+        });
+
+        expect(project.icon).toBe("hologram");
+      });
+    });
+
+    describe("la lista con métricas", () => {
+      it("cuenta las Versiones, los Nodos y los Análisis de cada Proyecto", async () => {
+        const { project, version } = await seedProject();
+        await backend.versions.create({ projectId: project.id });
+        await backend.nodes.create({ versionId: version.id, content: "Uno" });
+        await backend.nodes.create({ versionId: version.id, content: "Dos" });
+        await backend.analyses.create({
+          versionId: version.id,
+          provider: "falso",
+          model: "modelo-de-prueba",
+          summary: "Resumen",
+          masterPrompt: "Prompt",
+        });
+
+        const [overview] = await backend.projects.listOverviews();
+
+        // Dos Versiones y dos Nodos y UN Análisis: si los agregados se
+        // multiplicaran entre ellos, los Nodos saldrían a 2 × 1 = 2 por
+        // Versión y las cifras dejarían de cuadrar en cuanto hubiera dos de
+        // cada. Por eso el escenario tiene cantidades distintas.
+        expect(overview.versionCount).toBe(2);
+        expect(overview.nodeCount).toBe(2);
+        expect(overview.analysisCount).toBe(1);
+      });
+
+      it("cuenta los Nodos de TODAS las Versiones, no solo de la primera", async () => {
+        const { project, version } = await seedProject();
+        await backend.nodes.create({ versionId: version.id, content: "En la 1" });
+        const second = await backend.versions.create({ projectId: project.id });
+        await backend.nodes.create({ versionId: second.id, content: "En la 2" });
+
+        const [overview] = await backend.projects.listOverviews();
+
+        expect(overview.nodeCount).toBe(2);
+      });
+
+      it("un Proyecto recién creado trae una Versión, cero Nodos y cero Análisis", async () => {
+        await backend.projects.create({ title: "Recién nacido" });
+
+        const [overview] = await backend.projects.listOverviews();
+
+        expect(overview.versionCount).toBe(1);
+        expect(overview.nodeCount).toBe(0);
+        expect(overview.analysisCount).toBe(0);
+        expect(overview.lastActivityAt).toBeInstanceOf(Date);
+      });
+
+      it("trae el Proyecto entero, no solo sus cifras", async () => {
+        await backend.projects.create({
+          title: "Tienda online",
+          description: "Catálogo y carrito.",
+          icon: "bag",
+        });
+
+        const [overview] = await backend.projects.listOverviews();
+
+        expect(overview.title).toBe("Tienda online");
+        expect(overview.description).toBe("Catálogo y carrito.");
+        expect(overview.icon).toBe("bag");
+      });
+
+      it("ordena por última actividad descendente", async () => {
+        const primero = await backend.projects.create({ title: "Primero" });
+        await backend.projects.create({ title: "Segundo" });
+        // Tocar el más viejo lo devuelve a la cabeza.
+        await backend.projects.update(primero.id, { title: "Primero, retocado" });
+
+        const titles = (await backend.projects.listOverviews()).map((p) => p.title);
+
+        expect(titles).toEqual(["Primero, retocado", "Segundo"]);
+      });
+
+      it("la última actividad se mueve al editar un Nodo", async () => {
+        const { project, version } = await seedProject();
+        const before = (await backend.projects.listOverviews())[0].lastActivityAt;
+        const node = await backend.nodes.create({
+          versionId: version.id,
+          content: "Idea",
+        });
+
+        await backend.nodes.update(node.id, { content: "Idea, mejor dicha" });
+
+        const [overview] = await backend.projects.listOverviews();
+        expect(overview.lastActivityAt.getTime()).toBeGreaterThan(before.getTime());
+        // Y no es `updatedAt`: la fila del Proyecto no se ha tocado. Es la
+        // razón de que la última actividad sea un campo aparte y no esa
+        // columna — leerla dejaría la lista quieta mientras se trabaja.
+        const fresh = await backend.projects.get(project.id);
+        expect(overview.lastActivityAt.getTime()).toBeGreaterThan(
+          fresh.updatedAt.getTime(),
+        );
+      });
     });
 
     describe("Versiones", () => {
@@ -173,6 +304,17 @@ export function describeBackendContract(harness: BackendContractHarness): void {
         const third = await backend.versions.create({ projectId: project.id });
 
         expect([second.versionNumber, third.versionNumber]).toEqual([2, 3]);
+      });
+
+      it("un Proyecto nace con exactamente una Versión, la número 1", async () => {
+        const project = await backend.projects.create({ title: "Recién nacido" });
+
+        const versions = await backend.versions.listByProject(project.id);
+
+        expect(versions).toHaveLength(1);
+        expect(versions[0].versionNumber).toBe(1);
+        // Sin etiqueta: su nombre es su número. Guardar «v1» duplicaría el dato.
+        expect(versions[0].label).toBeNull();
       });
 
       it("normaliza una etiqueta en blanco a «sin etiqueta»", async () => {

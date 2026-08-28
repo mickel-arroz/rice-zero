@@ -389,7 +389,9 @@ begin
     from information_schema.role_table_grants
    where grantee = v_anon
      and table_schema = 'public'
-     and table_name in ('projects', 'project_versions', 'nodes', 'ai_analyses');
+     and table_name in (
+       'projects', 'project_versions', 'nodes', 'ai_analyses', 'project_overviews'
+     );
   if v_count <> 0 then
     raise exception 'FALLO: el rol % tiene privilegios de tabla: %.', v_anon, v_offenders;
   end if;

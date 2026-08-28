@@ -12,8 +12,43 @@ export type Project = {
   ownerId: string;
   title: string;
   description: string | null;
+  /**
+   * Clave del icono asignado, del catálogo de `components/icons/projects`.
+   *
+   * `string` y no la unión de las 30 claves a propósito, y en las dos
+   * direcciones. Al LEER, porque la fila puede traer una clave que escribió una
+   * versión anterior de la app o una mano, y estrechar el tipo aquí solo
+   * trasladaría la mentira al llamante — quien la resuelve es `projectIconFor`,
+   * que cae al icono por defecto. Al ESCRIBIR, porque el catálogo es de la
+   * interfaz y el puerto no puede importarlo sin invertir el límite del ADR
+   * 0001: quien valida contra él es la capa de servicios.
+   */
+  icon: string;
   createdAt: Date;
   updatedAt: Date;
+};
+
+/**
+ * Un Proyecto con las cifras que lo describen de un vistazo.
+ *
+ * Existe porque la pantalla de Proyectos las necesita TODAS a la vez, y pedir
+ * cada cifra por Proyecto sería N+1 sobre la lista. Es la forma de la lista, no
+ * una entidad nueva: por eso extiende `Project` en vez de envolverlo.
+ */
+export type ProjectOverview = Project & {
+  versionCount: number;
+  /** Nodos de TODAS las Versiones del Proyecto: el tamaño de la idea. */
+  nodeCount: number;
+  analysisCount: number;
+  /**
+   * Lo más reciente que le ha pasado al Proyecto, mirando también sus Versiones
+   * y sus Nodos.
+   *
+   * No es `updatedAt`. `updatedAt` solo se mueve cuando cambia la fila del
+   * Proyecto, y editar un Nodo no la toca — así que ordenar por ella dejaría la
+   * lista congelada mientras el usuario trabaja.
+   */
+  lastActivityAt: Date;
 };
 
 /**
