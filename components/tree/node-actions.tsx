@@ -48,6 +48,25 @@ type Action = {
   danger?: boolean;
 };
 
+/**
+ * Dónde se pone la barra.
+ *
+ * `flow` es la de la Vista Registro: va detrás de la lista, pegada abajo, y le
+ * quita a la lista el alto que ocupa. Ahí es lo correcto — la lista se
+ * desplaza y su final tiene que quedar alcanzable por encima de la barra.
+ *
+ * `floating` es la del Canvas: FLOTA sobre el lienzo sin ocupar sitio. Un
+ * lienzo que encoge al seleccionar un Nodo movería el árbol entero bajo el
+ * dedo justo al tocarlo, que es lo contrario de lo que se espera al señalar
+ * algo. El envoltorio deja pasar el ratón (`pointer-events-none`) para no
+ * robarle al lienzo la franja de abajo; solo la pastilla lo recoge.
+ */
+const WRAPPER_CLASS = {
+  flow: "sticky bottom-0 z-30 -mx-6 mt-2 px-6 pt-3 pb-6 lg:mx-0 lg:px-0 lg:pb-8",
+  floating:
+    "pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 lg:p-4",
+} as const;
+
 /** El botón de la barra: cuadrado con etiqueta debajo, pastilla en escritorio. */
 const BUTTON_CLASS =
   "flex h-14 flex-col items-center justify-center gap-1.5 rounded-2xl border border-border transition-colors disabled:opacity-35 lg:h-10 lg:flex-row lg:gap-2 lg:rounded-full lg:px-3";
@@ -59,17 +78,20 @@ export function NodeActions({
   row,
   onMove,
   onDelete,
+  floating = false,
   className = "",
 }: {
   /** El Nodo seleccionado. Su sitio entre hermanos apaga «Subir» y «Bajar». */
   row: TreeRow;
+  /** Flotar sobre el lienzo en vez de ir detrás de la lista. Ver `WRAPPER_CLASS`. */
+  floating?: boolean;
   /**
    * Se pega al contenedor de la barra, no a un envoltorio.
    *
    * Existe por un solo llamante —el Canvas la esconde por debajo de `lg`, que
    * es donde el lienzo es solo consulta— y llega hasta aquí en vez de meterla
-   * en un `<div>` por fuera porque el contenedor es `sticky`: envolverlo le
-   * cambiaría el bloque contenedor y la barra dejaría de pegarse abajo.
+   * en un `<div>` por fuera porque el contenedor está posicionado: envolverlo
+   * le cambiaría el bloque contenedor y la barra dejaría de pegarse abajo.
    */
   className?: string;
   /**
@@ -127,13 +149,15 @@ export function NodeActions({
   ];
 
   return (
-    // `sticky` y no `fixed`: dentro de la columna de contenido se centra sola
-    // en escritorio, donde la sidebar se come 260 px por la izquierda. Un
+    // Nunca `fixed`: dentro de la columna de contenido la pastilla se centra
+    // sola en escritorio, donde la sidebar se come 260 px por la izquierda. Un
     // `fixed` se centraría respecto a la ventana y quedaría descuadrado.
-    <div
-      className={`sticky bottom-0 z-30 -mx-6 mt-2 px-6 pt-3 pb-6 lg:mx-0 lg:px-0 lg:pb-8 ${className}`}
-    >
-      <div className="rounded-t-3xl border border-border bg-card p-4 shadow-popover lg:mx-auto lg:w-fit lg:max-w-full lg:rounded-full lg:p-2.5">
+    <div className={`${WRAPPER_CLASS[floating ? "floating" : "flow"]} ${className}`}>
+      <div
+        className={`pointer-events-auto border border-border bg-card p-4 shadow-popover lg:mx-auto lg:w-fit lg:max-w-full lg:rounded-full lg:p-2.5 ${
+          floating ? "rounded-3xl" : "rounded-t-3xl"
+        }`}
+      >
         {/* Cuatro columnas y no tres: son seis acciones más «Quitar», y con
             `col-span-2` en la última la rejilla queda exacta en dos filas de
             cuatro en vez de dejar un hueco a la derecha. */}

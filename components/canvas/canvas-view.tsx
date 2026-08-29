@@ -13,6 +13,8 @@ import {
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
+import { CollapseIcon } from "@/components/icons/collapse-icon";
+import { ExpandIcon } from "@/components/icons/expand-icon";
 import { EyeIcon } from "@/components/icons/eye-icon";
 import { FitIcon } from "@/components/icons/fit-icon";
 import { MinusIcon } from "@/components/icons/minus-icon";
@@ -30,6 +32,7 @@ import {
   NodeView,
   type CanvasNode,
 } from "@/components/canvas/node-view";
+import { NodeToolbar } from "@/components/tree/node-toolbar";
 import { useTree } from "@/components/tree/tree-provider";
 import { TreeEmpty, TreeError } from "@/components/tree/tree-states";
 import { CANVAS_COPY, DOT_PATTERN } from "@/lib/constants";
@@ -58,7 +61,14 @@ const NODE_TYPES = { [CANVAS_NODE_TYPE]: NodeView };
 const VIEWPORT_CLASS =
   "relative flex-1 min-h-[380px] overflow-hidden rounded-[20px] border border-border";
 
-export function CanvasView() {
+/** Cómo se agranda y cómo se vuelve. Lo decide `TreeScreen`: el `main` entero
+ *  es quien sale del flujo, no solo el lienzo. */
+export type FullscreenControl = {
+  fullscreen: boolean;
+  onFullscreen: () => void;
+};
+
+export function CanvasView({ fullscreen, onFullscreen }: FullscreenControl) {
   const tree = useTree();
 
   if (tree.status === "loading") return <CanvasSkeleton />;
@@ -68,8 +78,15 @@ export function CanvasView() {
   if (tree.nodes.length === 0) return <TreeEmpty readOnlyOnMobile />;
 
   return (
-    <div className={VIEWPORT_CLASS}>
-      <Canvas />
+    // A pantalla completa el borde y las esquinas sobran: el lienzo ya no está
+    // metido en una caja dentro de la página, ES la página.
+    <div className={fullscreen ? "relative min-h-0 flex-1" : VIEWPORT_CLASS}>
+      <Canvas fullscreen={fullscreen} onFullscreen={onFullscreen} />
+
+      {/* La barra vive DENTRO del lienzo y no en la pantalla: así flota encima
+          en vez de robarle alto, y se esconde por debajo de `lg` porque ahí el
+          Canvas es solo consulta. */}
+      <NodeToolbar floating className="hidden lg:block" />
     </div>
   );
 }
@@ -85,7 +102,7 @@ function CanvasSkeleton() {
   );
 }
 
-function Canvas() {
+function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
   const tree = useTree();
   const { textOf } = tree;
 
@@ -179,18 +196,26 @@ function Canvas() {
         color="var(--dot-base)"
         style={{ opacity: DOT_PATTERN.restOpacity }}
       />
-      <CanvasChrome bounds={bounds} />
+      <CanvasChrome
+        bounds={bounds}
+        fullscreen={fullscreen}
+        onFullscreen={onFullscreen}
+      />
     </ReactFlow>
   );
 }
 
 /**
- * Lo que flota sobre el lienzo: el aviso de solo lectura y el zoom.
+ * Lo que flota sobre el lienzo: el aviso de solo lectura y los controles.
  *
  * Va dentro de `<ReactFlow>` y no fuera porque `useReactFlow` —el mando del
  * zoom— solo existe dentro de su contexto.
  */
-function CanvasChrome({ bounds }: { bounds: Size }) {
+function CanvasChrome({
+  bounds,
+  fullscreen,
+  onFullscreen,
+}: FullscreenControl & { bounds: Size }) {
   const { setViewport, zoomIn, zoomOut } = useReactFlow();
 
   // Dos selectores y no uno que devuelva un objeto: el store compara por
@@ -233,7 +258,15 @@ function CanvasChrome({ bounds }: { bounds: Size }) {
       <Panel position="bottom-right" className="flex flex-col gap-2">
         <ZoomButton icon={PlusIcon} label={CANVAS_COPY.zoomIn} onClick={() => zoomIn()} />
         <ZoomButton icon={MinusIcon} label={CANVAS_COPY.zoomOut} onClick={() => zoomOut()} />
+        {/* Encajar y pantalla completa son cosas DISTINTAS y por eso son dos
+            botones: uno mueve la cámara para que quepa el árbol, el otro
+            agranda la ventana por la que se mira. */}
         <ZoomButton icon={FitIcon} label={CANVAS_COPY.fit} onClick={fit} />
+        <ZoomButton
+          icon={fullscreen ? CollapseIcon : ExpandIcon}
+          label={fullscreen ? CANVAS_COPY.exitFullscreen : CANVAS_COPY.fullscreen}
+          onClick={onFullscreen}
+        />
       </Panel>
     </>
   );

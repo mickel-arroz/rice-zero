@@ -23,7 +23,14 @@ import { useTree } from "@/components/tree/tree-provider";
 /** Qué diálogo hay delante, si hay alguno. */
 type Overlay = { kind: "move" | "delete"; id: string } | null;
 
-export function NodeToolbar({ className }: { className?: string }) {
+export function NodeToolbar({
+  floating = false,
+  className,
+}: {
+  /** Flotar sobre el lienzo. Lo pide el Canvas; el Registro la quiere en flujo. */
+  floating?: boolean;
+  className?: string;
+}) {
   const tree = useTree();
   const [overlay, setOverlay] = useState<Overlay>(null);
 
@@ -42,6 +49,7 @@ export function NodeToolbar({ className }: { className?: string }) {
       {selected ? (
         <NodeActions
           row={selected}
+          floating={floating}
           className={className}
           onMove={() => setOverlay({ kind: "move", id: selected.node.id })}
           onDelete={() => setOverlay({ kind: "delete", id: selected.node.id })}

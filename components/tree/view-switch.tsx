@@ -18,8 +18,12 @@ import { TREE_COPY, TREE_VIEWS, type TreeView } from "@/lib/constants";
  * por flechas que implementar, son dos botones y uno está hundido.
  */
 
-/** Canvas primero: es la vista que enseña la FORMA del árbol de un vistazo. */
-const ORDER = [TREE_VIEWS.canvas, TREE_VIEWS.registro] as const;
+/**
+ * Registro primero: es donde se edita, la única vista que hay en el teléfono y
+ * con la que se abre un Proyecto que no se ha visto nunca. El interruptor se
+ * lee de izquierda a derecha como «lo de siempre → lo otro».
+ */
+const ORDER = [TREE_VIEWS.registro, TREE_VIEWS.canvas] as const;
 
 export function ViewSwitch({
   view,

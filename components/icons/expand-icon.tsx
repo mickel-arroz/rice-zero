@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
 
-/** Un marco con lo suyo dentro: encajar el árbol entero en el lienzo. */
-export function FitIcon(props: SVGProps<SVGSVGElement>) {
+/** Cuatro esquinas hacia fuera: llevar el lienzo a pantalla completa. */
+export function ExpandIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       width="20"
@@ -15,8 +15,10 @@ export function FitIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <rect x="3" y="5" width="18" height="14" rx="2.5" />
-      <rect x="7.5" y="9.5" width="9" height="5" rx="1.5" />
+      <path d="M9 4H4v5" />
+      <path d="M15 4h5v5" />
+      <path d="M15 20h5v-5" />
+      <path d="M9 20H4v-5" />
     </svg>
   );
 }

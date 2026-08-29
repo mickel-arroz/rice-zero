@@ -46,21 +46,30 @@ export function TreeHeader({
         <SaveState />
       </div>
 
-      <ViewSwitch view={view} onChange={onView} />
+      {/* En escritorio el selector se sube a la fila del título en vez de
+          ocupar una propia: son unos 50 px de alto que se lleva el árbol, que
+          es lo que se ha venido a mirar. En móvil no cabe al lado de un título
+          largo, así que sigue encima — de ahí el `order`, que deja el mismo
+          orden de lectura de siempre sin pintar el selector dos veces. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+        <div className="order-first lg:order-none">
+          <ViewSwitch view={view} onChange={onView} />
+        </div>
 
-      {project ? (
-        <h1 className="text-[29px] leading-none tracking-[0.02em] lg:text-5xl">
-          {project.title}
-        </h1>
-      ) : (
-        // Mientras la lista de Proyectos viaja no se inventa un título: se
-        // deja su hueco, del alto que va a ocupar.
-        <span
-          className="w-52 rounded-lg bg-accent"
-          style={{ height: 29 }}
-          aria-hidden={projectsStatus === "loading"}
-        />
-      )}
+        {project ? (
+          <h1 className="text-[29px] leading-none tracking-[0.02em] text-balance lg:order-first lg:min-w-0 lg:text-5xl">
+            {project.title}
+          </h1>
+        ) : (
+          // Mientras la lista de Proyectos viaja no se inventa un título: se
+          // deja su hueco, del alto que va a ocupar.
+          <span
+            className="w-52 rounded-lg bg-accent lg:order-first"
+            style={{ height: 29 }}
+            aria-hidden={projectsStatus === "loading"}
+          />
+        )}
+      </div>
 
       {tree.version ? (
         <p className="flex flex-wrap items-center gap-2.5">

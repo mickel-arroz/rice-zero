@@ -417,7 +417,10 @@ export const CANVAS_COPY = {
 
   zoomIn: "Acercar",
   zoomOut: "Alejar",
-  fit: "Ajustar a la pantalla",
+  /** Encajar el bosque entero. NO es lo mismo que la pantalla completa. */
+  fit: "Encajar el árbol",
+  fullscreen: "Pantalla completa",
+  exitFullscreen: "Salir de pantalla completa",
 
   /**
    * La marca de que aquí no se edita.

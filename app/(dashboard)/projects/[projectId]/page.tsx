@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { TreeProvider } from "@/components/tree/tree-provider";
@@ -6,6 +7,7 @@ import { TreeScreen } from "@/components/tree/tree-screen";
 import { requestSession } from "@/lib/auth/session";
 import { canAct } from "@/lib/backend/ports";
 import { TREE_COPY, ROUTES } from "@/lib/constants";
+import { TREE_VIEW_COOKIE, treeViewFor } from "@/lib/shell/tree-view";
 
 export const metadata: Metadata = {
   title: TREE_COPY.screenTitle,
@@ -28,6 +30,10 @@ export const dynamic = "force-dynamic";
  * navegador habla DIRECTO con PostgREST y que la autorización se queda en RLS,
  * así que no hay camino de datos en el servidor por el que precargarlos. Esta
  * página es solo la puerta.
+ *
+ * Lo único que sí resuelve el servidor es CON QUÉ VISTA se abre: sale de una
+ * cookie, y leerla aquí es lo que evita que la pantalla salga en Registro y
+ * salte al Canvas al hidratar. Ver `lib/shell/tree-view.ts`.
  */
 export default async function ProjectPage({ params }: PageProps<"/projects/[projectId]">) {
   const session = await requestSession();
@@ -38,10 +44,14 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[proj
   if (!canAct(session)) redirect(ROUTES.login);
 
   const { projectId } = await params;
+  const view = treeViewFor(
+    (await cookies()).get(TREE_VIEW_COOKIE)?.value,
+    projectId,
+  );
 
   return (
     <TreeProvider projectId={projectId}>
-      <TreeScreen projectId={projectId} />
+      <TreeScreen projectId={projectId} initialView={view} />
     </TreeProvider>
   );
 }
