@@ -435,4 +435,23 @@ export const CANVAS_COPY = {
 
   /** El «+» que sale al pasar por encima de un Nodo. */
   addChild: (text: string) => `Crear un subnodo de ${text}`,
+
+  /**
+   * Cómo se abre el campo de un Nodo en el lienzo: con dos clics.
+   *
+   * Dos y no uno sobre el ya seleccionado —que es lo que hace la Vista
+   * Registro— porque aquí el cuerpo del Nodo ES el asa del arrastre: un
+   * arrastre que empieza y acaba encima del mismo Nodo dispara `click` en
+   * todos los navegadores, y con la regla del Registro cada arrastre
+   * cancelado abriría el teclado.
+   */
+  editHint: "Doble clic para escribir",
+
+  /**
+   * Y aquí NO está el «aquí no» del arrastre. El aviso que flota mientras se
+   * arrastra sobre un destino inválido dice la frase de `NODE_ERRORS`, que es
+   * la MISMA que lanzaría el servicio si se intentara de verdad. Escribir una
+   * segunda versión aquí sería tener dos formas de decir el mismo rechazo
+   * esperando a que alguien toque una.
+   */
 } as const;
