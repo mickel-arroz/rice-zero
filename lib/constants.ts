@@ -244,7 +244,27 @@ export const PROJECTS_COPY = {
 } as const;
 
 /**
- * Todo el texto de la Vista Registro, en un sitio.
+ * Las dos maneras de ver el árbol de una Versión.
+ *
+ * Es una constante y no dos literales sueltos porque el valor viaja por el
+ * estado de la pantalla y por las claves de la copia: un `"canvas"` mal
+ * escrito en un sitio dejaría el selector marcando la vista equivocada sin que
+ * nada fallara.
+ */
+export const TREE_VIEWS = {
+  registro: "registro",
+  canvas: "canvas",
+} as const;
+
+export type TreeView = (typeof TREE_VIEWS)[keyof typeof TREE_VIEWS];
+
+/**
+ * Todo el texto de la pantalla del árbol, en un sitio.
+ *
+ * Del ÁRBOL y no de una vista: la cabecera, la barra de acciones y los dos
+ * diálogos los comparten la Vista Registro y la Vista Canvas, así que su copia
+ * no puede vivir dentro de ninguna de las dos. Lo propio de cada vista está
+ * abajo, en `REGISTRO_VIEW_COPY` y `CANVAS_COPY`.
  *
  * Mismo criterio que `AUTH_COPY`, `SHELL_COPY` y `PROJECTS_COPY`: «la interfaz
  * es toda en español» es un criterio de aceptación, y un criterio repartido
@@ -255,9 +275,20 @@ export const PROJECTS_COPY = {
  * los lee de allí. Copiarlos aquí sería tener la misma frase en dos sitios
  * esperando a que alguien toque uno.
  */
-export const REGISTRO_COPY = {
-  /** El marcador de sección, sobre el título del Proyecto. */
-  label: "Registro",
+export const TREE_COPY = {
+  /**
+   * Los dos lados del selector de vista.
+   *
+   * Sustituyen al marcador de sección que encabezaba la pantalla: donde antes
+   * ponía «Registro» ahora hay un interruptor, y la vista activa lleva el
+   * punto rojo de 8 px que ya marca lo activo en toda la app.
+   */
+  views: {
+    registro: "Registro",
+    canvas: "Canvas",
+  },
+  /** Lo que lee un lector de pantalla en el grupo del selector. */
+  viewSwitch: "Cómo ver el árbol",
   /** La vuelta a la lista, en la cabecera de la pantalla. */
   back: "Proyectos",
 
@@ -313,7 +344,14 @@ export const REGISTRO_COPY = {
   /** Lo que lee un lector de pantalla en cada fila y en el campo. */
   select: (text: string) => `Seleccionar ${text}`,
   edit: (text: string) => `Editar el texto de ${text}`,
-  deselect: "Quitar la selección",
+  /**
+   * Lo que dice el botón de cerrar la barra a quien no ve la palabra «Quitar».
+   *
+   * Se llama `deselectHint` y no `deselect` porque `actions.deselect` ya existe
+   * y es la etiqueta VISIBLE: dos claves llamadas igual en el mismo objeto se
+   * confunden justo cuando alguien va a cambiar una de las dos.
+   */
+  deselectHint: "Quitar la selección",
 
   /** La barra de acciones del Nodo seleccionado. */
   actions: {
@@ -323,6 +361,14 @@ export const REGISTRO_COPY = {
     sibling: "Hermano",
     move: "Mover a…",
     remove: "Borrar",
+    /**
+     * Cierra la barra sin tocar el árbol.
+     *
+     * Está entre las acciones y no en una cabecera propia porque la barra ya no
+     * tiene cabecera: enseñaba el texto del Nodo y se quitó. Desde el dedo esto
+     * es un botón más de la misma fila, así que aquí vive.
+     */
+    deselect: "Quitar",
   },
 
   moveLabel: "Mover",
@@ -351,4 +397,39 @@ export const REGISTRO_COPY = {
 
   cancel: "Cancelar",
   close: "Cerrar",
+
+  /** El nombre de la pantalla en la pestaña del navegador. */
+  screenTitle: "Árbol",
+} as const;
+
+/**
+ * Lo que solo dice la Vista Canvas.
+ *
+ * Separado de `TREE_COPY` a propósito: lo de arriba lo comparten las dos
+ * vistas, y esto es de una sola. El día que alguien busque «¿de dónde sale
+ * “Ajustar”?» tiene que encontrarlo aquí y no entre la copia de los diálogos.
+ */
+export const CANVAS_COPY = {
+  /** Mientras se coloca el árbol. La silueta ya dice la forma; esto es para quien no la ve. */
+  loading: "Colocando el árbol",
+  /** Lo que lee un lector de pantalla en el lienzo entero. */
+  canvasLabel: "El árbol como diagrama",
+
+  zoomIn: "Acercar",
+  zoomOut: "Alejar",
+  fit: "Ajustar a la pantalla",
+
+  /**
+   * La marca de que aquí no se edita.
+   *
+   * Solo aparece por debajo de `lg`, que es donde la barra de acciones no se
+   * monta: sin ella, un Nodo resaltado y ningún botón parecería un fallo.
+   */
+  readOnly: "Solo consulta",
+  readOnlyHint: "En el móvil el Canvas es solo para consultar. Cambia a Registro para editar.",
+  /** Cuando la Versión está vacía y no hay ni un Nodo que dibujar. */
+  emptyOnMobile: "Cambia a Registro para escribir el primero.",
+
+  /** El «+» que sale al pasar por encima de un Nodo. */
+  addChild: (text: string) => `Crear un subnodo de ${text}`,
 } as const;

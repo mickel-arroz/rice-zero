@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { NODE_TEXT_DEBOUNCE_MS, planNodeSave } from "@/components/registro/autosave";
+import { NODE_TEXT_DEBOUNCE_MS, planNodeSave } from "@/components/tree/autosave";
 
 describe("Autoguardado del texto de un Nodo", () => {
   it("no escribe si el texto no ha cambiado", () => {

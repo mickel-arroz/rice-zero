@@ -8,10 +8,10 @@ import {
   CTA_PRIMARY_CLASS,
   CTA_SECONDARY_CLASS,
 } from "@/components/layout/site-chrome";
-import { useRegistro } from "@/components/registro/registro-provider";
+import { useTree } from "@/components/tree/tree-provider";
 import { Dialog } from "@/components/ui/dialog";
 import type { TreeNode } from "@/lib/backend/ports";
-import { REGISTRO_COPY } from "@/lib/constants";
+import { TREE_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { countDescendants } from "@/lib/tree/model";
 import { subtreeRows } from "@/lib/tree/rows";
@@ -38,7 +38,7 @@ export function DeleteNodeDialog({
   node: TreeNode;
   onClose: () => void;
 }) {
-  const { nodes, remove, textOf } = useRegistro();
+  const { nodes, remove, textOf } = useTree();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +48,7 @@ export function DeleteNodeDialog({
   const subtree = useMemo(() => subtreeRows(nodes, node.id), [nodes, node.id]);
   const base = subtree[0]?.depth ?? 0;
 
-  const title = REGISTRO_COPY.nodeLabel(textOf(node));
+  const title = TREE_COPY.nodeLabel(textOf(node));
 
   async function confirm() {
     setPending(true);
@@ -64,13 +64,13 @@ export function DeleteNodeDialog({
 
   return (
     <Dialog
-      label={REGISTRO_COPY.deleteLabel}
-      title={REGISTRO_COPY.deleteTitle(title)}
+      label={TREE_COPY.deleteLabel}
+      title={TREE_COPY.deleteTitle(title)}
       onClose={onClose}
-      closeLabel={REGISTRO_COPY.close}
+      closeLabel={TREE_COPY.close}
     >
       <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
-        {REGISTRO_COPY.deleteBody}
+        {TREE_COPY.deleteBody}
       </p>
 
       {total > 0 ? (
@@ -80,7 +80,7 @@ export function DeleteNodeDialog({
               {total}
             </span>
             <span className="text-center text-[9px] tracking-[0.1em] uppercase text-muted-foreground">
-              {REGISTRO_COPY.deleteFalls(total)}
+              {TREE_COPY.deleteFalls(total)}
             </span>
           </div>
           <ul className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -94,12 +94,12 @@ export function DeleteNodeDialog({
                 }`}
                 style={{ paddingLeft: (row.depth - base) * 14 }}
               >
-                {textOf(row.node).trim() || REGISTRO_COPY.nodePlaceholder}
+                {textOf(row.node).trim() || TREE_COPY.nodePlaceholder}
               </li>
             ))}
             {subtree.length > PREVIEW_LIMIT ? (
               <li className="text-xs text-muted-foreground">
-                {REGISTRO_COPY.andMore(subtree.length - PREVIEW_LIMIT)}
+                {TREE_COPY.andMore(subtree.length - PREVIEW_LIMIT)}
               </li>
             ) : null}
           </ul>
@@ -124,7 +124,7 @@ export function DeleteNodeDialog({
           className={`${CTA_PRIMARY_CLASS} px-8 disabled:opacity-45 sm:flex-1`}
         >
           <TrashIcon width={18} height={18} />
-          {REGISTRO_COPY.deleteSubmit}
+          {TREE_COPY.deleteSubmit}
         </button>
         <button
           type="button"
@@ -132,7 +132,7 @@ export function DeleteNodeDialog({
           disabled={pending}
           className={`${CTA_SECONDARY_CLASS} px-8 disabled:opacity-45 sm:flex-1`}
         >
-          {REGISTRO_COPY.cancel}
+          {TREE_COPY.cancel}
         </button>
       </div>
     </Dialog>

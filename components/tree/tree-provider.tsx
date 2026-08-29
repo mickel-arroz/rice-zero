@@ -13,9 +13,9 @@ import {
 import {
   NODE_TEXT_DEBOUNCE_MS,
   planNodeSave,
-} from "@/components/registro/autosave";
+} from "@/components/tree/autosave";
 import type { ProjectVersion, TreeNode } from "@/lib/backend/ports";
-import { REGISTRO_COPY } from "@/lib/constants";
+import { TREE_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { nodeService } from "@/lib/services/nodes";
 import { versionService } from "@/lib/services/versions";
@@ -28,6 +28,14 @@ import { treeRows, type TreeRow } from "@/lib/tree/rows";
  * cuatro cosas a la vez —la lista, la barra de acciones, el selector de
  * destino y la confirmación de borrado— y con una carga por consumidor habría
  * cuatro peticiones y cuatro verdades.
+ *
+ * Y vive en `components/tree` y no dentro de una vista porque las DOS vistas
+ * —Registro y Canvas— son el mismo árbol pintado de dos maneras. Al montarlo
+ * la página y no la pantalla, alternar entre vistas no desmonta nada: no hay
+ * segunda carga, no se pierde la selección ni lo tecleado a medio guardar, y
+ * un cambio hecho en una vista ya está hecho al llegar a la otra. Ése es
+ * exactamente el criterio «alternar sin perder estado ni datos» del ticket, y
+ * se cumple por dónde está montado esto, no por código que lo sincronice.
  *
  * Es de cliente por lo mismo que `ProjectsProvider` (ADR 0001): el navegador
  * habla directo con PostgREST y la autorización se queda en RLS, así que no
@@ -58,7 +66,7 @@ type Status = "loading" | "ready" | "error";
  */
 export type SaveState = "saved" | "saving" | "error";
 
-type RegistroState = {
+type TreeState = {
   status: Status;
   version: ProjectVersion | null;
   nodes: TreeNode[];
@@ -69,7 +77,7 @@ type RegistroState = {
   saveError: string | null;
 };
 
-type RegistroContextValue = {
+type TreeContextValue = {
   status: Status;
   version: ProjectVersion | null;
   error: string | null;
@@ -100,16 +108,16 @@ type RegistroContextValue = {
   remove(nodeId: string): Promise<void>;
 };
 
-const RegistroContext = createContext<RegistroContextValue | null>(null);
+const TreeContext = createContext<TreeContextValue | null>(null);
 
-export function RegistroProvider({
+export function TreeProvider({
   projectId,
   children,
 }: {
   projectId: string;
   children: React.ReactNode;
 }) {
-  const [state, setState] = useState<RegistroState>({
+  const [state, setState] = useState<TreeState>({
     status: "loading",
     version: null,
     nodes: [],
@@ -381,7 +389,7 @@ export function RegistroProvider({
       // Y si el texto NO se pudo guardar, aquí se para: seguir dejaría el pie
       // diciendo «Guardado» sobre una idea que nunca llegó a persistirse, que
       // es exactamente la mentira que este ticket promete no contar.
-      if (!(await flushPending())) throw new Error(REGISTRO_COPY.blockedByText);
+      if (!(await flushPending())) throw new Error(TREE_COPY.blockedByText);
 
       setState((prev) => ({ ...prev, save: "saving", saveError: null }));
       try {
@@ -531,7 +539,7 @@ export function RegistroProvider({
     ],
   );
 
-  return <RegistroContext.Provider value={value}>{children}</RegistroContext.Provider>;
+  return <TreeContext.Provider value={value}>{children}</TreeContext.Provider>;
 }
 
 /**
@@ -540,10 +548,10 @@ export function RegistroProvider({
  * @throws si se usa fuera de la pantalla. Deliberado, igual que `useProjects`:
  * un componente del Registro sin árbol no tiene estado degradado sensato.
  */
-export function useRegistro(): RegistroContextValue {
-  const value = useContext(RegistroContext);
+export function useTree(): TreeContextValue {
+  const value = useContext(TreeContext);
   if (!value) {
-    throw new Error("useRegistro necesita estar dentro de <RegistroProvider>.");
+    throw new Error("useTree necesita estar dentro de <TreeProvider>.");
   }
   return value;
 }

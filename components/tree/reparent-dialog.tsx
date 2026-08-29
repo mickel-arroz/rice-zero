@@ -6,14 +6,14 @@ import { AlertIcon } from "@/components/icons/alert-icon";
 import { BlockedIcon } from "@/components/icons/blocked-icon";
 import { CheckIcon } from "@/components/icons/check-icon";
 import { CircleIcon } from "@/components/icons/circle-icon";
-import { useRegistro } from "@/components/registro/registro-provider";
+import { useTree } from "@/components/tree/tree-provider";
 import { Dialog } from "@/components/ui/dialog";
 import {
   CTA_PRIMARY_CLASS,
   CTA_SECONDARY_CLASS,
 } from "@/components/layout/site-chrome";
 import type { TreeNode } from "@/lib/backend/ports";
-import { REGISTRO_COPY } from "@/lib/constants";
+import { TREE_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { NODE_ERRORS } from "@/lib/services/nodes";
 import { REPARENT_RULES, type ReparentRule } from "@/lib/tree/model";
@@ -33,17 +33,17 @@ const TARGET_INDENT = 18;
 
 /** Por qué no vale este destino, en dos palabras y a la derecha de su fila. */
 function blockedReason(target: ReparentTarget, nodeId: string): string | null {
-  if (target.current) return REGISTRO_COPY.moveCurrent;
+  if (target.current) return TREE_COPY.moveCurrent;
   if (target.rejection === null) return null;
   // El dominio devuelve `cycle` tanto para el propio Nodo como para los suyos:
   // para él es un ciclo de longitud cero. Son la misma regla y dos frases
   // distintas, y distinguirlas es una comparación de ids, no otra regla.
   if (target.rejection === REPARENT_RULES.cycle) {
     return target.node.id === nodeId
-      ? REGISTRO_COPY.moveBlockedSelf
-      : REGISTRO_COPY.moveBlockedDescendant;
+      ? TREE_COPY.moveBlockedSelf
+      : TREE_COPY.moveBlockedDescendant;
   }
-  return REGISTRO_COPY.moveBlockedGone;
+  return TREE_COPY.moveBlockedGone;
 }
 
 function TargetRow({
@@ -104,7 +104,7 @@ export function ReparentDialog({
   node: TreeNode;
   onClose: () => void;
 }) {
-  const { nodes, reparent, textOf } = useRegistro();
+  const { nodes, reparent, textOf } = useTree();
   const targets = useMemo(() => reparentTargets(nodes, node.id), [nodes, node.id]);
 
   /** El destino elegido. `undefined` es «todavía ninguno»; `null` es la raíz. */
@@ -114,7 +114,7 @@ export function ReparentDialog({
   const [failure, setFailure] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
 
-  const title = REGISTRO_COPY.nodeLabel(textOf(node));
+  const title = TREE_COPY.nodeLabel(textOf(node));
   const alreadyRoot = node.parentId === null;
 
   function pick(id: string | null, rejection: ReparentRule | null) {
@@ -143,14 +143,14 @@ export function ReparentDialog({
 
   return (
     <Dialog
-      label={REGISTRO_COPY.moveLabel}
+      label={TREE_COPY.moveLabel}
       title={title}
       onClose={onClose}
-      closeLabel={REGISTRO_COPY.close}
+      closeLabel={TREE_COPY.close}
       footer={
         <div className="grid grid-cols-2 gap-2.5">
           <button type="button" onClick={onClose} className={CTA_SECONDARY_CLASS}>
-            {REGISTRO_COPY.cancel}
+            {TREE_COPY.cancel}
           </button>
           <button
             type="button"
@@ -158,30 +158,30 @@ export function ReparentDialog({
             disabled={picked === undefined || moving}
             className={`${CTA_PRIMARY_CLASS} disabled:opacity-40`}
           >
-            {REGISTRO_COPY.moveSubmit}
+            {TREE_COPY.moveSubmit}
           </button>
         </div>
       }
     >
       <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
-        {REGISTRO_COPY.moveLead}
+        {TREE_COPY.moveLead}
       </p>
 
       <div className="-mx-2 flex flex-col gap-0.5">
         {/* La raíz siempre vale: una Versión admite varias raíces, y soltar un
             Nodo suelto es tan legítimo como colgarlo. */}
         <TargetRow
-          label={REGISTRO_COPY.moveRoot}
+          label={TREE_COPY.moveRoot}
           depth={0}
           picked={picked === null}
           blocked={false}
-          reason={alreadyRoot ? REGISTRO_COPY.moveCurrent : null}
+          reason={alreadyRoot ? TREE_COPY.moveCurrent : null}
           onClick={() => pick(null, null)}
         />
         {targets.map((target) => {
           const reason = blockedReason(target, node.id);
           const blocked = target.rejection !== null;
-          const label = textOf(target.node).trim() || REGISTRO_COPY.nodePlaceholder;
+          const label = textOf(target.node).trim() || TREE_COPY.nodePlaceholder;
           return (
             <TargetRow
               key={target.node.id}

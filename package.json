@@ -18,9 +18,11 @@
     "account:verify": "node scripts/verify-account.mjs"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.1.1",
     "@neondatabase/neon-js": "^0.7.0-beta",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
+    "@xyflow/react": "^12.11.5",
     "next": "16.3.2",
     "next-themes": "^0.4.6",
     "react": "19.2.8",

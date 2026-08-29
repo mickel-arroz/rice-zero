@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { REGISTRO_COPY } from "@/lib/constants";
+import { TREE_COPY } from "@/lib/constants";
 import type { TreeRow } from "@/lib/tree/rows";
 
 /**
@@ -161,7 +161,7 @@ export function NodeRow({
   }, [editing]);
 
   const empty = text.trim().length === 0;
-  const named = REGISTRO_COPY.nodeLabel(text);
+  const named = TREE_COPY.nodeLabel(text);
 
   const box = `flex min-w-0 flex-1 items-start rounded-2xl border transition-colors ${
     selected || editing
@@ -189,8 +189,8 @@ export function NodeRow({
                 onStopEditing();
               }
             }}
-            placeholder={REGISTRO_COPY.nodePlaceholder}
-            aria-label={REGISTRO_COPY.edit(named)}
+            placeholder={TREE_COPY.nodePlaceholder}
+            aria-label={TREE_COPY.edit(named)}
             className="w-full resize-none overflow-hidden bg-transparent px-3.5 py-3.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
           />
         ) : (
@@ -201,13 +201,13 @@ export function NodeRow({
             // acciones cada vez que se toca una fila para moverla.
             onClick={selected ? onEdit : onSelect}
             aria-label={
-              selected ? REGISTRO_COPY.edit(named) : REGISTRO_COPY.select(named)
+              selected ? TREE_COPY.edit(named) : TREE_COPY.select(named)
             }
             className={`w-full px-3.5 py-3.5 text-left text-sm leading-relaxed break-words whitespace-pre-wrap ${
               selected ? "text-primary" : ""
             } ${empty ? "text-muted-foreground" : ""}`}
           >
-            {empty ? REGISTRO_COPY.nodePlaceholder : text}
+            {empty ? TREE_COPY.nodePlaceholder : text}
           </button>
         )}
       </div>

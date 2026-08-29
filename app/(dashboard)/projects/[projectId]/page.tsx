@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { RegistroProvider } from "@/components/registro/registro-provider";
-import { RegistroScreen } from "@/components/registro/registro-screen";
+import { TreeProvider } from "@/components/tree/tree-provider";
+import { TreeScreen } from "@/components/tree/tree-screen";
 import { requestSession } from "@/lib/auth/session";
 import { canAct } from "@/lib/backend/ports";
-import { REGISTRO_COPY, ROUTES } from "@/lib/constants";
+import { TREE_COPY, ROUTES } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: REGISTRO_COPY.label,
+  title: TREE_COPY.screenTitle,
   robots: { index: false, follow: false },
 };
 
@@ -16,7 +16,8 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 /**
- * La pantalla de un Proyecto: su Vista Registro sobre la Versión activa.
+ * La pantalla de un Proyecto: el árbol de su Versión activa, en cualquiera de
+ * las dos vistas.
  *
  * La Versión NO va en la URL, y es deliberado mientras no exista el selector
  * (#14): abrir un Proyecto tiene que llevar a un sitio y siempre al mismo, y
@@ -39,8 +40,8 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[proj
   const { projectId } = await params;
 
   return (
-    <RegistroProvider projectId={projectId}>
-      <RegistroScreen projectId={projectId} />
-    </RegistroProvider>
+    <TreeProvider projectId={projectId}>
+      <TreeScreen projectId={projectId} />
+    </TreeProvider>
   );
 }
