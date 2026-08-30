@@ -33,6 +33,17 @@ export const ROUTES = {
    */
   project: (projectId: string) => `/projects/${projectId}`,
   /**
+   * El árbol de UNA Versión concreta.
+   *
+   * La Versión va en la URL desde #14, y eso es lo que hace que recargar, el
+   * botón de atrás y un enlace pegado a alguien devuelvan la Versión que se
+   * estaba mirando y no «la más reciente». `ROUTES.project` sigue existiendo y
+   * sigue siendo el destino del acceso directo de la sidebar: entra sin decir
+   * cuál y redirige aquí, a la activa.
+   */
+  version: (projectId: string, versionId: string) =>
+    `/projects/${projectId}/${versionId}`,
+  /**
    * Donde se monta el handler de auth del Proveedor de Backend activo. Lo nombra
    * el backend, no la app: la ruta existe porque el proveedor la necesita.
    */
@@ -454,4 +465,95 @@ export const CANVAS_COPY = {
    * segunda versión aquí sería tener dos formas de decir el mismo rechazo
    * esperando a que alguien toque una.
    */
+} as const;
+
+/**
+ * Todo el texto de la gestión de Versiones, en un sitio.
+ *
+ * Aparte de `TREE_COPY` aunque el selector viva en su cabecera, y por la misma
+ * razón por la que `CANVAS_COPY` está aparte: lo de allí lo comparten las dos
+ * vistas del árbol, y esto es de un control y tres diálogos que hablan de otra
+ * cosa. El día que alguien busque «¿de dónde sale “sin merge”?» tiene que
+ * encontrarlo aquí y no entre la copia de las filas de Nodos.
+ *
+ * Lo que NO está aquí es el rechazo de la última Versión: esa frase la escribe
+ * el puerto (`adapters/postgrest/kernel.ts`), que es quien aplica la regla, y
+ * la pantalla la lee de allí. Dos versiones del mismo «no puedes» acabarían
+ * diciendo cosas distintas.
+ */
+export const VERSIONS_COPY = {
+  /** El marcador de sección del desplegable, y su etiqueta accesible. */
+  label: "Versiones",
+  /** Lo que lee un lector de pantalla en el disparador. */
+  open: "Cambiar de Versión",
+  /** Las acciones de una fila, tras el botón de tres puntos. */
+  actions: (name: string) => `Acciones de ${name}`,
+
+  clone: "Clonar",
+  rename: "Renombrar",
+  delete: "Borrar",
+  /** La llamada al pie del desplegable: clona la Versión que estás editando. */
+  cloneCurrent: "Clonar esta Versión",
+
+  /**
+   * De dónde salió una Versión, bajo su nombre.
+   *
+   * Solo se dice cuando se SABE. `sourceVersionId` a nulo significa dos cosas
+   * —nació original, o su origen se borró (`on delete set null`)—, y llamar
+   * «original» a la segunda sería inventarse una procedencia. Callar es la
+   * única de las dos opciones que nunca miente.
+   */
+  clonedFrom: (versionNumber: number) => `clonada de v${versionNumber}`,
+
+  /** Mientras la lista viaja. */
+  loading: "Cargando las Versiones",
+  errorTitle: "No se pudieron cargar las Versiones.",
+
+  /**
+   * Cuando la Versión que pide la URL no está entre las del Proyecto.
+   *
+   * No dice «no es tuya» ni «no existe» por separado, y es deliberado: bajo
+   * RLS las dos son el mismo resultado —cero filas— y distinguirlas le
+   * confirmaría a quien va probando ids que uno de ellos existe. Ver
+   * `lib/backend/ports/errors.ts`.
+   */
+  goneTitle: "Esa Versión no está aquí.",
+  gone: "Puede que la borraras, o que la dirección esté mal escrita. Estas son las Versiones del Proyecto.",
+  /** Cuando además el Proyecto entero se quedó sin nada que ofrecer. */
+  goneEmpty: "Puede que la borraras, o que la dirección esté mal escrita.",
+  backToProjects: "Volver a Proyectos",
+
+  /** El campo de la etiqueta, en el diálogo de clonar y al renombrar. */
+  labelField: "Etiqueta — opcional",
+  labelPlaceholder: "Rumbo B",
+  /** Al renombrar no hay botón de guardar: la app autoguarda. */
+  renameHint: "Se guarda solo",
+
+  cloneTitle: (versionNumber: number) => `Clonar la Versión ${versionNumber}`,
+  /**
+   * Lo que de verdad hace clonar, dicho entero.
+   *
+   * «Independiente» y «no hay forma de volver a unirlas» no son adorno: «sin
+   * merge, nunca» es una decisión del proyecto (`CONTEXT.md`), y una persona
+   * que venga de git da por hecho lo contrario si nadie se lo dice.
+   */
+  cloneBody:
+    "Se copia el árbol entero en una Versión nueva e independiente. Editar el clon no toca ésta, y no hay forma de volver a unirlas.",
+  cloneNodes: (n: number) => `${n} ${n === 1 ? "Nodo" : "Nodos"}`,
+  /** El puerto no copia Análisis, así que el diálogo no lo insinúa. */
+  cloneAnalyses: "Los Análisis no se copian: pertenecen a la Versión que los generó.",
+  cloneSubmit: "Clonar",
+  cloning: "Clonando",
+
+  deleteTitle: (name: string) => `¿Borrar «${name}»?`,
+  /** El pie de la cifra grande, como al podar un Nodo. Ver `TREE_COPY.deleteFalls`. */
+  deleteFalls: (n: number) => (n === 1 ? "Nodo cae con ella" : "Nodos caen con ella"),
+  deleteBody: "No se puede deshacer.",
+  /** Lo que NO se lleva por delante: el clon ya es independiente. */
+  deleteKeepsClones: "Las Versiones clonadas de ésta no se tocan.",
+  deleteSubmit: "Borrar",
+  deleting: "Borrando",
+
+  cancel: "Cancelar",
+  close: "Cerrar",
 } as const;

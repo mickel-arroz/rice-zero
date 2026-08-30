@@ -72,6 +72,24 @@ export type NewProjectVersion = {
   label?: string | null;
 };
 
+/**
+ * Por qué no se puede borrar la última Versión que le queda a un Proyecto.
+ *
+ * Vive en el PUERTO y no en la copia de la pantalla porque el puerto es quien
+ * aplica la regla y quien lanza el `ConflictError` con esta frase — es quien
+ * puede contar cuántas quedan sin una lectura de más. La interfaz la lee de
+ * aquí para deshabilitar el botón ANTES de intentarlo, de modo que el «no
+ * puedes» dicho a la cara y el rechazo del servicio sean literalmente el mismo
+ * texto. Dos copias acabarían diciendo cosas distintas.
+ *
+ * «Clona ésta» y no «crea otra» porque clonar es la única forma que hay de
+ * conseguir una segunda Versión: no existe un «Versión en blanco» en la
+ * interfaz, y mandar a alguien a una puerta que no está es peor que no decir
+ * nada.
+ */
+export const LAST_VERSION_MESSAGE =
+  "Un Proyecto no puede quedarse sin Versiones. Clona ésta antes de borrarla.";
+
 export interface VersionRepository {
   /** Las Versiones de un Proyecto, de la más nueva a la más vieja. */
   listByProject(projectId: string): Promise<ProjectVersion[]>;

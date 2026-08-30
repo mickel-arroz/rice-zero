@@ -23,6 +23,7 @@ import { RESOURCE } from "@/lib/backend/adapters/postgrest/rows";
 import type { Row, RowStore } from "@/lib/backend/adapters/postgrest/store";
 import {
   ConflictError,
+  LAST_VERSION_MESSAGE,
   NotFoundError,
   type Analysis,
   type AnalysisRepository,
@@ -178,10 +179,7 @@ export function createVersionRepository(store: RowStore): VersionRepository {
         where: [{ column: "project_id", value: version.projectId }],
       });
       if (siblings.length <= 1) {
-        throw new ConflictError(
-          "ultima-version",
-          "Un Proyecto no puede quedarse sin Versiones. Crea otra antes de borrar ésta.",
-        );
+        throw new ConflictError("ultima-version", LAST_VERSION_MESSAGE);
       }
       if (!(await store.delete("project_versions", id))) {
         throw new NotFoundError(RESOURCE.project_versions, id);

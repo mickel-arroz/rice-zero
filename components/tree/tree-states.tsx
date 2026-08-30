@@ -1,6 +1,5 @@
 "use client";
 
-import { AlertIcon } from "@/components/icons/alert-icon";
 import { PlusIcon } from "@/components/icons/plus-icon";
 import {
   CTA_PRIMARY_CLASS,
@@ -8,6 +7,7 @@ import {
 } from "@/components/layout/site-chrome";
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
+import { ErrorCard } from "@/components/ui/error-card";
 import { CANVAS_COPY, TREE_COPY } from "@/lib/constants";
 
 /**
@@ -26,17 +26,7 @@ export function TreeError() {
   const { error, reload } = useTree();
 
   return (
-    <div
-      role="alert"
-      className="flex flex-1 flex-col items-center justify-center gap-3.5 rounded-[20px] border border-border bg-card p-7"
-    >
-      <AlertIcon width={28} height={28} className="text-primary" />
-      <p className="text-center text-[15px] font-bold text-pretty">
-        {TREE_COPY.errorTitle}
-      </p>
-      <p className="max-w-[258px] text-center text-xs leading-relaxed text-pretty text-muted-foreground">
-        {error ?? TREE_COPY.errorBody}
-      </p>
+    <ErrorCard title={TREE_COPY.errorTitle} body={error ?? TREE_COPY.errorBody}>
       <button
         type="button"
         onClick={() => fire(reload())}
@@ -44,7 +34,7 @@ export function TreeError() {
       >
         {TREE_COPY.retry}
       </button>
-    </div>
+    </ErrorCard>
   );
 }
 

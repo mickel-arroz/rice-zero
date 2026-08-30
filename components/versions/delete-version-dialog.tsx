@@ -1,0 +1,121 @@
+"use client";
+
+import { useState } from "react";
+
+import { AlertIcon } from "@/components/icons/alert-icon";
+import { TrashIcon } from "@/components/icons/trash-icon";
+import {
+  CTA_PRIMARY_CLASS,
+  CTA_SECONDARY_CLASS,
+} from "@/components/layout/site-chrome";
+import { Dialog } from "@/components/ui/dialog";
+import { useNodeCount } from "@/components/versions/use-node-count";
+import { useVersions } from "@/components/versions/versions-provider";
+import type { ProjectVersion } from "@/lib/backend/ports";
+import { TREE_COPY, VERSIONS_COPY } from "@/lib/constants";
+import { errorMessage } from "@/lib/errors";
+
+/**
+ * Borrar una Versión, con la cuenta de lo que se lleva por delante.
+ *
+ * La cifra grande no es adorno: el spec pide que al podar un Nodo la
+ * confirmación diga cuántos descendientes caen, y una Versión se lleva por
+ * cascada su árbol ENTERO. Decirlo en abstracto —«y todo su contenido»— deja a
+ * la persona adivinando cuánto es «todo».
+ *
+ * Y dice también lo que NO se lleva. Un clon de esta Versión sobrevive intacto
+ * —la migración pone su `source_version_id` a `null`, no lo borra—, y quien no
+ * lo sepa puede estar a punto de no borrar nada por miedo a perder dos líneas
+ * de trabajo en vez de una.
+ */
+export function DeleteVersionDialog({
+  version,
+  onClose,
+}: {
+  version: ProjectVersion;
+  onClose: () => void;
+}) {
+  const versions = useVersions();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const nodes = useNodeCount(version.id);
+
+  /**
+   * ¿Sobrevive algún clon suyo? Solo entonces hay a quien tranquilizar, y la
+   * respuesta está en la lista que el provider ya tiene.
+   */
+  const hasClones = versions.versions.some(
+    (candidate) => candidate.sourceVersionId === version.id,
+  );
+
+  const name = TREE_COPY.versionName(version.versionNumber, version.label);
+
+  async function confirm() {
+    setPending(true);
+    setError(null);
+    try {
+      await versions.remove(version.id);
+      onClose();
+    } catch (cause) {
+      setError(errorMessage(cause));
+      setPending(false);
+    }
+  }
+
+  return (
+    <Dialog
+      label={VERSIONS_COPY.delete}
+      title={VERSIONS_COPY.deleteTitle(name)}
+      onClose={onClose}
+      closeLabel={VERSIONS_COPY.close}
+    >
+      {/* La cifra solo aparece cuando se sabe: ver `useNodeCount`. */}
+      {nodes === null ? null : (
+        <p className="flex items-baseline gap-3">
+          <span className="font-display text-[56px] leading-none text-primary">
+            {nodes}
+          </span>
+          <span className="text-[13px] leading-relaxed text-muted-foreground">
+            {VERSIONS_COPY.deleteFalls(nodes)}
+          </span>
+        </p>
+      )}
+
+      <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
+        {hasClones ? `${VERSIONS_COPY.deleteKeepsClones} ` : ""}
+        {VERSIONS_COPY.deleteBody}
+      </p>
+
+      {error ? (
+        <p
+          role="alert"
+          className="flex items-start gap-2 text-[13px] leading-relaxed text-primary"
+        >
+          <AlertIcon width={16} height={16} className="mt-0.5 shrink-0" />
+          {error}
+        </p>
+      ) : null}
+
+      <div className="mt-auto flex flex-col gap-2.5 pt-2 sm:flex-row-reverse">
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={pending}
+          className={`${CTA_PRIMARY_CLASS} px-8 disabled:opacity-45 sm:flex-1`}
+        >
+          <TrashIcon width={18} height={18} />
+          {pending ? VERSIONS_COPY.deleting : VERSIONS_COPY.deleteSubmit}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={pending}
+          className={`${CTA_SECONDARY_CLASS} px-8 disabled:opacity-45 sm:flex-1`}
+        >
+          {VERSIONS_COPY.cancel}
+        </button>
+      </div>
+    </Dialog>
+  );
+}

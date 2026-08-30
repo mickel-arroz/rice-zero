@@ -14,11 +14,10 @@ import {
   NODE_TEXT_DEBOUNCE_MS,
   planNodeSave,
 } from "@/components/tree/autosave";
-import type { ProjectVersion, TreeNode } from "@/lib/backend/ports";
+import type { TreeNode } from "@/lib/backend/ports";
 import { TREE_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { nodeService } from "@/lib/services/nodes";
-import { versionService } from "@/lib/services/versions";
 import { treeRows, type TreeRow } from "@/lib/tree/rows";
 
 /**
@@ -68,7 +67,6 @@ export type SaveState = "saved" | "saving" | "error";
 
 type TreeState = {
   status: Status;
-  version: ProjectVersion | null;
   nodes: TreeNode[];
   /** El fallo que impide pintar el árbol, ya en español. */
   error: string | null;
@@ -79,7 +77,6 @@ type TreeState = {
 
 type TreeContextValue = {
   status: Status;
-  version: ProjectVersion | null;
   error: string | null;
   save: SaveState;
   saveError: string | null;
@@ -111,15 +108,22 @@ type TreeContextValue = {
 const TreeContext = createContext<TreeContextValue | null>(null);
 
 export function TreeProvider({
-  projectId,
+  versionId,
   children,
 }: {
-  projectId: string;
+  /**
+   * La Versión abierta, ya comprobada por `VersionsProvider`.
+   *
+   * Llega HECHA y no se deduce aquí: desde #14 la Versión viaja en la URL, y
+   * quien la valida es el provider que ya tiene la lista del Proyecto delante.
+   * Un segundo sitio que resolviera «cuál estoy editando» sería un segundo
+   * sitio del que podría salir otra respuesta.
+   */
+  versionId: string;
   children: React.ReactNode;
 }) {
   const [state, setState] = useState<TreeState>({
     status: "loading",
-    version: null,
     nodes: [],
     error: null,
     save: "saved",
@@ -134,7 +138,6 @@ export function TreeProvider({
   // segundo — que es justo el que se quiere pisar.
   const nodesRef = useRef<TreeNode[]>([]);
   const draftsRef = useRef<Record<string, string>>({});
-  const versionRef = useRef<string | null>(null);
 
   // Una carga puede llegar tarde y pisar a la siguiente. El contador dice cuál
   // es la vigente; las respuestas de las viejas se tiran. Igual que en
@@ -156,14 +159,11 @@ export function TreeProvider({
   const fetchTree = useCallback(async () => {
     const ticket = ++loadTicket.current;
     try {
-      const version = await versionService().active(projectId);
-      const nodes = await nodeService().list(version.id);
+      const nodes = await nodeService().list(versionId);
       if (ticket !== loadTicket.current) return;
-      versionRef.current = version.id;
       putNodes(nodes);
       setState({
         status: "ready",
-        version,
         nodes,
         error: null,
         save: "saved",
@@ -174,12 +174,11 @@ export function TreeProvider({
       setState((prev) => ({
         ...prev,
         status: "error",
-        version: null,
         nodes: [],
         error: errorMessage(error),
       }));
     }
-  }, [projectId, putNodes]);
+  }, [versionId, putNodes]);
 
   const reload = useCallback(async () => {
     setState((prev) => ({ ...prev, status: "loading", error: null }));
@@ -374,16 +373,12 @@ export function TreeProvider({
   /**
    * Ejecuta una escritura de estructura y deja el árbol como quedó de verdad.
    *
-   * @param write recibe el id de la Versión abierta y devuelve, si quiere, el
-   *   Nodo que hay que dejar seleccionado y en edición — que es siempre el
-   *   recién creado: un Nodo nuevo nace vacío, y lo siguiente que va a pasar
-   *   es que alguien escriba en él.
+   * @param write devuelve, si quiere, el Nodo que hay que dejar seleccionado
+   *   y en edición — que es siempre el recién creado: un Nodo nuevo nace
+   *   vacío, y lo siguiente que va a pasar es que alguien escriba en él.
    */
   const run = useCallback(
-    async (write: (versionId: string) => Promise<TreeNode | void>) => {
-      const versionId = versionRef.current;
-      if (!versionId) return;
-
+    async (write: () => Promise<TreeNode | void>) => {
       // Lo tecleado va ANTES que el cambio de estructura: las dos escrituras
       // tocan la misma fila y la relectura de después tiene que traer las dos.
       // Y si el texto NO se pudo guardar, aquí se para: seguir dejaría el pie
@@ -393,7 +388,7 @@ export function TreeProvider({
 
       setState((prev) => ({ ...prev, save: "saving", saveError: null }));
       try {
-        const created = await write(versionId);
+        const created = await write();
         const nodes = await nodeService().list(versionId);
         putNodes(nodes);
         setState((prev) => ({
@@ -416,40 +411,39 @@ export function TreeProvider({
         throw error;
       }
     },
-    [flushPending, putNodes],
+    [flushPending, putNodes, versionId],
   );
 
   const createRoot = useCallback(
-    () => run((versionId) => nodeService().createRoot(versionId)),
-    [run],
+    () => run(() => nodeService().createRoot(versionId)),
+    [run, versionId],
   );
 
   const createChild = useCallback(
-    (parentId: string) =>
-      run((versionId) => nodeService().createChild(versionId, parentId)),
-    [run],
+    (parentId: string) => run(() => nodeService().createChild(versionId, parentId)),
+    [run, versionId],
   );
 
   const createSibling = useCallback(
     (siblingId: string) =>
-      run((versionId) => nodeService().createSibling(versionId, siblingId)),
-    [run],
+      run(() => nodeService().createSibling(versionId, siblingId)),
+    [run, versionId],
   );
 
   const moveTo = useCallback(
     (nodeId: string, toIndex: number) =>
-      run(async (versionId) => {
+      run(async () => {
         await nodeService().reorder(versionId, nodeId, toIndex);
       }),
-    [run],
+    [run, versionId],
   );
 
   const reparent = useCallback(
     (nodeId: string, parentId: string | null) =>
-      run(async (versionId) => {
+      run(async () => {
         await nodeService().reparent(versionId, nodeId, parentId);
       }),
-    [run],
+    [run, versionId],
   );
 
   const remove = useCallback(
@@ -498,7 +492,6 @@ export function TreeProvider({
   const value = useMemo(
     () => ({
       status: state.status,
-      version: state.version,
       error: state.error,
       save: state.save,
       saveError: state.saveError,

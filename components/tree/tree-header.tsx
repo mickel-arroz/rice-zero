@@ -8,6 +8,7 @@ import { ChevronLeftIcon } from "@/components/icons/chevron-left-icon";
 import { useProjects } from "@/components/projects/projects-provider";
 import { useTree } from "@/components/tree/tree-provider";
 import { ViewSwitch } from "@/components/tree/view-switch";
+import { VersionPicker } from "@/components/versions/version-picker";
 import { ROUTES, TREE_COPY, type TreeView } from "@/lib/constants";
 
 /**
@@ -71,20 +72,16 @@ export function TreeHeader({
         )}
       </div>
 
-      {tree.version ? (
-        <p className="flex flex-wrap items-center gap-2.5">
-          <span className="inline-flex h-6.5 items-center rounded-full border border-border px-2.5 text-[11px] tracking-[0.1em] uppercase">
-            {TREE_COPY.versionChip(tree.version.versionNumber)}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {TREE_COPY.versionName(
-              tree.version.versionNumber,
-              tree.version.label,
-            )}{" "}
-            · {TREE_COPY.nodeCount(tree.nodes.length)}
-          </span>
-        </p>
-      ) : null}
+      {/* La pastilla que solo DECÍA la Versión pasa a ser el control que la
+          cambia (#14). La cuenta de Nodos se queda fuera del botón: es del
+          árbol que estás mirando, no del selector, y meterla dentro haría que
+          la pastilla cambiara de ancho cada vez que se crea un Nodo. */}
+      <div className="flex flex-wrap items-center gap-2.5">
+        <VersionPicker projectId={projectId} />
+        <span className="text-xs text-muted-foreground">
+          {TREE_COPY.nodeCount(tree.nodes.length)}
+        </span>
+      </div>
     </header>
   );
 }
