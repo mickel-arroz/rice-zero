@@ -70,16 +70,27 @@ export function DeleteVersionDialog({
       onClose={onClose}
       closeLabel={VERSIONS_COPY.close}
     >
-      {/* La cifra solo aparece cuando se sabe: ver `useNodeCount`. */}
+      {/* La cifra solo aparece cuando se sabe: ver `useNodeCount`.
+
+          Enmarcada y centrada, no en línea con el texto: la NDot es una fuente
+          de matriz de puntos y sus cifras ocupan bastante menos alto que su
+          `font-size`, así que puesta al lado de una frase se queda flotando en
+          un hueco. Es el mismo recuadro de 72 px que ya usa la confirmación de
+          podar un Nodo, que es de donde viene esta pantalla. */}
       {nodes === null ? null : (
-        <p className="flex items-baseline gap-3">
-          <span className="font-display text-[56px] leading-none text-primary">
-            {nodes}
-          </span>
-          <span className="text-[13px] leading-relaxed text-muted-foreground">
-            {VERSIONS_COPY.deleteFalls(nodes)}
-          </span>
-        </p>
+        <div className="flex items-center gap-4 rounded-[18px] border border-border p-4">
+          <div className="flex w-[72px] shrink-0 flex-col items-center gap-1">
+            <span className="font-display text-[44px] leading-none text-primary">
+              {nodes}
+            </span>
+            <span className="text-center text-[9px] tracking-[0.1em] text-muted-foreground uppercase">
+              {VERSIONS_COPY.deleteFalls(nodes)}
+            </span>
+          </div>
+          <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-pretty text-muted-foreground">
+            {VERSIONS_COPY.deleteSubtree}
+          </p>
+        </div>
       )}
 
       <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">

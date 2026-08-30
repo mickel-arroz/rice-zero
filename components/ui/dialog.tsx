@@ -69,7 +69,15 @@ export function Dialog({
   useEffect(() => {
     // Sin esto, quien navega con teclado sigue en el botón que abrió el
     // diálogo, detrás del velo.
-    panel.current?.focus();
+    //
+    // Pero solo si NADIE de dentro se lo llevó ya. Un campo con `autoFocus`
+    // toma el foco al montarse —React lo aplica en el commit, antes de que
+    // corra este efecto—, y llamar a `focus()` aquí sin mirar se lo quitaba:
+    // el diálogo se abría con el cursor en el panel, y quien empezaba a
+    // teclear sin pinchar el campo escribía en la nada. Pasaba en los tres
+    // diálogos con campo: crear Proyecto, editar Proyecto y clonar Versión.
+    const el = panel.current;
+    if (el && !el.contains(document.activeElement)) el.focus();
 
     // El fondo no debe poder desplazarse por debajo del diálogo: en el teléfono
     // el diálogo ocupa la pantalla entera y arrastrar movería la lista de

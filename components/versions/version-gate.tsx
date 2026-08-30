@@ -51,10 +51,7 @@ export function VersionGate({
     <main className="flex flex-1 flex-col px-6 py-6 lg:px-16 lg:py-10">
       <div className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-3xl">
         {status === "loading" ? (
-          // La silueta ya dice la forma; esto es para quien no la ve.
-          <p role="status" className="sr-only">
-            {VERSIONS_COPY.loading}
-          </p>
+          <Skeleton />
         ) : status === "error" ? (
           <ErrorCard
             title={VERSIONS_COPY.errorTitle}
@@ -108,5 +105,38 @@ export function VersionGate({
         )}
       </div>
     </main>
+  );
+}
+
+/**
+ * Lo que se ve mientras se confirma qué Versión es ésta.
+ *
+ * Hace falta porque la puerta sustituye a la pantalla ENTERA, silueta de carga
+ * del árbol incluida: sin esto, abrir un Proyecto enseñaba una página en blanco
+ * hasta que volvía la lista. La forma es la de la cabecera que viene detrás
+ * —volver, título, pastilla de Versión— y tres filas de Nodo, para que al
+ * llegar los datos no salte nada de sitio.
+ */
+function Skeleton() {
+  return (
+    <div className="flex flex-col gap-3" aria-hidden="true">
+      <span className="h-4 w-24 rounded-full bg-accent" />
+      <span className="h-8 w-40 rounded-full bg-accent" />
+      <span className="h-7 w-64 rounded-lg bg-accent lg:h-12" />
+      <span className="h-8 w-52 rounded-full bg-accent" />
+      <div className="mt-2 flex flex-col gap-2">
+        {[0, 1, 2].map((row) => (
+          <span
+            key={row}
+            className="rounded-2xl border border-border"
+            style={{ height: 50, marginLeft: row === 0 ? 0 : 22 }}
+          />
+        ))}
+      </div>
+      {/* La silueta ya dice la forma; esto es para quien no la ve. */}
+      <p role="status" className="sr-only">
+        {VERSIONS_COPY.loading}
+      </p>
+    </div>
   );
 }

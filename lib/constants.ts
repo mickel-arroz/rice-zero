@@ -548,6 +548,8 @@ export const VERSIONS_COPY = {
   deleteTitle: (name: string) => `¿Borrar «${name}»?`,
   /** El pie de la cifra grande, como al podar un Nodo. Ver `TREE_COPY.deleteFalls`. */
   deleteFalls: (n: number) => (n === 1 ? "Nodo cae con ella" : "Nodos caen con ella"),
+  /** Al lado de la cifra: qué es exactamente lo que se lleva por delante. */
+  deleteSubtree: "Se va el árbol entero de esta Versión, y sus Análisis con él.",
   deleteBody: "No se puede deshacer.",
   /** Lo que NO se lleva por delante: el clon ya es independiente. */
   deleteKeepsClones: "Las Versiones clonadas de ésta no se tocan.",
