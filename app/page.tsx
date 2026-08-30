@@ -34,7 +34,7 @@ const FEATURES = [
     ordinal: "03",
     title: "Prompts por IA",
     description:
-      "Envía una versión a la IA y recibe un Master Prompt y Feature Prompts listos para tu agente de código.",
+      "Envía una versión a la IA y recibe un spec y tickets con checks, listos para tu agente de código.",
   },
 ] as const;
 

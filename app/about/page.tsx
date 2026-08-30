@@ -45,13 +45,13 @@ const LOOP = [
     ordinal: "03",
     title: "Analiza",
     description:
-      "La IA lee el árbol serializado y devuelve resumen, preguntas de clarificación y features estructuradas.",
+      "La IA lee el árbol serializado, deduce si pides un proyecto nuevo o un arreglo, y devuelve un spec con tickets.",
   },
   {
     ordinal: "04",
     title: "Ejecuta",
     description:
-      "Master Prompt y Feature Prompts en texto plano: al portapapeles o descargados como .md.",
+      "Master Prompt y Ticket Prompts en texto plano, con sus checks: al portapapeles o descargados como .md.",
   },
 ] as const;
 
