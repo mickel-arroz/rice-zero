@@ -93,6 +93,48 @@ function adapterOverride(adapter) {
   };
 }
 
+/**
+ * El límite de la capa de IA: `lib/ai/` no toca red ni lee credenciales.
+ *
+ * Mismo criterio que el límite del Proveedor de Backend, y por la misma razón:
+ * el schema, el prompt y el renderer son módulos puros contra los que se
+ * construye el adaptador de Gemini (#23, #15), y el atajo natural cuando
+ * aprieta es importar el SDK «solo para esto» en el módulo del prompt. La
+ * regla existe para que ese atajo falle en el editor y no cuando la suite
+ * empiece a pedir una API key.
+ *
+ * Solo alcanza a los archivos SUELTOS de `lib/ai/`. Un futuro
+ * `lib/ai/adapters/gemini/` queda fuera a propósito: ahí es donde el SDK va.
+ */
+const noNetworkInAi = {
+  "no-restricted-imports": [
+    "error",
+    {
+      patterns: [
+        {
+          // Lista blanca y no negra, escrita como regex porque es lo único
+          // que expresa «todo menos esto»: Zod, que es quien fija la forma de
+          // la respuesta, y código del propio repo. Lo demás —un SDK, un
+          // cliente HTTP, `node:https`— significa que la frontera se movió.
+          // Negra no serviría: el SDK de #15 todavía no se sabe cuál es.
+          regex: "^(?!@/lib/|zod$)",
+          message:
+            "lib/ai/ es puro: solo importa Zod y código del repo. El SDK va en su adaptador.",
+        },
+      ],
+    },
+  ],
+  "no-restricted-properties": [
+    "error",
+    {
+      object: "process",
+      property: "env",
+      message:
+        "lib/ai/ no lee credenciales: la API key es cosa del adaptador, no del contrato.",
+    },
+  ],
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -113,6 +155,12 @@ const eslintConfig = defineConfig([
     // los importa a los dos, y esa es justamente su razón de existir.
     files: ["lib/backend/**/*.{ts,tsx,mts,cts}"],
     rules: noVendorSdks,
+  },
+  {
+    files: ["lib/ai/*.ts"],
+    // Los tests importan `vitest`, que no es ni Zod ni código del repo.
+    ignores: ["lib/ai/*.test.ts"],
+    rules: noNetworkInAi,
   },
   adapterOverride("neon"),
   adapterOverride("supabase"),
