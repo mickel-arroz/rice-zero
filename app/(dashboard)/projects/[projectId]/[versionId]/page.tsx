@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { AnalysisProvider } from "@/components/analysis/analysis-provider";
 import { TreeProvider } from "@/components/tree/tree-provider";
 import { TreeScreen } from "@/components/tree/tree-screen";
 import { VersionGate } from "@/components/versions/version-gate";
@@ -18,6 +19,25 @@ export const metadata: Metadata = {
 
 /** La sesión sale de las cookies de la petición, así que nada se prerenderiza. */
 export const dynamic = "force-dynamic";
+
+/**
+ * Cuánto se le deja al servidor antes de que la plataforma corte. En segundos.
+ *
+ * Está aquí y no en la capa de IA porque un Server Action se compila a un POST
+ * contra la RUTA que lo invoca: `generateAnalysis` corre bajo esta página, así
+ * que este número es el suyo. `AI_CONFIG` ya lo avisaba —«la ruta que monte el
+ * panel tiene que declarar un `maxDuration` por encima»— y sin esto el aviso se
+ * habría quedado en un comentario.
+ *
+ * 150 y no 120: el presupuesto de la cadena de modelos son dos minutos, y si el
+ * corte de la plataforma cayera en el mismo sitio ganaría el suyo — que llega
+ * como un fallo del framework y no como el `AnalysisTimeoutError` que el panel
+ * sabe explicar. El margen es para que el corte lo dé siempre nuestro código.
+ *
+ * ⚠ Un plan que no llegue a este número no puede servir esta app tal cual: la
+ * generación se cortaría por fuera antes de que la cadena termine.
+ */
+export const maxDuration = 150;
 
 /**
  * El árbol de UNA Versión, en cualquiera de las dos vistas.
@@ -64,7 +84,19 @@ export default async function VersionPage({
 
   return (
     <VersionsProvider projectId={projectId} versionId={versionId}>
-      {/* Dos decisiones en tres líneas de JSX:
+      {/* El Panel de IA cuelga POR ENCIMA del árbol, y ése es todo el
+          mecanismo de «editar mientras genera: cero bloqueos». Montado aquí,
+          una generación de cuarenta segundos y la escritura de un Nodo no
+          comparten ni un `setState`, así que no hay forma de que la primera
+          bloquee a la segunda — y cerrar la hoja no cancela nada, porque la
+          hoja se desmonta y esto no. No hace falta código que lo sincronice;
+          hace falta este orden.
+
+          Lleva `key` por lo mismo que el árbol: el Análisis pertenece a UNA
+          Versión, y saltar de la v7 a la v3 tiene que dejar atrás también lo
+          que la IA dijo de la v7. */}
+      <AnalysisProvider key={`ai-${versionId}`} versionId={versionId}>
+        {/* Dos decisiones en tres líneas de JSX:
 
           · `key` en la Versión — cambiar de Versión DESMONTA el árbol en vez
             de reusarlo. Sin esto, lo tecleado a medio guardar y la selección
@@ -74,11 +106,12 @@ export default async function VersionPage({
             Nodos sale a la vez que la lista de Versiones y solo se retiene lo
             que se PINTA. Fuera, abrir un Proyecto costaría un viaje de más
             siempre. Ver `VersionGate`. */}
-      <TreeProvider key={versionId} versionId={versionId}>
-        <VersionGate projectId={projectId}>
-          <TreeScreen projectId={projectId} initialView={view} />
-        </VersionGate>
-      </TreeProvider>
+        <TreeProvider key={versionId} versionId={versionId}>
+          <VersionGate projectId={projectId}>
+            <TreeScreen projectId={projectId} initialView={view} />
+          </VersionGate>
+        </TreeProvider>
+      </AnalysisProvider>
     </VersionsProvider>
   );
 }

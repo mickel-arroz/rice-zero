@@ -97,6 +97,25 @@ type TreeContextValue = {
   setText(id: string, content: string): void;
 
   createRoot(): Promise<void>;
+  /**
+   * Una pregunta de clarificación del Análisis, con hueco para contestarla.
+   *
+   * Deja DOS Nodos: la pregunta como raíz, y colgando de ella uno vacío y
+   * abierto para escribir la respuesta. Los dos, y no solo uno, porque si la
+   * pregunta fuera el Nodo editable lo primero que se teclease la borraría — y
+   * la pregunta tiene que quedarse: es el contexto que hace que la respuesta se
+   * entienda en la siguiente generación.
+   *
+   * Vive aquí y no en el Panel de IA aunque sea el panel quien la ofrece,
+   * porque son dos escrituras que tienen que ir dentro del mismo `run`: sin él
+   * no se esperaría al Autoguardado pendiente ni se releería el árbol una sola
+   * vez al final, y un fallo a mitad dejaría la pregunta sin su hueco.
+   *
+   * No contesta nada por su cuenta: responder preguntas dentro de la interfaz
+   * sigue fuera de alcance (spec #1). Esto es el atajo del paso que la historia
+   * 40 ya manda dar a mano — editar el árbol y regenerar.
+   */
+  createQuestion(question: string): Promise<void>;
   createChild(parentId: string): Promise<void>;
   createSibling(siblingId: string): Promise<void>;
   /** Mueve un Nodo entre sus hermanos. El destino se recorta al rango. */
@@ -419,6 +438,18 @@ export function TreeProvider({
     [run, versionId],
   );
 
+  const createQuestion = useCallback(
+    (question: string) =>
+      run(async () => {
+        const asked = await nodeService().createRoot(versionId, question);
+        // Lo que devuelve el `run` es lo que queda seleccionado y abierto, y
+        // aquí eso es el HIJO: la pregunta ya está escrita, lo que falta es la
+        // respuesta.
+        return nodeService().createChild(versionId, asked.id);
+      }),
+    [run, versionId],
+  );
+
   const createChild = useCallback(
     (parentId: string) => run(() => nodeService().createChild(versionId, parentId)),
     [run, versionId],
@@ -506,6 +537,7 @@ export function TreeProvider({
       stopEditing,
       setText,
       createRoot,
+      createQuestion,
       createChild,
       createSibling,
       moveTo,
@@ -524,6 +556,7 @@ export function TreeProvider({
       stopEditing,
       setText,
       createRoot,
+      createQuestion,
       createChild,
       createSibling,
       moveTo,

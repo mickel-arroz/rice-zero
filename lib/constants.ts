@@ -582,6 +582,223 @@ export const CANVAS_COPY = {
 } as const;
 
 /**
+ * Todo el texto del Panel de IA, en un sitio.
+ *
+ * Aparte de `TREE_COPY` por lo mismo que `VERSIONS_COPY`: lo de allí es del
+ * árbol y sus dos vistas, y esto es de una capa que se abre encima y habla de
+ * otra cosa. El día que alguien busque «¿de dónde sale “los marca el agente”?»
+ * tiene que encontrarlo aquí y no entre la copia de las filas de Nodos.
+ *
+ * Lo que NO está aquí son los mensajes de los FALLOS. Esos los escriben las
+ * clases de `lib/ai/errors.ts` y viajan dentro de `AnalysisFailure.message`, ya
+ * en español y ya listos para enseñar. Copiarlos aquí sería tener el mismo «se
+ * agotó la cuota» en dos sitios esperando a que alguien toque uno. Lo que sí
+ * está es el TITULAR de cada categoría, que es cosa de la pantalla: el mensaje
+ * dice qué pasó y el titular lo dice en el idioma de quien lo lee.
+ *
+ * Tampoco está el rechazo de la Versión vacía: lo escribe `ANALYSIS_ERRORS` en
+ * `lib/services/analyses.ts`, junto al límite que lo provoca.
+ */
+export const ANALYSIS_COPY = {
+  /** El marcador de sección de la hoja, y su etiqueta accesible. */
+  label: "Análisis",
+
+  /**
+   * Los tres estados de la puerta. Ver `doorState` en `components/analysis`.
+   *
+   * «Análisis listo» y no «Ver Análisis» porque cuando aparece, la persona
+   * estaba escribiendo en el árbol: lo que necesita saber es que llegó, no qué
+   * hacer con ello.
+   */
+  door: {
+    analizar: "Analizar",
+    generando: "Generando",
+    listo: "Análisis listo",
+  },
+  openPanel: "Abrir el Panel de IA",
+  closePanel: "Cerrar el Panel de IA",
+
+  /* ── Antes de generar ─────────────────────────────────────────────────── */
+
+  emptyTitle: "Analizar esta Versión",
+  /** Bajo el título, mientras no haya ningún Análisis guardado. */
+  emptyMeta: (nodes: number) =>
+    `${nodes} ${nodes === 1 ? "Nodo" : "Nodos"} · todavía sin analizar`,
+
+  guidelinesField: "Directrices — opcional",
+  /**
+   * El marcador de posición ENSEÑA para qué sirven las Directrices.
+   *
+   * Un ejemplo y no «escribe aquí…»: la Intención no se elige en la UI (ADR
+   * 0003), así que este campo es la única palanca para corregirla, y una
+   * persona que no lo sepa no la usará nunca. El ejemplo es justo el caso que
+   * el ADR pone: desmentir un «proyecto nuevo».
+   */
+  guidelinesPlaceholder:
+    "Es un arreglo sobre algo ya desplegado, no un proyecto nuevo.",
+  guidelinesHint:
+    "Van con prioridad máxima por delante del árbol. Son también la única forma de corregir la Intención.",
+  /** Mientras la petición está en vuelo: lo escrito ya salió, tocarlo no la alcanza. */
+  guidelinesSent: "Directrices — enviadas",
+  guidelinesCount: (used: number, max: number) =>
+    `${used.toLocaleString("es")} / ${max.toLocaleString("es")}`,
+
+  generate: "Generar",
+  generating: "Generando…",
+  /** El botón durante la espera que impuso el proveedor. Ver `retryPlan`. */
+  retryIn: (seconds: number) => `Reintentar en ${seconds} s`,
+  retry: "Reintentar",
+  regenerate: "Regenerar",
+
+  /**
+   * Lo que se promete al pulsar. Los dos datos que la gente pregunta: cuánto
+   * tarda y si puede irse.
+   *
+   * Los 40 s no son un adorno: es lo que midieron tres Análisis reales el
+   * 2026-09-04 (ver `AI_CONFIG.timeoutMs`).
+   */
+  generateHint: "Suele tardar unos 40 s. Puedes cerrar esta hoja y seguir editando el árbol.",
+  generatingTitle: "Generando…",
+  generatingMeta: (nodes: number) =>
+    `Leyendo tus ${nodes} ${nodes === 1 ? "Nodo" : "Nodos"}. Unos 40 s.`,
+  generatingHint:
+    "Cierra la hoja si quieres: el árbol se sigue editando y el Análisis llega igual.",
+
+  /* ── Leer el último Análisis guardado ─────────────────────────────────── */
+
+  loading: "Cargando el Análisis",
+  loadErrorTitle: "No se pudo cargar el Análisis.",
+  loadErrorBody:
+    "Parece que no hay conexión. Puedes seguir editando el árbol y volver a intentarlo.",
+
+  /**
+   * QUÉ modelo lo escribió. No cuándo: la fecha es material del historial (#17).
+   *
+   * Se enseña porque el adaptador tiene cadena de reserva y el ADR 0003 pide
+   * que degradar no sea silencioso: un Análisis flojo se explica sabiendo que
+   * lo sirvió un plan B. Por eso existe `ai_analyses.model`.
+   */
+  provenance: (model: string) => `Escrito por ${model}`,
+
+  /* ── El Análisis ──────────────────────────────────────────────────────── */
+
+  intentLabel: "Intención deducida",
+  /**
+   * Cómo se lee cada Intención. Las claves son el enum cerrado del schema.
+   *
+   * En mayúsculas porque se pintan en NDot a 40 px: es la única palabra del
+   * panel que tiene que leerse de un vistazo, y la NDot es la display de la
+   * app. Un `Record` completo y no una función con `default`: si mañana nace
+   * una Intención nueva en el schema, esto deja de compilar, que es justo lo
+   * que hay que enterarse.
+   */
+  intents: {
+    "proyecto-nuevo": "PROYECTO NUEVO",
+    feature: "FEATURE",
+    fix: "FIX",
+    refactor: "REFACTOR",
+    ui: "UI",
+    infra: "INFRA",
+    docs: "DOCS",
+    otro: "OTRO",
+  } as const,
+  /**
+   * La salida cuando la IA se equivocó de Intención.
+   *
+   * Va DENTRO del bloque de la Intención a propósito: es lo que el ADR 0003
+   * pide que el panel empuje. Sin ella, la única palanca de corrección queda
+   * plegada en el pie sin que nada diga que es ahí donde se arregla.
+   */
+  intentWrong: "¿No es eso?",
+  intentFix: "Corregir con Directrices",
+
+  summary: "Resumen",
+
+  questions: "Preguntas de clarificación",
+  /** Las preguntas no se contestan en el panel: es alcance de v1 del spec. */
+  questionsReadOnly: "Solo lectura",
+  questionsHint:
+    "Aquí no se contestan. «Al árbol» crea el Nodo con la pregunta; la respuesta la escribes tú y vuelves a generar.",
+  /**
+   * Lleva una pregunta al único sitio donde se puede contestar.
+   *
+   * No responde nada en la interfaz —eso sigue fuera de alcance—: crea un Nodo
+   * raíz con la pregunta dentro y abre el campo debajo. Es el atajo del paso
+   * que la historia 40 ya manda dar a mano.
+   */
+  questionToTree: "Al árbol",
+  questionToTreeHint: (question: string) =>
+    `Crear un Nodo en el árbol con la pregunta: ${question}`,
+
+  spec: "Spec",
+  specProblem: "Problema",
+  specSolution: "Solución",
+  specDecisions: "Decisiones de implementación",
+  specTesting: "Decisiones de testing",
+  specOutOfScope: "Fuera de alcance",
+
+  checks: "Checks",
+  /**
+   * Por qué las casillas están apagadas.
+   *
+   * Sin esta línea, una casilla deshabilitada parece un fallo. Los Checks son
+   * la prueba que tiene que cumplir el agente al que se le pegue el Master
+   * Prompt, no un TODO list de la app — y el Análisis, además, es histórico y
+   * no se edita nunca (`ports/entities.ts`).
+   */
+  checksWhy: "los marca el agente",
+
+  tickets: "Tickets",
+  /**
+   * Cuántos son, y nada más.
+   *
+   * Decía «en orden de bloqueo» y era una promesa que nadie sostiene: el schema
+   * comprueba que los `blockedBy` existan y no formen ciclos, no que los
+   * Tickets vengan ordenados topológicamente. La copia afirmaba una garantía
+   * del modelo que el modelo no da.
+   */
+  ticketCount: (n: number) => `${n} en total`,
+  blockedBy: "Bloqueado por",
+  /** Un bloqueo se nombra por su título, no por su id: el id no dice nada. */
+  blocker: (id: string, title: string) => `${id} · ${title}`,
+
+  /* ── Cuando algo falla ────────────────────────────────────────────────── */
+
+  /**
+   * El titular de cada categoría de fallo.
+   *
+   * El CUERPO lo escribe la clase que falló y viaja en `failure.message`; esto
+   * es solo el titular, que es cosa de la pantalla. El de `cuota` es literal
+   * del criterio de aceptación: «límite de la API gratuita alcanzado».
+   *
+   * `Record` completo sobre `AnalysisErrorKind`: una categoría nueva en la
+   * taxonomía rompe la compilación aquí en vez de salir sin titular.
+   */
+  failures: {
+    cuota: "Límite de la API gratuita alcanzado",
+    timeout: "La IA tardó demasiado",
+    red: "No se pudo contactar con la IA",
+    malformada: "La IA devolvió algo que no es un Análisis",
+    configuracion: "Falta configuración del Proveedor de IA",
+    sesion: "Hay que entrar para generar",
+    entrada: "Esto no se puede analizar",
+  } as const,
+  /**
+   * Lo que se promete al que acaba de ver fallar una generación.
+   *
+   * Las dos mitades importan: no se ha gastado nada de su árbol (nada se
+   * persiste si no valida, ADR 0003) y lo que escribió sigue escrito, que es
+   * un criterio de aceptación literal del ticket.
+   */
+  failureKept: "No se ha gastado nada de tu árbol. Tus Directrices siguen escritas.",
+  quotaHint:
+    "El free tier de Gemini se reparte por minuto. La espera la dice el propio proveedor.",
+  dismiss: "Descartar el aviso",
+  /** Cuando no hay sesión, lo que hace falta no es un botón sino ir a entrar. */
+  goToLogin: "Entrar",
+} as const;
+
+/**
  * Todo el texto de la gestión de Versiones, en un sitio.
  *
  * Aparte de `TREE_COPY` aunque el selector viva en su cabecera, y por la misma

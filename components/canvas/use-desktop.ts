@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useMediaQuery } from "@/components/ui/use-media-query";
 
 /**
  * Si el lienzo está en un escritorio, y por tanto se puede editar.
@@ -19,10 +19,9 @@ import { useSyncExternalStore } from "react";
  * la consulta tiene que llegar a JavaScript, y se hace en un solo sitio — con
  * las MISMAS dos condiciones que usa el CSS, no solo con el ancho.
  *
- * `useSyncExternalStore` y no un `useEffect` con estado: en el servidor no hay
- * ventana que medir, y devolver `false` allí es la respuesta correcta —
- * arranca sin arrastre y lo enciende la hidratación, en vez de prometer una
- * edición que todavía no está montada.
+ * El cableado —suscribirse, medir, contestar `false` en el servidor— es el
+ * mismo para cualquier consulta y vive en `useMediaQuery`. Aquí se queda lo
+ * único propio: QUÉ se pregunta y por qué.
  */
 
 /**
@@ -41,16 +40,6 @@ import { useSyncExternalStore } from "react";
  */
 const DESKTOP_QUERY = "(min-width: 64rem) and (hover: hover)";
 
-function subscribe(onChange: () => void): () => void {
-  const query = window.matchMedia(DESKTOP_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
 export function useDesktop(): boolean {
-  return useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(DESKTOP_QUERY).matches,
-    () => false,
-  );
+  return useMediaQuery(DESKTOP_QUERY);
 }

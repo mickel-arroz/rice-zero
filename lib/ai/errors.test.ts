@@ -147,4 +147,32 @@ describe("RemoteAnalysisError", () => {
     expect(restored).not.toBeInstanceOf(QuotaExceededError);
     expect(restored.name).toBe("RemoteAnalysisError");
   });
+
+  /**
+   * El viaje entero, que es el que hace de verdad un Análisis que falla.
+   *
+   * La frontera del Server Action se cruza UNA vez, pero el error se describe
+   * DOS: el action lo serializa, el servicio lo vuelve a lanzar como
+   * `RemoteAnalysisError`, y quien lo atrapa —el panel— lo describe otra vez
+   * para guardárselo. Si la segunda descripción no sabe leer la primera, los
+   * campos que solo llevan algunas categorías se pierden por el camino sin que
+   * nada falle: la cuenta atrás del 429 quedaría a nulo y el panel dejaría de
+   * poder ofrecer el reintento que el ticket exige.
+   */
+  it("describirlo otra vez no pierde nada por el camino", () => {
+    const original = new QuotaExceededError(38);
+    const once = describeAnalysisFailure(original);
+    const twice = describeAnalysisFailure(new RemoteAnalysisError(once));
+
+    expect(twice).toEqual(once);
+  });
+
+  it("y tampoco pierde qué regla del schema se incumplió", () => {
+    const original = new MalformedAnalysisError(["tickets: no puede estar vacío"]);
+    const once = describeAnalysisFailure(original);
+    const twice = describeAnalysisFailure(new RemoteAnalysisError(once));
+
+    expect(twice.issues).toEqual(["tickets: no puede estar vacío"]);
+    expect(twice).toEqual(once);
+  });
 });

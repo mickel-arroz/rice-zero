@@ -55,6 +55,25 @@ export const CTA_SECONDARY_CLASS = `${CTA_CLASS} border border-border hover:bord
 export const ICON_BUTTON_CLASS =
   "flex size-9 shrink-0 items-center justify-center rounded-full border border-border text-foreground transition-colors hover:border-primary hover:text-primary";
 
+/**
+ * La pastilla pequeña: versalitas de 11 px sobre un contorno redondo.
+ *
+ * Es el escalón que faltaba entre `ICON_BUTTON_CLASS` —un icono y nada más— y
+ * `CTA_CLASS`, que ocupa 52 px de alto y pesa como la acción principal de una
+ * pantalla. Las acciones de un panel —reintentar, regenerar, entrar— no son ni
+ * una cosa ni la otra, y sin esto cada una se escribía a mano: cuatro copias de
+ * la misma pastilla en dos archivos. Mismo criterio que el resto de este
+ * archivo: dos copias del mismo botón se desincronizan en cuanto alguien toca
+ * una.
+ *
+ * El COLOR no va aquí: unas son de acento y otras neutras, y meter eso dentro
+ * obligaría a un parámetro que decide por los dos.
+ */
+export const PILL_CLASS =
+  "flex h-9 shrink-0 items-center gap-2 rounded-full border px-4 text-[11px] tracking-[0.08em] uppercase transition-opacity hover:opacity-80";
+
+export const PILL_PRIMARY_CLASS = `${PILL_CLASS} border-primary text-primary`;
+
 export function SiteHeader({ current }: { current: PublicPage }) {
   return (
     <header className="flex items-center justify-between border-b border-border bg-background px-6 py-4 lg:px-16">

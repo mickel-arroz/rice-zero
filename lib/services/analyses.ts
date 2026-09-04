@@ -177,8 +177,13 @@ export type AnalysisService = {
  * Nodo» deja una fila con el texto en blanco, que es el estado más normal de
  * una Versión recién empezada. `serializeTree` la pinta como `- (sin texto)`,
  * así que mirar si el texto serializado está vacío tampoco valdría.
+ *
+ * Se exporta porque el panel la necesita para APAGAR el botón antes de que se
+ * pulse. Sin eso, «Generar» sobre una Versión vacía se ve habilitado y el
+ * rechazo llega después como un fallo — la regla es la misma, así que tiene que
+ * salir de aquí y no reescribirse en la pantalla.
  */
-function hasSomethingToAnalyze(nodes: TreeNode[]): boolean {
+export function hasSomethingToAnalyze(nodes: TreeNode[]): boolean {
   return nodes.some((node) => node.content.trim().length > 0);
 }
 

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { AnalyzeButton } from "@/components/analysis/analyze-button";
 import { AlertIcon } from "@/components/icons/alert-icon";
 import { CheckIcon } from "@/components/icons/check-icon";
 import { ChevronLeftIcon } from "@/components/icons/chevron-left-icon";
@@ -53,8 +54,17 @@ export function TreeHeader({
           largo, así que sigue encima — de ahí el `order`, que deja el mismo
           orden de lectura de siempre sin pintar el selector dos veces. */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
-        <div className="order-first lg:order-none">
+        {/* El interruptor y la puerta del Panel de IA comparten fila: la puerta
+            NO es una tercera vista —el panel se abre ENCIMA del árbol, no en su
+            lugar— pero es la otra cosa que se hace desde aquí, y en móvil la
+            fila del interruptor es la única que tiene sitio a la derecha. */}
+        {/* En móvil se reparten la fila —interruptor a la izquierda, puerta a la
+            derecha—; en escritorio van juntos al lado del título, que es donde
+            los pone el boceto. `justify-end` y no `between` porque ahí la fila
+            ya no es suya: la comparten con el `h1`. */}
+        <div className="order-first flex items-center justify-between gap-3 lg:order-none lg:justify-end">
           <ViewSwitch view={view} onChange={onView} />
+          <AnalyzeButton />
         </div>
 
         {project ? (

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { AnalysisLayer } from "@/components/analysis/analysis-layer";
+import { useAnalysisOpen } from "@/components/analysis/analysis-provider";
 import { CanvasView } from "@/components/canvas/canvas-view";
 import { RegistroView } from "@/components/registro/registro-view";
 import { NodeToolbar } from "@/components/tree/node-toolbar";
@@ -37,6 +39,13 @@ export function TreeScreen({
   const [view, setView] = useState<TreeView>(initialView);
   const [fullscreen, setFullscreen] = useState(false);
   const canvas = view === TREE_VIEWS.canvas;
+  // Solo para hacerle sitio al panel acoplado. El panel se pinta ÉL solo, en
+  // una capa fija; esta pantalla no lo posiciona, únicamente se aparta.
+  //
+  // Por el contexto PEQUEÑO, y esa es la diferencia entre cumplir el criterio
+  // de «cero bloqueos» y fingirlo: con el grande, cada tecla escrita en las
+  // Directrices repintaba esta pantalla y con ella el Registro y el Canvas.
+  const analysisOpen = useAnalysisOpen();
 
   const changeView = useCallback(
     (next: TreeView) => {
@@ -111,7 +120,14 @@ export function TreeScreen({
       className={
         fullscreen
           ? "fixed inset-0 z-50 flex flex-col bg-background p-3"
-          : "flex flex-1 flex-col px-6 py-6 lg:px-16 lg:py-10"
+          : `flex flex-1 flex-col px-6 py-6 lg:py-10 ${
+              // Acoplado, el panel es una columna fija pegada al borde derecho
+              // de la ventana; esto es lo que le HACE SITIO. Sin este relleno el
+              // panel taparía el árbol en vez de ponerse a su lado, y en
+              // escritorio eso rompería lo único que hace falta ahí: leer el
+              // Análisis con el árbol delante para poder editarlo.
+              analysisOpen ? "lg:pr-[calc(440px+2rem)] lg:pl-8" : "lg:px-16"
+            }`
       }
     >
       {/* El Canvas se queda con TODO el ancho en escritorio: el ancho de
@@ -141,6 +157,11 @@ export function TreeScreen({
           Registro, que sí va en flujo: la lista se desplaza y su última fila
           tiene que poder subir por encima de la barra. */}
       {canvas ? null : <NodeToolbar />}
+
+      {/* Va al final y fuera de la columna: es una capa, no contenido. Lleva
+          dentro la hoja Y el aviso, porque en móvil se apilan por el mismo
+          borde y el aviso tiene que salir aunque la hoja esté cerrada. */}
+      <AnalysisLayer />
     </main>
   );
 }

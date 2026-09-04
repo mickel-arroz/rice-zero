@@ -237,6 +237,28 @@ export function describeAnalysisFailure(error: unknown): AnalysisFailure {
     };
   }
 
+  // El que YA cruzó la frontera se copia entero y se sale.
+  //
+  // Hace falta porque el camino real describe el fallo DOS veces: el Server
+  // Action serializa el original, el servicio lo relanza como
+  // `RemoteAnalysisError` y quien lo atrapa lo vuelve a describir para
+  // guardárselo. Sin esta rama, la segunda pasada devolvía `null` y `[]` sobre
+  // un fallo que sí traía los datos — la cuenta atrás del 429 se perdía, y con
+  // ella el botón de reintento del panel, sin que fallara nada. Lo cazó
+  // `errors.test.ts` describiendo dos veces seguidas.
+  //
+  // Va primero y aparte en vez de repartirse por las ramas de abajo porque
+  // este error ya ES la forma serializada: no hay nada que deducir de su clase.
+  if (error instanceof RemoteAnalysisError) {
+    return {
+      kind: error.kind,
+      message: error.message,
+      retryable: error.retryable,
+      retryAfterSeconds: error.retryAfterSeconds,
+      issues: error.issues,
+    };
+  }
+
   return {
     kind: error.kind,
     message: error.message,
