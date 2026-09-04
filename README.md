@@ -145,9 +145,21 @@ serviría Análisis inventados sin que nadie se enterara.
   adaptadores. Corre contra el falso en `npm test`.
 
 El modelo NO se configura por entorno: es `AI_CONFIG.geminiModel` en
-`lib/constants.ts`, con la fecha en que se verificó contra la página de pricing
-de Google. Los ids de Gemini son volátiles, y un modelo retirado llega como
-`AnalysisConfigError` justamente para que ese sea el primer sitio donde se mire.
+`lib/constants.ts`, con la fecha en que se verificó. Los ids de Gemini son
+volátiles, y un modelo retirado llega como `AnalysisConfigError` justamente para
+que ese sea el primer sitio donde se mire.
+
+**Verificarlo son DOS comprobaciones, no una.** La página de pricing dice qué
+modelos EXISTEN con free tier; no dice cuáles lo SIRVEN hoy. El #15 se cerró con
+`gemini-3.6-flash` y no con el Flash más nuevo de la página porque `3.8`, `3.7` y
+`3.5` contestaban los tres `503 — This model is currently experiencing high
+demand`, y `gemini-2.5-flash` un `404 — no longer available to new users`. La
+segunda comprobación es `npm run ai:live`, y hay que hacerla.
+
+Ojo también al tiempo: un Análisis real tarda ~40 s con este modelo, así que
+`AI_CONFIG.timeoutMs` está en dos minutos y la ruta que monte el panel tiene que
+declarar un `maxDuration` por encima. Un plan de despliegue que corte sus
+funciones antes de eso no puede servir esta app tal cual.
 
 Los fallos que la capa puede lanzar son siete, cada uno con una decisión
 distinta detrás: `cuota` (esperar), `timeout` y `red` (reintentar), `malformada`

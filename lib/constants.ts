@@ -97,25 +97,42 @@ export const AI_CONFIG = {
   /**
    * El modelo de Gemini.
    *
-   * El último Flash estable con free tier, **verificado el 2026-09-04** contra
-   * https://ai.google.dev/gemini-api/docs/pricing. La fecha no es adorno: los
-   * ids de Gemini son volátiles y los modelos salen del free tier sin avisar,
-   * así que quien lo cambie vuelve a mirar la página y vuelve a escribir la
-   * fecha. Un 404 del proveedor sale como `AnalysisConfigError` justamente
-   * para que este sea el primer sitio donde se mire.
+   * `gemini-3.6-flash`, **verificado el 2026-09-04** contra
+   * https://ai.google.dev/gemini-api/docs/pricing y —esto es lo importante—
+   * contra el free tier de verdad.
+   *
+   * NO es el Flash más nuevo de la página. Lo fue: aquí decía
+   * `gemini-3.8-flash`, que la página lista como el Flash más capaz con free
+   * tier, y contra el que la primera corrida real no consiguió ni una
+   * respuesta. `3.8`, `3.7` y `3.5` contestaban todos
+   * `503 — This model is currently experiencing high demand`, y
+   * `gemini-2.5-flash` un `404 — no longer available to new users`. El único
+   * que servía era éste.
+   *
+   * La lección, para quien lo cambie: la página dice qué modelos EXISTEN con
+   * free tier, no cuáles lo SIRVEN hoy. Las dos comprobaciones son distintas y
+   * hay que hacer las dos — `npm run ai:live` es la segunda. Un 404 sale como
+   * `AnalysisConfigError` y un 503 como `AnalysisNetworkError` justamente para
+   * que este sea el primer sitio donde se mire.
    */
-  geminiModel: "gemini-3.8-flash",
+  geminiModel: "gemini-3.6-flash",
 
   /**
    * Cuánto se espera al modelo antes de rendirse.
    *
-   * El árbol entero entra en el prompt, así que un Proyecto grande tarda de
-   * verdad y un minuto no sobra. Ojo al desplegar: si la plataforma corta sus
-   * funciones antes de esto, el corte que verá el usuario será el de ella y no
-   * éste — la ruta que monte el panel (#16) tiene que declarar su
-   * `maxDuration` por encima de este número.
+   * Dos minutos, y el número sale de una medición y no de una intuición: tres
+   * Análisis reales de los árboles de muestra tardaron 103 s en total, ~34 s
+   * cada uno (2026-09-04, `gemini-3.6-flash`). Aquí decía un minuto, elegido a
+   * ojo, y la primera corrida real se lo comió entero — el árbol entero entra
+   * en el prompt y el Flash de hoy razona antes de contestar.
+   *
+   * ⚠ Ojo al desplegar, y esto pesa más de lo que parece: si la plataforma
+   * corta sus funciones antes de esto, el corte que verá el usuario será el de
+   * ella y no éste. Con ~34 s de media, la ruta que monte el panel (#16) tiene
+   * que declarar un `maxDuration` por encima de este número — y un plan que no
+   * llegue a los dos minutos no puede servir esta app tal cual.
    */
-  timeoutMs: 60_000,
+  timeoutMs: 120_000,
 
   /**
    * Cuántas veces reintenta el SDK antes de rendirse.
