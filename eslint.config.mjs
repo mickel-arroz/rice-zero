@@ -23,17 +23,52 @@ const VENDOR_SDKS = {
 
 const allSdkPatterns = Object.values(VENDOR_SDKS).flat();
 
+/**
+ * El SDK de la capa de IA.
+ *
+ * Mismo trato que los del backend y por la misma razón, más una propia: de
+ * `@ai-sdk/google` cuelga la lectura de la API key, así que un import suelto en
+ * un componente no es solo una capa mal puesta — es una credencial en un bundle
+ * de cliente, que es un criterio de aceptación del #15.
+ *
+ * `ai` a secas va por `paths` y no por `patterns`, y costó un rato: los
+ * `group` de esta regla se evalúan con semántica de `.gitignore`, donde un
+ * patrón SIN barra casa con cualquier segmento del camino. Así que `"ai"`
+ * prohibía también `@/lib/ai/schema` — toda la capa se quedaba sin poder
+ * importarse a sí misma. `paths` compara el nombre exacto del módulo, que es
+ * lo que aquí se quiere; los subcaminos los cubre `ai/**`, que sí lleva barra
+ * y por eso queda anclado al principio.
+ */
+const AI_SDK_PATTERNS = ["ai/**", "@ai-sdk/*", "@ai-sdk/*/**"];
+
+const SDK_MESSAGE =
+  "Un SDK de proveedor solo se importa dentro de lib/backend/adapters/<proveedor>/. Fuera, usa el puerto (@/lib/backend).";
+
+const AI_SDK_MESSAGE =
+  "El SDK de IA solo se importa dentro de lib/ai/adapters/gemini/. Fuera, usa el puerto (@/lib/ai) o la fábrica (@/lib/ai/factory).";
+
+/** El nombre exacto del paquete raíz del SDK. Ver el comentario de arriba. */
+const AI_SDK_PATH = { name: "ai", message: AI_SDK_MESSAGE };
+
+const AI_ADAPTER_MESSAGE =
+  "Los adaptadores de IA son detalle interno de lib/ai/. Llama a getAnalysisProvider() y habla con el puerto.";
+
 const noVendorSdks = {
   "no-restricted-imports": [
     "error",
     {
       patterns: [
-        {
-          group: allSdkPatterns,
-          message:
-            "Un SDK de proveedor solo se importa dentro de lib/backend/adapters/<proveedor>/. Fuera, usa el puerto (@/lib/backend).",
-        },
+        { group: allSdkPatterns, message: SDK_MESSAGE },
+        // Lo prohibido es el SDK y los ADAPTADORES de IA, no la capa entera:
+        // `ports/entities.ts` importa el TIPO del Análisis de `lib/ai/schema.ts`
+        // a propósito, porque ese schema es la fuente de verdad de su forma y un
+        // `type` paralelo se desincronizaría sin que el compilador se enterara.
+        // Es un import de tipo, así que se borra al compilar. Lo que el backend
+        // no puede es hablar con un modelo.
+        { group: AI_SDK_PATTERNS, message: AI_SDK_MESSAGE },
+        { group: ["@/lib/ai/adapters", "@/lib/ai/adapters/**"], message: AI_ADAPTER_MESSAGE },
       ],
+      paths: [AI_SDK_PATH],
     },
   ],
 };
@@ -43,19 +78,69 @@ const noAdapterImports = {
     "error",
     {
       patterns: [
-        {
-          group: allSdkPatterns,
-          message:
-            "Un SDK de proveedor solo se importa dentro de lib/backend/adapters/<proveedor>/. Fuera, usa el puerto (@/lib/backend).",
-        },
+        { group: allSdkPatterns, message: SDK_MESSAGE },
         {
           group: ["@/lib/backend/adapters", "@/lib/backend/adapters/**"],
           message:
             "Los adaptadores son detalle interno de lib/backend/. Llama a getBackend() y habla con el puerto.",
         },
+        { group: AI_SDK_PATTERNS, message: AI_SDK_MESSAGE },
+        { group: ["@/lib/ai/adapters", "@/lib/ai/adapters/**"], message: AI_ADAPTER_MESSAGE },
       ],
+      paths: [AI_SDK_PATH],
     },
   ],
+};
+
+/**
+ * Dentro de `lib/ai/` los adaptadores son código propio: la fábrica los
+ * importa, y esa es justamente su razón de existir. Es la misma asimetría que
+ * `noVendorSdks` concede a `lib/backend/`.
+ *
+ * El SDK sigue prohibido: quien lo levanta es el override del adaptador.
+ */
+const noSdksInAiLayer = {
+  "no-restricted-imports": [
+    "error",
+    {
+      patterns: [
+        { group: allSdkPatterns, message: SDK_MESSAGE },
+        {
+          group: ["@/lib/backend/adapters", "@/lib/backend/adapters/**"],
+          message:
+            "Los adaptadores son detalle interno de lib/backend/. Llama a getBackend() y habla con el puerto.",
+        },
+        { group: AI_SDK_PATTERNS, message: AI_SDK_MESSAGE },
+      ],
+      paths: [AI_SDK_PATH],
+    },
+  ],
+};
+
+/**
+ * El adaptador de Gemini: su SDK sí, los del backend no.
+ *
+ * Sin la asimetría la regla sería «los SDKs se usan en adapters/», que dejaría
+ * al adaptador de Gemini importar `@supabase/*` sin que nadie se enterara —
+ * exactamente el agujero que `adapterOverride` tapa en el backend.
+ */
+const geminiAdapter = {
+  files: ["lib/ai/adapters/gemini/**/*.{ts,tsx,mts,cts}"],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          { group: allSdkPatterns, message: SDK_MESSAGE },
+          {
+            group: ["@/lib/backend/adapters", "@/lib/backend/adapters/**"],
+            message:
+              "Los adaptadores son detalle interno de lib/backend/. Llama a getBackend() y habla con el puerto.",
+          },
+        ],
+      },
+    ],
+  },
 };
 
 /**
@@ -103,8 +188,9 @@ function adapterOverride(adapter) {
  * regla existe para que ese atajo falle en el editor y no cuando la suite
  * empiece a pedir una API key.
  *
- * Solo alcanza a los archivos SUELTOS de `lib/ai/`. Un futuro
- * `lib/ai/adapters/gemini/` queda fuera a propósito: ahí es donde el SDK va.
+ * Solo alcanza a los archivos SUELTOS de `lib/ai/`. `lib/ai/adapters/gemini/`
+ * queda fuera a propósito —ahí es donde el SDK va— y `lib/ai/factory/`
+ * también, porque es quien lee `AI_PROVIDER` para elegir adaptador.
  */
 const noNetworkInAi = {
   "no-restricted-imports": [
@@ -157,11 +243,17 @@ const eslintConfig = defineConfig([
     rules: noVendorSdks,
   },
   {
+    // Antes del override de los archivos sueltos, para que ese gane sobre este.
+    files: ["lib/ai/**/*.{ts,tsx,mts,cts}"],
+    rules: noSdksInAiLayer,
+  },
+  {
     files: ["lib/ai/*.ts"],
     // Los tests importan `vitest`, que no es ni Zod ni código del repo.
     ignores: ["lib/ai/*.test.ts"],
     rules: noNetworkInAi,
   },
+  geminiAdapter,
   adapterOverride("neon"),
   adapterOverride("supabase"),
 ]);

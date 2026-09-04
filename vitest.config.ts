@@ -16,6 +16,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./", import.meta.url)),
+      // Lo que Next resuelve solo y Vitest no. Ver `vitest.server-only.ts`.
+      "server-only": fileURLToPath(
+        new URL("./vitest.server-only.ts", import.meta.url),
+      ),
     },
   },
 });

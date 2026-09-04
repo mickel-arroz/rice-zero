@@ -9,19 +9,19 @@
 
 import type {
   Analysis,
-  AnalysisFeature,
-  FeaturePrompt,
+  AnalysisContent,
   Project,
   ProjectOverview,
   ProjectVersion,
   TreeNode,
 } from "@/lib/backend/ports";
-import type {
-  AnalysisRow,
-  NodeRow,
-  ProjectOverviewRow,
-  ProjectRow,
-  ProjectVersionRow,
+import {
+  isJsonObject,
+  type AnalysisRow,
+  type NodeRow,
+  type ProjectOverviewRow,
+  type ProjectRow,
+  type ProjectVersionRow,
 } from "@/lib/backend/adapters/postgrest/rows";
 import type { Row } from "@/lib/backend/adapters/postgrest/store";
 
@@ -88,26 +88,28 @@ export function toAnalysis(row: Row): Analysis {
     userGuidelines: r.user_guidelines,
     provider: r.provider,
     model: r.model,
-    summary: r.summary,
-    questions: asStringArray(r.questions),
-    features: asObjectArray<AnalysisFeature>(r.features),
-    masterPrompt: r.master_prompt,
-    featurePrompts: asObjectArray<FeaturePrompt>(r.feature_prompts),
+    content: asAnalysisContent(r.analysis),
     createdAt: new Date(r.created_at),
   };
 }
 
 /**
- * Las columnas `jsonb` llegan sin tipar y su forma la fija el Proveedor de IA,
- * no el motor. Se comprueba que sea un array y se deja pasar el contenido: una
- * validación de forma aquí duplicaría la que hace la capa de IA al generarlo, y
- * tirar un Análisis histórico por no encajar con el esquema de hoy sería peor
- * que mostrarlo.
+ * La columna `jsonb` llega sin tipar, y aquí NO se valida su forma.
+ *
+ * Es un cast y es deliberado, por lo mismo que ya valía para las columnas
+ * `jsonb` que había antes: la validación de verdad la hizo la capa de IA con
+ * Zod ANTES de escribir (ADR 0003: un Análisis que no valida no se persiste),
+ * así que repetirla aquí sería tener la misma regla en dos sitios. Y sobre
+ * todo, un Análisis histórico puede llevar la forma de una versión anterior
+ * del schema: tirarlo por no encajar con el contrato de hoy sería peor que
+ * mostrarlo, y el ADR cuenta justamente con re-renderizar los viejos.
+ *
+ * Lo único que se comprueba es que haya un objeto (`isJsonObject`, compartido
+ * con el doble en memoria). Un `null` o un número —que el motor acepta como
+ * `jsonb` tan felizmente como un objeto, y que el `check` de la migración
+ * `0003` ya rechaza— dejaría al renderer leyendo propiedades de nada, y eso no
+ * es un Análisis viejo: es una fila imposible.
  */
-function asStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-}
-
-function asObjectArray<T>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
+function asAnalysisContent(value: unknown): AnalysisContent {
+  return (isJsonObject(value) ? value : {}) as AnalysisContent;
 }

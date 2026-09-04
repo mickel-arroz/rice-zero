@@ -49,6 +49,7 @@ npm run dev
 | `npm run account:live`       | Registra la cuenta de usar y tirar que pide la corrida en vivo   |
 | `npm run account:verify`     | Confirma su email sin buzón, con la conexión de dueño            |
 | `npm run test:contract:live` | La contract suite contra el proveedor activo. Bajo demanda; falla si no hay credenciales |
+| `npm run ai:live`            | Tres generaciones de verdad contra Gemini. Bajo demanda; falla si no hay API key |
 
 ## El Proveedor de Backend
 
@@ -120,3 +121,58 @@ por la que las políticas llaman a `app.current_user_id()` y nunca a `auth.uid()
   TypeScript, una copia por adaptador porque las genera cada CLI. Si tocas la
   migración, actualízalas en el mismo commit: `schema-check.ts` rompe el
   typecheck si dejan de encajar con `rows.ts`.
+
+## El Proveedor de IA
+
+Mismo patrón que el Proveedor de Backend, y por la misma razón: `CONTEXT.md` dice
+que «el proyecto es indiferente a cuál se usa», y eso solo es verdad mientras
+nadie importe un SDK fuera de su adaptador. `AI_PROVIDER` es el interruptor
+—`gemini` o `falso`— y no tiene default: un despliegue al que se le olvidara
+serviría Análisis inventados sin que nadie se enterara.
+
+- `lib/ai/*.ts` — el **contrato**, y nada más: el schema de Zod (`schema.ts`), el
+  prompt (`prompt.ts`), el render a texto (`render.ts`), el puerto (`port.ts`) y
+  la taxonomía de fallos (`errors.ts`). Módulos puros: ESLint les prohíbe
+  importar cualquier cosa que no sea Zod o código del repo, y leer `process.env`.
+- `lib/ai/adapters/gemini/` — el único sitio del repo donde se puede importar
+  `ai` y `@ai-sdk/google`, y el único que lee `GEMINI_API_KEY`. Es
+  `server-only`: importarlo desde un componente de cliente rompe el build.
+- `lib/ai/factory/` — el interruptor. Lee la variable y devuelve el adaptador.
+  **No** se reexporta desde `lib/ai/index.ts` a propósito: por esa puerta entra
+  también el navegador (el panel usa el renderer), y reexportar la fábrica
+  arrastraría el SDK de Google a un bundle de cliente.
+- `lib/ai/testing/contract.ts` — la contract suite, una sola para todos los
+  adaptadores. Corre contra el falso en `npm test`.
+
+El modelo NO se configura por entorno: es `AI_CONFIG.geminiModel` en
+`lib/constants.ts`, con la fecha en que se verificó contra la página de pricing
+de Google. Los ids de Gemini son volátiles, y un modelo retirado llega como
+`AnalysisConfigError` justamente para que ese sea el primer sitio donde se mire.
+
+Los fallos que la capa puede lanzar son siete, cada uno con una decisión
+distinta detrás: `cuota` (esperar), `timeout` y `red` (reintentar), `malformada`
+(reintentar: el modelo no es determinista), `configuracion` (avisar a quien
+despliega), `sesion` (mandar a login) y `entrada` (arreglar lo que se mandó).
+Cada uno lleva `retryable`, así que ninguna pantalla tiene que decidirlo con una
+cadena de `instanceof`.
+
+### Las dos mitades de generar un Análisis
+
+La generación está partida porque sus dos mitades corren en sitios distintos, y
+`lib/services/analyses.ts` es la costura:
+
+1. **Generar, en el servidor.** El Server Action de
+   `app/(dashboard)/projects/[projectId]/[versionId]/actions.ts`. Ahí está la
+   API key y ahí se queda. Es un punto de entrada público, así que exige sesión
+   y valida lo que le manden antes de gastar una petición de cuota.
+2. **Persistir, en el navegador.** Como todo lo demás (ADR 0001): directo a
+   PostgREST y bajo las mismas políticas RLS que un Nodo.
+
+El action DEVUELVE sus fallos en vez de lanzarlos: en producción Next sustituye
+un error del servidor por un mensaje genérico, así que una taxonomía lanzada
+desde ahí llegaría al panel como «An error occurred». El servicio los vuelve a
+convertir en excepción al otro lado.
+
+`ai_analyses` guarda el **objeto** del Análisis, no su texto (ADR 0003). El
+Master Prompt se rendera al leerlo, así que cambiar el formato de salida es un
+cambio en `lib/ai/render.ts` y no una migración.

@@ -6,6 +6,22 @@
  * jamás en estas firmas — vive dentro de cada adaptador y ahí se queda.
  */
 
+/**
+ * La forma del Análisis, tal y como la fija la capa de IA.
+ *
+ * Se llama `AnalysisContent` y no `Analysis` porque en este archivo `Analysis`
+ * es la ENTIDAD —con su id, su Versión y su fecha— y esto es su contenido. El
+ * alias no se inventa aquí: lo declara `lib/ai/schema.ts`, que es la fuente de
+ * verdad de la forma, para que no haya dos nombres para lo mismo.
+ *
+ * Y se reexporta, para que quien lea un Análisis del puerto pueda nombrar su
+ * contenido sin tener que saber que viene de `lib/ai`. Es un tipo, así que el
+ * import se borra al compilar: no hay dependencia en tiempo de ejecución.
+ */
+import type { AnalysisContent } from "@/lib/ai/schema";
+
+export type { AnalysisContent };
+
 /** Contenedor raíz de una idea. Pertenece a un único usuario. */
 export type Project = {
   id: string;
@@ -92,26 +108,12 @@ export type TreeNode = {
 };
 
 /**
- * Una feature que la IA extrajo del árbol.
- *
- * La forma definitiva de esto y de `FeaturePrompt` la fija el Proveedor de IA
- * (#15). Aquí están porque el Análisis las persiste, y este es el archivo
- * donde cambian el día que se concreten.
- */
-export type AnalysisFeature = {
-  name: string;
-  description: string;
-};
-
-/** Prompt acotado a una feature individual del mismo Análisis. */
-export type FeaturePrompt = {
-  name: string;
-  prompt: string;
-};
-
-/**
  * Resultado de enviar una Versión a la IA. Histórico: se crea, se lee y se
  * borra, pero no se edita.
+ *
+ * Lo que se guarda es el OBJETO que devolvió la IA, no su texto (ADR 0003). El
+ * Master Prompt se rendera al leerlo (`lib/ai/render.ts`), así que cambiar el
+ * formato de salida es un cambio de renderer y no una migración.
  */
 export type Analysis = {
   id: string;
@@ -120,11 +122,23 @@ export type Analysis = {
   userGuidelines: string | null;
   provider: string;
   model: string;
-  summary: string;
-  questions: string[];
-  features: AnalysisFeature[];
-  masterPrompt: string;
-  featurePrompts: FeaturePrompt[];
+  /**
+   * El Análisis en sí: Intención, resumen, preguntas, Spec y Tickets.
+   *
+   * Su tipo lo importa de `lib/ai/schema.ts` en vez de redeclararlo, y esa es
+   * la única dirección posible: el schema de Zod es la fuente de verdad de esta
+   * forma, y un `type` paralelo aquí se desincronizaría a la primera sin que
+   * el compilador se enterara — es literalmente lo que ese archivo advierte de
+   * sí mismo. Sigue siendo vocabulario de dominio y no de tabla, que es lo que
+   * el ADR 0001 le pide a este archivo.
+   *
+   * Al ESCRIBIR el tipo es una promesa cumplida: nada llega aquí sin pasar por
+   * el `.parse` del adaptador de IA. Al LEER es un cast, deliberadamente: una
+   * fila vieja puede traer la forma de una versión anterior del schema, y
+   * tirar un Análisis histórico por no encajar con el contrato de hoy sería
+   * peor que mostrarlo. Ver `postgrest/mapping.ts`.
+   */
+  content: AnalysisContent;
   createdAt: Date;
 };
 

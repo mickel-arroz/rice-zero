@@ -14,8 +14,7 @@
 
 import type {
   Analysis,
-  AnalysisFeature,
-  FeaturePrompt,
+  AnalysisContent,
   Project,
   ProjectOverview,
   ProjectVersion,
@@ -141,13 +140,19 @@ export interface NodeRepository {
 export type NewAnalysis = {
   versionId: string;
   userGuidelines?: string | null;
+  /** Qué adaptador lo generó y con qué modelo. Los modelos cambian. */
   provider: string;
   model: string;
-  summary: string;
-  questions?: string[];
-  features?: AnalysisFeature[];
-  masterPrompt: string;
-  featurePrompts?: FeaturePrompt[];
+  /**
+   * El Análisis ya validado.
+   *
+   * Sin campos opcionales y sin defaults, a diferencia del resto de las
+   * entradas de este archivo. Es la forma de que la invariante del ADR 0003
+   * —un Análisis que no valida no se persiste NUNCA— la sostenga el tipo: un
+   * `content` que se pudiera omitir, o cuyos huecos rellenara el repositorio,
+   * sería una puerta para escribir medio Análisis.
+   */
+  content: AnalysisContent;
 };
 
 export interface AnalysisRepository {

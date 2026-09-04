@@ -12,6 +12,15 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 
+/**
+ * El Análisis de muestra sale de `lib/ai/`, y no se escribe otro aquí.
+ *
+ * La forma del contenido la fija el schema de Zod, así que un objeto a mano en
+ * este archivo sería una segunda copia de ese contrato que dejaría de encajar
+ * en cuanto el schema se moviera —y sin que nada avisara, porque el motor no
+ * lo valida—. Es la misma razón por la que `samples.ts` existe.
+ */
+import { sampleAnalysis } from "@/lib/ai/testing/samples";
 import {
   ConflictError,
   NotFoundError,
@@ -206,8 +215,7 @@ export function describeBackendContract(harness: BackendContractHarness): void {
           versionId: version.id,
           provider: "falso",
           model: "modelo-de-prueba",
-          summary: "Resumen",
-          masterPrompt: "Prompt",
+          content: sampleAnalysis(),
         });
 
         const [overview] = await backend.projects.listOverviews();
@@ -619,8 +627,7 @@ export function describeBackendContract(harness: BackendContractHarness): void {
           versionId: version.id,
           provider: "gemini",
           model: "modelo-de-prueba",
-          summary: "Resumen",
-          masterPrompt: "Master Prompt",
+          content: sampleAnalysis(),
         });
 
         const clone = await backend.versions.clone(version.id);
@@ -630,44 +637,62 @@ export function describeBackendContract(harness: BackendContractHarness): void {
     });
 
     describe("Análisis", () => {
-      it("guarda un Análisis con los campos de la IA", async () => {
+      /**
+       * El Análisis viaja ENTERO y vuelve entero.
+       *
+       * Se compara el objeto completo y no campo a campo a propósito: lo que
+       * el ADR 0003 promete es que la tabla no interpreta el Análisis —guarda
+       * el objeto y ya— y un adaptador que perdiera un Ticket por el camino, o
+       * que aplanara los Checks, pasaría cualquier comprobación parcial.
+       */
+      it("guarda el Análisis entero y lo devuelve igual", async () => {
         const { version } = await seedProject();
+        const content = sampleAnalysis();
 
         const analysis = await backend.analyses.create({
           versionId: version.id,
           userGuidelines: "Sé breve.",
           provider: "gemini",
           model: "modelo-de-prueba",
-          summary: "Resumen",
-          questions: ["¿Quién lo usa?"],
-          features: [{ name: "Login", description: "Entrar." }],
-          masterPrompt: "Master Prompt",
-          featurePrompts: [{ name: "Login", prompt: "Implementa login." }],
+          content,
         });
 
+        expect(analysis.content).toEqual(content);
         expect(analysis.userGuidelines).toBe("Sé breve.");
-        expect(analysis.questions).toEqual(["¿Quién lo usa?"]);
-        expect(analysis.features).toEqual([{ name: "Login", description: "Entrar." }]);
-        expect(analysis.featurePrompts).toEqual([
-          { name: "Login", prompt: "Implementa login." },
-        ]);
+        expect(analysis.provider).toBe("gemini");
+        expect(analysis.model).toBe("modelo-de-prueba");
         expect(analysis.createdAt).toBeInstanceOf(Date);
       });
 
-      it("deja los campos de IA vacíos cuando no se mandan", async () => {
+      /** Lo de dentro tampoco: los Checks son la prueba de que nada se aplanó. */
+      it("conserva los Tickets con sus Checks y sus bloqueos", async () => {
+        const { version } = await seedProject();
+        const content = sampleAnalysis();
+
+        const created = await backend.analyses.create({
+          versionId: version.id,
+          provider: "gemini",
+          model: "modelo-de-prueba",
+          content,
+        });
+        const read = await backend.analyses.get(created.id);
+
+        expect(read.content.tickets).toHaveLength(content.tickets.length);
+        expect(read.content.tickets[1].checks).toEqual(content.tickets[1].checks);
+        expect(read.content.tickets[1].blockedBy).toEqual(content.tickets[1].blockedBy);
+        expect(read.content.spec.checks).toEqual(content.spec.checks);
+      });
+
+      it("sin Directrices del Usuario, el Análisis se guarda sin ellas", async () => {
         const { version } = await seedProject();
 
         const analysis = await backend.analyses.create({
           versionId: version.id,
           provider: "gemini",
           model: "modelo-de-prueba",
-          summary: "Resumen",
-          masterPrompt: "Master Prompt",
+          content: sampleAnalysis(),
         });
 
-        expect(analysis.questions).toEqual([]);
-        expect(analysis.features).toEqual([]);
-        expect(analysis.featurePrompts).toEqual([]);
         expect(analysis.userGuidelines).toBeNull();
       });
 
@@ -677,14 +702,15 @@ export function describeBackendContract(harness: BackendContractHarness): void {
           versionId: version.id,
           provider: "gemini",
           model: "modelo-de-prueba",
-          summary: "Resumen",
-          masterPrompt: "Master Prompt",
+          content: sampleAnalysis(),
         });
 
         expect((await backend.analyses.listByVersion(version.id)).map((a) => a.id)).toEqual([
           created.id,
         ]);
-        expect((await backend.analyses.get(created.id)).summary).toBe("Resumen");
+        expect((await backend.analyses.get(created.id)).content.summary).toBe(
+          sampleAnalysis().summary,
+        );
       });
 
       it("borra un Análisis", async () => {
@@ -693,8 +719,7 @@ export function describeBackendContract(harness: BackendContractHarness): void {
           versionId: version.id,
           provider: "gemini",
           model: "modelo-de-prueba",
-          summary: "Resumen",
-          masterPrompt: "Master Prompt",
+          content: sampleAnalysis(),
         });
 
         await backend.analyses.delete(created.id);
@@ -709,8 +734,7 @@ export function describeBackendContract(harness: BackendContractHarness): void {
           versionId: version.id,
           provider: "gemini",
           model: "modelo-de-prueba",
-          summary: "Resumen",
-          masterPrompt: "Master Prompt",
+          content: sampleAnalysis(),
         });
 
         await backend.versions.delete(version.id);

@@ -24,7 +24,11 @@
  * verifica contra el motor real (`npm run verify:neon`).
  */
 
-import type { SourceName, TableName } from "@/lib/backend/adapters/postgrest/rows";
+import {
+  isJsonObject,
+  type SourceName,
+  type TableName,
+} from "@/lib/backend/adapters/postgrest/rows";
 import type { Filter, Order, Row, RowStore } from "@/lib/backend/adapters/postgrest/store";
 import { createRepositories } from "@/lib/backend/adapters/postgrest/kernel";
 import {
@@ -334,17 +338,24 @@ export function createInMemoryBackend(): InMemoryBackend {
           if (!ownsVersion(values.version_id)) {
             throw new NotFoundError("la Versión", String(values.version_id));
           }
+          // El `check` que el motor pone sobre la columna (migración `0003`):
+          // un `jsonb` acepta `null` y un número tan felizmente como un
+          // objeto, y cualquiera de los dos dentro de aquí es un Análisis que
+          // el renderer no sabe pintar. El doble lo rechaza igual, para que un
+          // llamante que se equivoque falle en la suite y no en producción.
+          if (!isJsonObject(values.analysis)) {
+            throw new ConflictError(
+              "ai_analyses_analysis_is_object",
+              "Un Análisis se guarda como objeto.",
+            );
+          }
           row = {
             id: nextId(),
             version_id: values.version_id,
             user_guidelines: values.user_guidelines ?? null,
             provider: values.provider,
             model: values.model,
-            summary: values.summary,
-            questions: values.questions ?? [],
-            features: values.features ?? [],
-            master_prompt: values.master_prompt,
-            feature_prompts: values.feature_prompts ?? [],
+            analysis: values.analysis,
             created_at: stamp,
           };
           break;

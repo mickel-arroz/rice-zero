@@ -74,6 +74,61 @@ export const EXTERNAL_LINKS = {
   linkedin: "https://www.linkedin.com/in/mickel-arroz",
 } as const;
 
+/**
+ * La configuración del Proveedor de IA.
+ *
+ * Vive aquí y no dentro del adaptador de Gemini a propósito: el id de modelo es
+ * lo que más se toca de toda la capa de IA y lo que menos tiene que ver con
+ * cómo se arma la llamada. Buscarlo entre el manejo de errores del adaptador,
+ * el día que Google retire un modelo, es exactamente el rato que no hay que
+ * perder.
+ *
+ * Lo que NO está aquí es la API key. Este archivo lo importa media interfaz,
+ * así que una credencial en él viajaría a todos los bundles de cliente. La lee
+ * el adaptador, que es `server-only`.
+ *
+ * Tampoco están los topes de lo que se ACEPTA por la puerta —cuánto árbol,
+ * cuánta Directriz—. Esos son `ANALYSIS_INPUT_LIMITS` en
+ * `lib/services/analyses.ts`, junto a los mensajes que los explican y al mismo
+ * nivel que `VERSION_LIMITS`: aquí se configura cómo se hace la llamada, no qué
+ * se admite antes de hacerla.
+ */
+export const AI_CONFIG = {
+  /**
+   * El modelo de Gemini.
+   *
+   * El último Flash estable con free tier, **verificado el 2026-09-04** contra
+   * https://ai.google.dev/gemini-api/docs/pricing. La fecha no es adorno: los
+   * ids de Gemini son volátiles y los modelos salen del free tier sin avisar,
+   * así que quien lo cambie vuelve a mirar la página y vuelve a escribir la
+   * fecha. Un 404 del proveedor sale como `AnalysisConfigError` justamente
+   * para que este sea el primer sitio donde se mire.
+   */
+  geminiModel: "gemini-3.8-flash",
+
+  /**
+   * Cuánto se espera al modelo antes de rendirse.
+   *
+   * El árbol entero entra en el prompt, así que un Proyecto grande tarda de
+   * verdad y un minuto no sobra. Ojo al desplegar: si la plataforma corta sus
+   * funciones antes de esto, el corte que verá el usuario será el de ella y no
+   * éste — la ruta que monte el panel (#16) tiene que declarar su
+   * `maxDuration` por encima de este número.
+   */
+  timeoutMs: 60_000,
+
+  /**
+   * Cuántas veces reintenta el SDK antes de rendirse.
+   *
+   * Uno, y no los dos que trae por defecto. Reintentar solo ayuda con un 5xx
+   * del proveedor; con un 429 no cambia nada y con un modelo retirado tampoco,
+   * y cada intento se come una parte del minuto de arriba. El reintento que sí
+   * decide algo —volver a pedir un Análisis— es del usuario, y para eso está
+   * `retryable` en la taxonomía.
+   */
+  maxRetries: 1,
+} as const;
+
 export const THEMES = {
   light: "light",
   dark: "dark",

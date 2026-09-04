@@ -176,3 +176,17 @@ export const analysisSchema = z
   });
 
 export type Analysis = z.infer<typeof analysisSchema>;
+
+/**
+ * El mismo tipo, con el nombre que usa el resto del repo.
+ *
+ * Existe porque fuera de `lib/ai/` ya hay un `Analysis`: la ENTIDAD que se
+ * persiste (`lib/backend/ports/entities.ts`), con su id, su Versión y su fecha.
+ * Este es su CONTENIDO. Que cada archivo se inventara su propio alias al
+ * importar —`AnalysisObject` aquí, `AiAnalysis` allá— haría que buscar de
+ * dónde sale la forma del Análisis fuera una búsqueda por sinónimos.
+ *
+ * El alias vive aquí, al lado del schema, porque el schema es la fuente de
+ * verdad de la forma y no hay dos sitios donde mirar.
+ */
+export type AnalysisContent = Analysis;

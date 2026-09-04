@@ -75,13 +75,31 @@ export type AnalysisRow = {
   user_guidelines: string | null;
   provider: string;
   model: string;
-  summary: string;
-  questions: Json;
-  features: Json;
-  master_prompt: string;
-  feature_prompts: Json;
+  /**
+   * El Análisis entero, como `jsonb`. Ver la migración `0003`.
+   *
+   * `Json` y no el tipo del schema de la IA: aquí se habla el lenguaje del
+   * motor, y el motor solo promete «JSON válido». Quien le pone forma es
+   * `mapping.ts`, que es la frontera.
+   */
+  analysis: Json;
   created_at: string;
 };
+
+/**
+ * ¿Es este `jsonb` un objeto?
+ *
+ * Un `jsonb` acepta `null`, un número y un array tan felizmente como un objeto,
+ * y cualquiera de los tres dentro de `ai_analyses.analysis` es un Análisis que
+ * el renderer no sabe pintar. La autoridad es el `check` de la migración
+ * `0003`; esto es la misma pregunta dicha en TypeScript, y vive aquí —junto a
+ * `Json`— porque la hacen dos sitios: el mapeo al LEER y el doble en memoria al
+ * escribir. Dos copias de la expresión de tres cláusulas se desincronizarían en
+ * cuanto alguien recordara el array en una y no en la otra.
+ */
+export function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 export type TableName = "projects" | "project_versions" | "nodes" | "ai_analyses";
 

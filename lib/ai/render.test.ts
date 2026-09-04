@@ -10,28 +10,14 @@
 import { describe, expect, it } from "vitest";
 
 import { renderMasterPrompt, renderTicketPrompt } from "@/lib/ai/render";
+// La lista negra vive aparte porque la comparte la corrida en vivo, que la
+// aplica sobre lo que de verdad escribió Gemini. Ver `testing/plain.ts`.
+import { assertPlainText } from "@/lib/ai/testing/plain";
 import { adornedAnalysis, sampleAnalysis } from "@/lib/ai/testing/samples";
-
-/** Lo prohibido, tal cual lo enumera `CONTEXT.md` → Master Prompt. */
-const FORBIDDEN: [name: string, pattern: RegExp][] = [
-  ["negritas o cursivas con asterisco", /\*/],
-  ["cursivas o negritas con guion bajo", /_/],
-  ["encabezados con almohadilla", /#/],
-  ["tablas", /\|/],
-  ["code fences o código en línea", /`/],
-  ["tachado", /~/],
-  ["emojis", /\p{Extended_Pictographic}/u],
-];
-
-function assertPlain(text: string): void {
-  for (const [name, pattern] of FORBIDDEN) {
-    expect(pattern.test(text), `${name}: ${pattern.exec(text)?.[0]}`).toBe(false);
-  }
-}
 
 describe("renderMasterPrompt", () => {
   it("no deja pasar adorno, aunque venga en el contenido del modelo", () => {
-    assertPlain(renderMasterPrompt(adornedAnalysis()));
+    assertPlainText(renderMasterPrompt(adornedAnalysis()));
   });
 
   it("sí conserva las marcas permitidas: guiones, numeración y casillas", () => {
@@ -103,7 +89,7 @@ describe("renderTicketPrompt", () => {
   it("no deja pasar adorno tampoco", () => {
     const analysis = adornedAnalysis();
     for (const ticket of analysis.tickets) {
-      assertPlain(renderTicketPrompt(analysis, ticket.id));
+      assertPlainText(renderTicketPrompt(analysis, ticket.id));
     }
   });
 

@@ -65,10 +65,13 @@ begin
     ('33333333-3333-4333-8333-333333333335',
      '22222222-2222-4222-8222-222222222222', null, 'Raíz 2', 1);
 
-  insert into public.ai_analyses (version_id, provider, model, summary, master_prompt)
+  -- El Análisis se guarda como OBJETO desde la migración 0003. Aquí no se
+  -- necesita uno válido contra el schema de Zod —el motor no lo valida, y lo
+  -- que este script comprueba es RLS y el clonado—, solo que sea un objeto.
+  insert into public.ai_analyses (version_id, provider, model, analysis)
   values (
     '22222222-2222-4222-8222-222222222222',
-    'gemini', 'modelo-de-prueba', 'Resumen', 'Master Prompt'
+    'gemini', 'modelo-de-prueba', '{"summary": "Resumen"}'::jsonb
   );
 end;
 $$;
@@ -262,8 +265,8 @@ begin
 
   -- Un Análisis sobre el árbol de A.
   begin
-    insert into public.ai_analyses (version_id, provider, model, summary, master_prompt)
-    values (v_version, 'gemini', 'modelo-de-prueba', 'Robado', 'Robado');
+    insert into public.ai_analyses (version_id, provider, model, analysis)
+    values (v_version, 'gemini', 'modelo-de-prueba', '{"summary": "Robado"}'::jsonb);
     raise exception 'FALLO: B guardó un Análisis en una Versión ajena.';
   exception
     when insufficient_privilege then null;

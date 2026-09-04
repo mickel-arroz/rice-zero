@@ -125,11 +125,8 @@ export type Database = {
           user_guidelines: string | null;
           provider: string;
           model: string;
-          summary: string;
-          questions: Json;
-          features: Json;
-          master_prompt: string;
-          feature_prompts: Json;
+          // El Análisis entero, como objeto. Ver la migración `0003`.
+          analysis: Json;
           created_at: string;
         };
         Insert: {
@@ -138,11 +135,7 @@ export type Database = {
           user_guidelines?: string | null;
           provider: string;
           model: string;
-          summary: string;
-          questions?: Json;
-          features?: Json;
-          master_prompt: string;
-          feature_prompts?: Json;
+          analysis: Json;
           created_at?: string;
         };
         // Un Análisis no se edita: la migración no le da política de update.

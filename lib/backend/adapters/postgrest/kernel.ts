@@ -261,11 +261,10 @@ export function createAnalysisRepository(store: RowStore): AnalysisRepository {
         user_guidelines: input.userGuidelines ?? null,
         provider: input.provider,
         model: input.model,
-        summary: input.summary,
-        questions: input.questions ?? [],
-        features: input.features ?? [],
-        master_prompt: input.masterPrompt,
-        feature_prompts: input.featurePrompts ?? [],
+        // El objeto entero, tal cual. Ni un campo se copia a una columna
+        // propia: el ADR 0003 quiere que cambiar la forma del Análisis sea
+        // cambiar el schema y el renderer, no migrar la tabla.
+        analysis: input.content,
       });
       return toAnalysis(row);
     },
