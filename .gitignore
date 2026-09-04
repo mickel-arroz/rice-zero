@@ -44,3 +44,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# El service worker compilado. Lo genera `app/serwist/[path]/route.ts` en el
+# build, así que versionarlo solo sirve para que se quede viejo.
+/public/sw*.js
+/public/swe-worker*.js

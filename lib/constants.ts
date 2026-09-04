@@ -48,7 +48,32 @@ export const ROUTES = {
    * el backend, no la app: la ruta existe porque el proveedor la necesita.
    */
   authApi: AUTH_ROUTE_MOUNT,
+  /**
+   * La pantalla que sale cuando se pide una ruta que no está en la caché y no
+   * hay red. La sirve el service worker como `fallback`, no un enlace: nadie
+   * navega aquí a propósito.
+   */
+  offline: "/offline",
+  /**
+   * Donde el Route Handler de Serwist publica el service worker ya compilado.
+   *
+   * En el camino de Turbopack el worker NO lo genera el bundler —eso es la
+   * configuración de webpack que rompe el build en Next 16— sino una ruta que
+   * lo compila con esbuild. Por eso es una ruta de la app y vive aquí.
+   */
+  serwist: "/serwist",
+  /**
+   * La URL que Next publica para `app/manifest.ts`.
+   *
+   * La nombra el framework —el nombre del archivo decide la ruta—, pero vive
+   * aquí porque la leen dos sitios que TIENEN que coincidir: la etiqueta
+   * `manifest` de `app/layout.tsx` y `PUBLIC_ROUTES`.
+   */
+  manifest: "/manifest.webmanifest",
 } as const;
+
+/** El archivo concreto que el navegador registra como service worker. */
+export const SERVICE_WORKER_URL = `${ROUTES.serwist}/sw.js`;
 
 /**
  * Las rutas que se pueden ver SIN sesión. Todo lo demás lo protege `proxy.ts`.
@@ -63,6 +88,18 @@ export const PUBLIC_ROUTES = [
   ROUTES.about,
   ROUTES.login,
   ROUTES.authApi,
+  // Las dos piezas de la PWA las pide el NAVEGADOR, no una persona con sesión.
+  // El service worker se descarga antes de saber si hay usuario, y la pantalla
+  // offline tiene que salir justo cuando no se puede consultar nada. Si el
+  // proxy las gateara, respondería 302 a /login y el navegador recibiría HTML
+  // donde espera JavaScript: el registro falla sin un solo error visible.
+  // Ninguna de las dos lleva datos de nadie dentro.
+  ROUTES.serwist,
+  ROUTES.offline,
+  // Y el manifest. Es el que menos parece una ruta y el único cuyo fallo no se
+  // ve en ninguna pantalla: el navegador lo pide, recibe el HTML del login, no
+  // lo puede parsear y simplemente deja de ofrecer «instalar».
+  ROUTES.manifest,
 ] as const;
 
 /** El parámetro con el que el login recuerda a dónde iba el usuario. */
@@ -889,4 +926,46 @@ export const VERSIONS_COPY = {
 
   cancel: "Cancelar",
   close: "Cerrar",
+} as const;
+
+/**
+ * El texto de la PWA: la pantalla que sale sin red y el aviso que la anuncia.
+ *
+ * Junto y en un sitio por lo mismo que `AUTH_COPY` y `SHELL_COPY`. Y con más
+ * razón aquí: es el único texto de la app que el usuario lee justo cuando nada
+ * funciona, así que tiene que decir qué SÍ se puede hacer y no solo qué falló.
+ */
+export const PWA_COPY = {
+  /**
+   * «Sin conexión», la etiqueta corta del estado.
+   *
+   * La comparten los tres sitios que nombran ese estado sin adornos: el título
+   * del aviso del layout, el `<title>` de `/offline` y su versalita. No se
+   * llama `bannerTitle` porque no es del banner: el `h1` de la pantalla es
+   * `offlineTitle`, en mayúsculas y NDot, y son dos cosas distintas.
+   */
+  offlineLabel: "Sin conexión",
+  /**
+   * Lo que sigue funcionando, dicho antes que lo que no. Es el contrato de
+   * Autoguardado de `CONTEXT.md`: consultar sí, editar no.
+   */
+  bannerDetail:
+    "Puedes consultar lo que ya visitaste. Editar espera a que vuelva la red.",
+
+  /** El titular de `/offline`, en NDot como el resto de los `h1`. */
+  offlineTitle: "SIN CONEXIÓN",
+  offlineLead: "Esta pantalla no estaba guardada, y sin red no se puede pedir.",
+  offlineBody:
+    "RICE(0) guarda lo que vas visitando para que puedas volver a leerlo sin conexión. Lo que todavía no abriste con red no está aquí — no se perdió, solo hace falta conexión para traerlo la primera vez.",
+  /** Encabeza la lista de lo que sí se puede hacer ahora mismo. */
+  offlineAvailable: "Mientras vuelve la red",
+  offlineCanRead: "Los Proyectos y Versiones que ya abriste se leen igual.",
+  offlineCannotEdit:
+    "Crear y editar quedan bloqueados: el Autoguardado no puede escribir sin red.",
+  offlineWillRetry:
+    "No hace falta reintentar a mano. Cuando vuelva la conexión, la app sigue por donde iba.",
+  /** El botón, para quien no quiere esperar. */
+  offlineRetry: "Reintentar",
+  /** El destino de vuelta, que puede estar en caché. */
+  offlineBack: "Ir a mis Proyectos",
 } as const;

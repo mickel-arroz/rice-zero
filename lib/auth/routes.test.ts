@@ -19,6 +19,20 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/api/auth/sign-in/email")).toBe(true);
   });
 
+  it("deja pasar las rutas que la PWA necesita sin sesión", () => {
+    // Las tres las pide el NAVEGADOR, no una persona con sesión, y las tres
+    // fallan en silencio si el proxy las gatea: se recibe el HTML del login
+    // donde se esperaba JavaScript o un manifest. Ninguna pantalla lo delata,
+    // así que este test es el único aviso.
+    expect(isPublicPath(ROUTES.serwist)).toBe(true);
+    expect(isPublicPath(`${ROUTES.serwist}/sw.js`)).toBe(true);
+    expect(isPublicPath(ROUTES.offline)).toBe(true);
+    // El manifest va aparte porque es el que se olvida: no parece una ruta, y
+    // el matcher de `proxy.ts` salva `woff2|png|svg|ico` por extensión pero no
+    // `.webmanifest`. Se colaba de verdad hasta que un 307 lo delató.
+    expect(isPublicPath(ROUTES.manifest)).toBe(true);
+  });
+
   it("protege el resto", () => {
     expect(isPublicPath("/projects")).toBe(false);
     expect(isPublicPath("/projects/abc/versions/1")).toBe(false);
