@@ -2,14 +2,20 @@ import { APICallError, NoObjectGeneratedError, RetryError } from "ai";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { normalizeGeminiError } from "@/lib/ai/adapters/gemini/errors";
 import {
+  normalizeGeminiError,
+  shouldTryAnotherModel,
+} from "@/lib/ai/adapters/gemini/errors";
+import {
+  ANALYSIS_ERROR_KINDS,
   AnalysisConfigError,
+  AnalysisError,
   AnalysisNetworkError,
   AnalysisTimeoutError,
   InvalidAnalysisInputError,
   MalformedAnalysisError,
   QuotaExceededError,
+  SessionRequiredError,
 } from "@/lib/ai/errors";
 
 /**
@@ -246,5 +252,70 @@ describe("normalizeGeminiError", () => {
     expect(normalizeGeminiError("una cadena")).toBeInstanceOf(
       AnalysisNetworkError,
     );
+  });
+});
+
+/**
+ * Qué fallo justifica probar el siguiente modelo de la lista.
+ *
+ * Es la política de la cadena, y se prueba aquí y no en el adaptador porque es
+ * una decisión PURA sobre categorías: no necesita red, ni un modelo, ni
+ * inventarse errores del SDK.
+ */
+describe("shouldTryAnotherModel", () => {
+  /** El caso que motivó la cadena entera. */
+  it("un 503 de «high demand» pasa al siguiente: otro puede no estar saturado", () => {
+    expect(shouldTryAnotherModel(normalizeGeminiError(apiError(503)))).toBe(true);
+  });
+
+  /** Los límites del free tier son POR MODELO, y un rechazo no gasta cuota. */
+  it("un 429 también: la cuota se cuenta por modelo", () => {
+    expect(shouldTryAnotherModel(normalizeGeminiError(apiError(429)))).toBe(true);
+  });
+
+  /** El caso que el ticket anticipaba, y que pasó con gemini-2.5-flash. */
+  it("y un 404: el modelo retirado es justo lo que la lista existe para sobrevivir", () => {
+    expect(shouldTryAnotherModel(normalizeGeminiError(apiError(404)))).toBe(true);
+  });
+
+  /**
+   * Aquí se para, y es la mitad importante de la política. El modelo contestó:
+   * gastó tokens y medio minuto, y que se salte la regla de los Checks no da
+   * ninguna razón para creer que el siguiente no lo hará. Encadenar sería
+   * quemar el presupuesto entero produciendo basura.
+   */
+  it("una respuesta malformada NO pasa al siguiente: el modelo sí contestó", () => {
+    expect(shouldTryAnotherModel(new MalformedAnalysisError(["x: y"]))).toBe(false);
+  });
+
+  it("ni un problema de la entrada: ningún modelo arregla un árbol vacío", () => {
+    expect(shouldTryAnotherModel(new InvalidAnalysisInputError("vacío"))).toBe(false);
+  });
+
+  /**
+   * La política, entera y de una vez.
+   *
+   * Se afirma la PARTICIÓN y no cada caso por separado porque lo que hay que
+   * proteger es que la suma cubra la taxonomía: una categoría nueva que nadie
+   * clasifique caería en «no pasa al siguiente» por omisión —el `Set` no la
+   * tiene— y nadie se enteraría. Aquí la tercera afirmación lo rompe.
+   */
+  it("parte la taxonomía en dos, y las dos mitades suman el total", () => {
+    const oneOfEach: AnalysisError[] = [
+      new QuotaExceededError(30),
+      new AnalysisTimeoutError(),
+      new AnalysisNetworkError(),
+      new MalformedAnalysisError(["x: y"]),
+      new AnalysisConfigError("falta algo"),
+      new SessionRequiredError(),
+      new InvalidAnalysisInputError("vacío"),
+    ];
+
+    const advance = oneOfEach.filter(shouldTryAnotherModel).map((e) => e.kind);
+    const stop = oneOfEach.filter((e) => !shouldTryAnotherModel(e)).map((e) => e.kind);
+
+    expect(advance.sort()).toEqual(["configuracion", "cuota", "red", "timeout"]);
+    expect(stop.sort()).toEqual(["entrada", "malformada", "sesion"]);
+    expect([...advance, ...stop].sort()).toEqual([...ANALYSIS_ERROR_KINDS].sort());
   });
 });

@@ -33,7 +33,7 @@ export type AnalysisContractHarness = {
 export function describeAnalysisContract(harness: AnalysisContractHarness): void {
   describe(`Proveedor de IA: ${harness.name}`, () => {
     it("devuelve un Análisis que pasa el schema", async () => {
-      const analysis = await harness.provider().analyze({
+      const { analysis } = await harness.provider().analyze({
         serializedTree: serializeTree(SAMPLE_TREES.feature),
       });
       expect(analysisSchema.safeParse(analysis).success).toBe(true);
@@ -52,7 +52,7 @@ export function describeAnalysisContract(harness: AnalysisContractHarness): void
         if (kind === "proyecto-nuevo") continue;
 
         it(`un árbol de tipo «${kind}» no sale como proyecto-nuevo`, async () => {
-          const analysis = await harness.provider().analyze({
+          const { analysis } = await harness.provider().analyze({
             serializedTree: serializeTree(SAMPLE_TREES[kind]),
           });
           expect(analysis.intent.kind).not.toBe("proyecto-nuevo");
@@ -60,14 +60,14 @@ export function describeAnalysisContract(harness: AnalysisContractHarness): void
       }
 
       it("un árbol que sí arranca de cero sale como proyecto-nuevo", async () => {
-        const analysis = await harness.provider().analyze({
+        const { analysis } = await harness.provider().analyze({
           serializedTree: serializeTree(SAMPLE_TREES["proyecto-nuevo"]),
         });
         expect(analysis.intent.kind).toBe("proyecto-nuevo");
       });
 
       it("siempre razona la Intención: sin porqué no se puede corregir", async () => {
-        const analysis = await harness.provider().analyze({
+        const { analysis } = await harness.provider().analyze({
           serializedTree: serializeTree(SAMPLE_TREES.fix),
         });
         expect(analysis.intent.rationale.trim().length).toBeGreaterThan(0);
@@ -75,7 +75,7 @@ export function describeAnalysisContract(harness: AnalysisContractHarness): void
     });
 
     it("las Directrices del Usuario ganan a la deducción", async () => {
-      const analysis = await harness.provider().analyze({
+      const { analysis } = await harness.provider().analyze({
         serializedTree: serializeTree(SAMPLE_TREES["proyecto-nuevo"]),
         guidelines: "Ignora el árbol: esto es documentar la API ya publicada.",
       });
@@ -84,7 +84,7 @@ export function describeAnalysisContract(harness: AnalysisContractHarness): void
 
     /** El criterio del ticket: ningún Nodo se queda fuera del trabajo. */
     it("todo Nodo del árbol queda representado en algún Ticket o Check", async () => {
-      const analysis = await harness.provider().analyze({
+      const { analysis } = await harness.provider().analyze({
         serializedTree: serializeTree(SAMPLE_TREES.feature),
       });
 
@@ -101,7 +101,7 @@ export function describeAnalysisContract(harness: AnalysisContractHarness): void
     });
 
     it("ningún Ticket llega sin Checks", async () => {
-      const analysis = await harness.provider().analyze({
+      const { analysis } = await harness.provider().analyze({
         serializedTree: serializeTree(SAMPLE_TREES.refactor),
       });
       for (const ticket of analysis.tickets) {
@@ -110,7 +110,7 @@ export function describeAnalysisContract(harness: AnalysisContractHarness): void
     });
 
     it("los bloqueos apuntan a Tickets que existen", async () => {
-      const analysis = await harness.provider().analyze({
+      const { analysis } = await harness.provider().analyze({
         serializedTree: serializeTree(SAMPLE_TREES["proyecto-nuevo"]),
       });
       const ids = new Set(analysis.tickets.map((ticket) => ticket.id));
@@ -119,10 +119,34 @@ export function describeAnalysisContract(harness: AnalysisContractHarness): void
       }
     });
 
-    it("se identifica: el Análisis se guarda diciendo quién y con qué modelo", () => {
-      const provider = harness.provider();
-      expect(provider.name.trim().length).toBeGreaterThan(0);
-      expect(provider.model.trim().length).toBeGreaterThan(0);
+    describe("se identifica: el Análisis se guarda diciendo quién y con qué", () => {
+      it("tiene nombre y al menos un modelo", () => {
+        const provider = harness.provider();
+        expect(provider.name.trim().length).toBeGreaterThan(0);
+        expect(provider.models.length).toBeGreaterThan(0);
+        for (const model of provider.models) {
+          expect(model.trim().length).toBeGreaterThan(0);
+        }
+      });
+
+      /**
+       * Y dice cuál contestó DE VERDAD, no cuál prefería.
+       *
+       * Es lo que distingue este contrato del de antes, cuando el modelo era un
+       * campo fijo del proveedor. Con una cadena de reserva, devolver el
+       * preferido en vez del que respondió guardaría una provenance falsa en
+       * `ai_analyses.model` sin que nada fallara — y ese campo existe
+       * precisamente porque los modelos cambian.
+       */
+      it("y devuelve, con cada Análisis, el modelo que lo escribió", async () => {
+        const provider = harness.provider();
+        const { model } = await provider.analyze({
+          serializedTree: serializeTree(SAMPLE_TREES.feature),
+        });
+
+        expect(model.trim().length).toBeGreaterThan(0);
+        expect(provider.models).toContain(model);
+      });
     });
   });
 }

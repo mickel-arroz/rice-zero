@@ -144,29 +144,48 @@ serviría Análisis inventados sin que nadie se enterara.
 - `lib/ai/testing/contract.ts` — la contract suite, una sola para todos los
   adaptadores. Corre contra el falso en `npm test`.
 
-El modelo NO se configura por entorno: es `AI_CONFIG.geminiModel` en
-`lib/constants.ts`, con la fecha en que se verificó. Los ids de Gemini son
-volátiles, y un modelo retirado llega como `AnalysisConfigError` justamente para
-que ese sea el primer sitio donde se mire.
+Los modelos NO se configuran por entorno: son `AI_CONFIG.geminiModels` en
+`lib/constants.ts`, una **lista en orden de preferencia** que se intenta de
+arriba abajo.
 
-**Verificarlo son DOS comprobaciones, no una.** La página de pricing dice qué
-modelos EXISTEN con free tier; no dice cuáles lo SIRVEN hoy. El #15 se cerró con
-`gemini-3.6-flash` y no con el Flash más nuevo de la página porque `3.8`, `3.7` y
-`3.5` contestaban los tres `503 — This model is currently experiencing high
-demand`, y `gemini-2.5-flash` un `404 — no longer available to new users`. La
-segunda comprobación es `npm run ai:live`, y hay que hacerla.
+Es una lista y no un modelo porque el free tier se congestiona de verdad: el
+2026-09-04, tres de los cuatro Flash de la lista contestaban `503 — This model
+is currently experiencing high demand` a la vez, y una generación se perdía
+entera teniendo otros modelos libres. Quién decide si un fallo justifica pasar
+al siguiente es `shouldTryAnotherModel`, y la regla es «¿tiene esto pinta de ser
+culpa DE ESTE modelo?»:
 
-Ojo también al tiempo: un Análisis real tarda ~40 s con este modelo, así que
-`AI_CONFIG.timeoutMs` está en dos minutos y la ruta que monte el panel tiene que
-declarar un `maxDuration` por encima. Un plan de despliegue que corte sus
-funciones antes de eso no puede servir esta app tal cual.
+| categoría | ¿pasa al siguiente? | por qué |
+|---|---|---|
+| `red` | sí | el 503 de «high demand» es exactamente esto |
+| `cuota` | sí | los límites del free tier son por modelo, y un rechazo no gasta cuota |
+| `configuracion` | sí | aquí cae el 404 del modelo retirado |
+| `timeout` | sí | y apenas importa: el presupuesto ya casi no da para otro |
+| `malformada` | **no** | el modelo contestó; otro no lo hará mejor. Se reintenta |
+| `entrada` | **no** | el problema es el árbol, no el modelo |
 
-Los fallos que la capa puede lanzar son siete, cada uno con una decisión
-distinta detrás: `cuota` (esperar), `timeout` y `red` (reintentar), `malformada`
-(reintentar: el modelo no es determinista), `configuracion` (avisar a quien
-despliega), `sesion` (mandar a login) y `entrada` (arreglar lo que se mandó).
-Cada uno lleva `retryable`, así que ninguna pantalla tiene que decidirlo con una
-cadena de `instanceof`.
+El orden baja en capacidad a propósito: se acepta un Análisis peor antes que
+ninguno. **La degradación no es silenciosa** — `analyze()` devuelve qué modelo
+contestó de verdad y eso se guarda en `ai_analyses.model`, así que un Análisis
+flojo siempre se puede explicar.
+
+**Verificar la lista son DOS comprobaciones, no una.** La página de pricing dice
+qué modelos EXISTEN con free tier; no dice cuáles lo SIRVEN hoy. La segunda es
+`npm run ai:live`, y hay que hacerla. `gemini-2.5-flash` salió de la lista por un
+`404 — no longer available to new users`.
+
+El último eslabón es Gemma y no otro Flash: es el más capaz de los dos que
+expone la API, no razona —así que es el que más probabilidades tiene de caber en
+lo que quede del presupuesto— y admite salida estructurada, que es lo único que
+lo hacía elegible. Un modelo que no sepa devolver un objeto no es un plan B, es
+un eslabón roto.
+
+Ojo al tiempo: `AI_CONFIG.timeoutMs` es el presupuesto de la generación
+**entera**, cadena incluida, no de cada intento — cinco modelos a dos minutos
+cada uno serían diez minutos de peor caso. Un Análisis real tarda ~40 s, así que
+está en dos minutos, y la ruta que monte el panel tiene que declarar un
+`maxDuration` por encima. Un plan de despliegue que corte sus funciones antes no
+puede servir esta app tal cual.
 
 ### Las dos mitades de generar un Análisis
 

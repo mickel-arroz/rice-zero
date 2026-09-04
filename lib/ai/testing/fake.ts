@@ -12,7 +12,7 @@
  * el falso, más de lo que pase en la suite será mérito del contrato.
  */
 
-import type { AnalysisProvider } from "@/lib/ai/port";
+import type { AnalysisOutcome, AnalysisProvider } from "@/lib/ai/port";
 import type { AnalysisPromptInput } from "@/lib/ai/prompt";
 import { analysisSchema, type Analysis, type IntentKind } from "@/lib/ai/schema";
 
@@ -85,17 +85,30 @@ function buildTickets(tree: string): Analysis["tickets"] {
 }
 
 /**
+ * Cómo se llama el modelo que no existe.
+ *
+ * Tiene nombre —y no cadena vacía— porque el puerto promete que todo Análisis
+ * se guarda diciendo con qué modelo se hizo, y un Análisis del falso también se
+ * guarda. Al leerlo después, `sin-modelo` dice la verdad de golpe.
+ */
+const FAKE_MODEL = "sin-modelo";
+
+/**
  * El proveedor falso.
  *
  * `analyze` es `async` y no síncrono aunque no espere a nada: el contrato es
  * asíncrono porque un modelo de verdad lo es, y un falso que devolviera un
  * valor pelado dejaría sin probar el `await` de quien llama.
+ *
+ * `models` es una lista de uno. No finge una cadena de reserva: caer de un
+ * modelo a otro es una estrategia del adaptador de Gemini, no del puerto, y un
+ * falso que la imitara probaría su propia imitación.
  */
 export function fakeAnalysisProvider(): AnalysisProvider {
   return {
     name: "falso",
-    model: "sin-modelo",
-    async analyze({ serializedTree, guidelines }: AnalysisPromptInput): Promise<Analysis> {
+    models: [FAKE_MODEL],
+    async analyze({ serializedTree, guidelines }: AnalysisPromptInput): Promise<AnalysisOutcome> {
       const tickets = buildTickets(serializedTree);
 
       // Las Directrices ganan también aquí: son la única palanca del usuario
@@ -103,7 +116,7 @@ export function fakeAnalysisProvider(): AnalysisProvider {
       // dejaría esa regla sin proveedor contra el que probarse.
       const source = guidelines?.trim() || serializedTree;
 
-      return analysisSchema.parse({
+      const analysis = analysisSchema.parse({
         intent: {
           kind: deduceIntent(source),
           rationale: guidelines?.trim()
@@ -122,6 +135,8 @@ export function fakeAnalysisProvider(): AnalysisProvider {
         },
         tickets,
       } satisfies Analysis);
+
+      return { analysis, model: FAKE_MODEL };
     },
   };
 }

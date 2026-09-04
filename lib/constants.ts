@@ -95,55 +95,97 @@ export const EXTERNAL_LINKS = {
  */
 export const AI_CONFIG = {
   /**
-   * El modelo de Gemini.
+   * Los modelos, en orden de preferencia. Se intentan de arriba abajo.
    *
-   * `gemini-3.6-flash`, **verificado el 2026-09-04** contra
-   * https://ai.google.dev/gemini-api/docs/pricing y —esto es lo importante—
-   * contra el free tier de verdad.
+   * Es una LISTA y no un modelo porque el free tier se congestiona de verdad:
+   * el 2026-09-04, tres de los cuatro Flash de esta lista contestaban
+   * `503 — This model is currently experiencing high demand` a la vez, y una
+   * generación se perdía entera por eso teniendo otros modelos libres. Quien
+   * decide si un fallo justifica pasar al siguiente es
+   * `shouldTryAnotherModel`, no este archivo.
    *
-   * NO es el Flash más nuevo de la página. Lo fue: aquí decía
-   * `gemini-3.8-flash`, que la página lista como el Flash más capaz con free
-   * tier, y contra el que la primera corrida real no consiguió ni una
-   * respuesta. `3.8`, `3.7` y `3.5` contestaban todos
-   * `503 — This model is currently experiencing high demand`, y
-   * `gemini-2.5-flash` un `404 — no longer available to new users`. El único
-   * que servía era éste.
+   * El orden baja en capacidad a propósito: se acepta un Análisis peor antes
+   * que ninguno. Cuál contestó de verdad se guarda con el Análisis
+   * (`ai_analyses.model`), así que un Análisis flojo siempre se puede explicar
+   * — por eso la degradación no es silenciosa.
    *
-   * La lección, para quien lo cambie: la página dice qué modelos EXISTEN con
-   * free tier, no cuáles lo SIRVEN hoy. Las dos comprobaciones son distintas y
-   * hay que hacer las dos — `npm run ai:live` es la segunda. Un 404 sale como
-   * `AnalysisConfigError` y un 503 como `AnalysisNetworkError` justamente para
-   * que este sea el primer sitio donde se mire.
+   * Verificados el 2026-09-04 contra la página de pricing Y contra el free
+   * tier de verdad. Las dos comprobaciones son distintas: la página dice qué
+   * modelos EXISTEN con free tier, no cuáles lo SIRVEN hoy. La segunda es
+   * `npm run ai:live`, y hay que hacerla. Ese día:
+   *
+   *   · `3.8`, `3.7` y `3.5` → 503, saturados.
+   *   · `3.6` → el único Flash que servía. ~40 s por Análisis.
+   *   · `gemma-4-31b-it` → sirve, y en 1,4 s: no razona antes de contestar.
+   *   · `gemini-2.5-flash` → 404, «no longer available to new users». Fuera.
+   *
+   * El último es Gemma y no otro Flash a propósito: es el más capaz de los dos
+   * Gemma que expone la API (31B denso, contra 26B con 4B activos), no razona
+   * —así que es el que más probabilidades tiene de caber en lo que quede del
+   * presupuesto— y admite salida estructurada, que es lo único que lo hacía
+   * elegible. Un modelo que no sepa devolver un objeto no es un plan B, es un
+   * eslabón roto.
    */
-  geminiModel: "gemini-3.6-flash",
+  geminiModels: [
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemma-4-31b-it",
+  ] as const,
 
   /**
-   * Cuánto se espera al modelo antes de rendirse.
+   * El presupuesto de tiempo de UNA generación, cadena entera incluida.
    *
-   * Dos minutos, y el número sale de una medición y no de una intuición: tres
-   * Análisis reales de los árboles de muestra tardaron 103 s en total, ~34 s
-   * cada uno (2026-09-04, `gemini-3.6-flash`). Aquí decía un minuto, elegido a
-   * ojo, y la primera corrida real se lo comió entero — el árbol entero entra
-   * en el prompt y el Flash de hoy razona antes de contestar.
+   * Total y no por intento, y es la decisión que hace la cadena viable: cinco
+   * modelos a dos minutos cada uno serían diez minutos de peor caso, muy por
+   * encima de cualquier `maxDuration` de plataforma. Con un presupuesto
+   * compartido, cada intento se lleva lo que queda y el conjunto no puede
+   * pasarse de aquí.
+   *
+   * Dos minutos, y el número sale de medir y no de intuir: tres Análisis
+   * reales de los árboles de muestra tardaron ~40 s cada uno (2026-09-04,
+   * `gemini-3.6-flash`). Antes decía un minuto, elegido a ojo, y la primera
+   * corrida real se lo comió entero. Los que están saturados fallan rápido
+   * —entre 300 ms y 6 s— así que la cadena casi nunca cuesta lo que parece.
    *
    * ⚠ Ojo al desplegar, y esto pesa más de lo que parece: si la plataforma
    * corta sus funciones antes de esto, el corte que verá el usuario será el de
-   * ella y no éste. Con ~34 s de media, la ruta que monte el panel (#16) tiene
-   * que declarar un `maxDuration` por encima de este número — y un plan que no
-   * llegue a los dos minutos no puede servir esta app tal cual.
+   * ella y no éste. La ruta que monte el panel (#16) tiene que declarar un
+   * `maxDuration` por encima de este número — y un plan que no llegue a los
+   * dos minutos no puede servir esta app tal cual.
    */
   timeoutMs: 120_000,
 
   /**
-   * Cuántas veces reintenta el SDK antes de rendirse.
+   * Lo mínimo que se le deja a un intento para que valga la pena hacerlo.
    *
-   * Uno, y no los dos que trae por defecto. Reintentar solo ayuda con un 5xx
-   * del proveedor; con un 429 no cambia nada y con un modelo retirado tampoco,
-   * y cada intento se come una parte del minuto de arriba. El reintento que sí
-   * decide algo —volver a pedir un Análisis— es del usuario, y para eso está
-   * `retryable` en la taxonomía.
+   * Sin esto, la cadena podía lanzar una petición con 200 ms de presupuesto
+   * restante: garantizada a morir por timeout, y contada por Google igual que
+   * cualquier otra. Es una llamada de cuota tirada a la basura a cambio de
+   * nada. Por debajo de esto se para y se dice que se acabó el tiempo, que es
+   * la verdad.
+   *
+   * Diez segundos porque ni el más rápido de la lista arma un Análisis entero
+   * en menos: Gemma tardó 1,4 s en un objeto de dos campos, y un Análisis son
+   * un Spec y varios Tickets con sus Checks.
    */
-  maxRetries: 1,
+  minAttemptMs: 10_000,
+
+  /**
+   * Cuántas veces reintenta el SDK el MISMO modelo. Ninguna.
+   *
+   * Cero, y es lo que cambió al llegar la cadena: dos mecanismos de reintento
+   * anidados son uno de más. Insistirle a un modelo que acaba de decir «high
+   * demand» es esperar que el atasco se despeje en 300 ms; pasar al siguiente
+   * de la lista es lo que de verdad puede funcionar, y es lo que hace la
+   * cadena. Cada reintento del SDK, además, se comía presupuesto que le
+   * pertenece al modelo siguiente.
+   *
+   * El reintento que sí decide algo —volver a pedir el Análisis entero— es del
+   * usuario, y para eso está `retryable` en la taxonomía.
+   */
+  maxRetries: 0,
 } as const;
 
 export const THEMES = {

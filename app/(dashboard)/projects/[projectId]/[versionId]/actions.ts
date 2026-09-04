@@ -92,17 +92,17 @@ export async function generateAnalysis(
     requireAnalyzableRequest(request);
 
     const provider = getAnalysisProvider();
-    const content = await provider.analyze({
+    const { analysis, model } = await provider.analyze({
       serializedTree: request.serializedTree,
       guidelines: request.guidelines ?? null,
     });
 
-    return {
-      ok: true,
-      provider: provider.name,
-      model: provider.model,
-      content,
-    };
+    // `model` sale de la RESPUESTA y no de `provider.models`, y la diferencia
+    // no es cosmética: el adaptador de Gemini tiene cadena de reserva, así que
+    // el modelo preferido y el que contestó pueden no ser el mismo. Guardar el
+    // preferido dejaría a `ai_analyses.model` mintiendo sobre todo Análisis
+    // servido por un plan B.
+    return { ok: true, provider: provider.name, model, content: analysis };
   } catch (error) {
     // Un solo `catch` para todo, y sin `console.error` de la respuesta: el
     // texto que devolvió el modelo es el árbol de una persona masticado, y no

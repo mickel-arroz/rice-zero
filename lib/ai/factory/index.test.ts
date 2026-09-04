@@ -45,7 +45,7 @@ describe("la fábrica del Proveedor de IA", () => {
       process.env[AI_PROVIDER_ENV_KEY] = name;
       resetAnalysisProvider();
       const provider = getAnalysisProvider();
-      expect(provider.model.trim().length).toBeGreaterThan(0);
+      expect(provider.models.length).toBeGreaterThan(0);
       expect(typeof provider.analyze).toBe("function");
     }
   });

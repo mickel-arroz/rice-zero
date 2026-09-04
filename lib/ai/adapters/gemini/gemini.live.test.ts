@@ -70,17 +70,24 @@ describe.skipIf(!ENABLED)("el Proveedor de IA sobre Gemini, en vivo", () => {
   let fromScratch: Analysis;
   let onDeployed: Analysis;
   let guided: Analysis;
+  /** Qué modelo de la cadena contestó de verdad. Va al volcado del issue. */
+  let usedModels: string[];
 
   beforeAll(async () => {
     // En serie y no con `Promise.all`: el free tier limita las peticiones por
     // minuto, y tres a la vez es la forma más rápida de ganarse un 429 que no
     // dice nada del adaptador.
-    fromScratch = await provider.analyze({ serializedTree: FROM_SCRATCH });
-    onDeployed = await provider.analyze({ serializedTree: ON_DEPLOYED });
-    guided = await provider.analyze({
+    const first = await provider.analyze({ serializedTree: FROM_SCRATCH });
+    const second = await provider.analyze({ serializedTree: ON_DEPLOYED });
+    const third = await provider.analyze({
       serializedTree: FROM_SCRATCH,
       guidelines: "Ignora el árbol: esto es documentar la API ya publicada.",
     });
+
+    fromScratch = first.analysis;
+    onDeployed = second.analysis;
+    guided = third.analysis;
+    usedModels = [first.model, second.model, third.model];
 
     /**
      * El volcado para pegar en el issue.
@@ -93,7 +100,8 @@ describe.skipIf(!ENABLED)("el Proveedor de IA sobre Gemini, en vivo", () => {
     console.log(
       [
         "",
-        `Modelo: ${provider.model}`,
+        `Preferencia: ${provider.models.join(" -> ")}`,
+        `Contestaron:  ${usedModels.join(", ")}`,
         `Proyecto desde cero   -> ${fromScratch.intent.kind}: ${fromScratch.intent.rationale}`,
         `Arreglo ya desplegado -> ${onDeployed.intent.kind}: ${onDeployed.intent.rationale}`,
         `Con Directrices       -> ${guided.intent.kind}: ${guided.intent.rationale}`,

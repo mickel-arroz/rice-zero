@@ -26,6 +26,7 @@ import {
 import {
   AnalysisConfigError,
   AnalysisError,
+  type AnalysisErrorKind,
   AnalysisNetworkError,
   AnalysisTimeoutError,
   InvalidAnalysisInputError,
@@ -229,3 +230,56 @@ export function normalizeGeminiError(error: unknown): AnalysisError {
  * segundo.
  */
 export const GEMINI_API_KEY_ENV = "GEMINI_API_KEY";
+
+/**
+ * Las categorías que justifican probar el siguiente modelo de la lista.
+ *
+ * La pregunta que contesta esta lista no es «¿falló?» —eso ya lo sabemos— sino
+ * «¿tiene esto pinta de ser culpa DE ESTE modelo?». Solo entonces cambiar de
+ * modelo puede arreglar algo.
+ *
+ * Pasan al siguiente:
+ *
+ *   · `red` — el 503 de «high demand» es exactamente esto: este modelo está
+ *     saturado, otro puede no estarlo. Es el caso que motivó la cadena.
+ *   · `cuota` — los límites del free tier son POR MODELO, así que un 429 en uno
+ *     no dice nada del siguiente. Y una petición rechazada no gasta cuota, así
+ *     que probar sale gratis.
+ *   · `configuracion` — aquí caen el 404 del modelo retirado (el caso que el
+ *     ticket anticipaba, y que ya pasó con `gemini-2.5-flash`) y también el 401
+ *     de una API key mala. Que la key mala pase al siguiente es un coste
+ *     asumido: son cuatro rechazos de ~300 ms antes del error honesto. No
+ *     pasarla habría roto el caso del modelo retirado, que es el que importa.
+ *   · `timeout` — pasa, pero apenas significa nada: si un intento agotó el
+ *     reloj, el presupuesto compartido ya casi no da para otro y la cadena se
+ *     para sola en el siguiente giro. Está aquí para no tener que explicar por
+ *     qué NO está.
+ *
+ * NO pasan al siguiente:
+ *
+ *   · `malformada` — el modelo sí contestó. Gastó tokens y, si razona, medio
+ *     minuto; y que uno se salte la regla de los Checks no da ninguna razón
+ *     para creer que el siguiente no lo hará. Encadenar aquí sería quemar el
+ *     presupuesto entero produciendo basura. Lo que corresponde es reintentar
+ *     —el modelo no es determinista— y para eso está `retryable`.
+ *   · `entrada` — el problema es lo que se mandó: un árbol vacío o demasiado
+ *     grande. Ningún modelo va a arreglar eso.
+ *   · `sesion` — no la lanza ningún adaptador.
+ */
+const ADVANCES_MODEL = new Set<AnalysisErrorKind>([
+  "red",
+  "cuota",
+  "configuracion",
+  "timeout",
+]);
+
+/**
+ * ¿Merece la pena intentarlo con el siguiente modelo?
+ *
+ * Toma un error YA clasificado, así que decide sobre la categoría y no sobre el
+ * mensaje. Es lo que permite probar la política entera sin red y sin inventarse
+ * errores del SDK.
+ */
+export function shouldTryAnotherModel(error: AnalysisError): boolean {
+  return ADVANCES_MODEL.has(error.kind);
+}
