@@ -9,7 +9,10 @@ import { BlockedIcon } from "@/components/icons/blocked-icon";
 import { LABEL_CLASS } from "@/components/layout/site-chrome";
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
+import { ticketExport } from "@/components/analysis/export";
+import { PromptActions } from "@/components/analysis/prompt-actions";
 import { ticketsById, type AnalysisContent, type Ticket } from "@/lib/ai";
+import type { Analysis } from "@/lib/backend/ports";
 import { ANALYSIS_COPY, CONNECTION_COPY } from "@/lib/constants";
 
 /**
@@ -26,38 +29,47 @@ import { ANALYSIS_COPY, CONNECTION_COPY } from "@/lib/constants";
  * visual. Dos representaciones del mismo objeto, ninguna de las dos
  * autoritativa sobre la otra.
  */
-export function AnalysisResult({ analysis }: { analysis: AnalysisContent }) {
+export function AnalysisResult({ analysis }: { analysis: Analysis }) {
+  // La ENTIDAD y no solo su contenido, desde #17: exportar un Ticket Prompt
+  // necesita la fecha del Análisis para el nombre del `.md`, y ésa vive en la
+  // fila, no dentro del objeto que devolvió la IA.
+  const content = analysis.content;
   // Una vez para todas las tarjetas. Dentro de `TicketCard` se reconstruía
   // entero en cada una: N índices del mismo array para leer un título.
-  const byId = ticketsById(analysis.tickets);
+  const byId = ticketsById(content.tickets);
 
   return (
     <div className="flex flex-col gap-7">
-      <Intent analysis={analysis} />
+      <Intent analysis={content} />
 
       <section className="flex flex-col gap-2.5">
         <h2 className={LABEL_CLASS}>{ANALYSIS_COPY.summary}</h2>
-        <p className="text-[13px] leading-relaxed text-pretty">{analysis.summary}</p>
+        <p className="text-[13px] leading-relaxed text-pretty">{content.summary}</p>
       </section>
 
       {/* Vacío es correcto y no un fallo: el prompt prohíbe las preguntas
           retóricas, así que un Análisis sin huecos no tiene ninguna. Pintar la
           sección vacía sugeriría que falta algo. */}
-      {analysis.questions.length > 0 ? (
-        <Questions questions={analysis.questions} />
+      {content.questions.length > 0 ? (
+        <Questions questions={content.questions} />
       ) : null}
 
-      <Spec spec={analysis.spec} />
+      <Spec spec={content.spec} />
 
       <section className="flex flex-col gap-3.5">
         <div className="flex items-center justify-between gap-3">
           <h2 className={LABEL_CLASS}>{ANALYSIS_COPY.tickets}</h2>
           <span className="text-[11px] text-muted-foreground">
-            {ANALYSIS_COPY.ticketCount(analysis.tickets.length)}
+            {ANALYSIS_COPY.ticketCount(content.tickets.length)}
           </span>
         </div>
-        {analysis.tickets.map((ticket) => (
-          <TicketCard key={ticket.id} ticket={ticket} byId={byId} />
+        {content.tickets.map((ticket) => (
+          <TicketCard
+            key={ticket.id}
+            analysis={analysis}
+            ticket={ticket}
+            byId={byId}
+          />
         ))}
       </section>
     </div>
@@ -259,9 +271,12 @@ function Spec({ spec }: { spec: AnalysisContent["spec"] }) {
  * caso imposible. Esa garantía es un `refine`, no un consejo del prompt.
  */
 function TicketCard({
+  analysis,
   ticket,
   byId,
 }: {
+  /** El Análisis entero: hace falta para exportar este Ticket suelto. */
+  analysis: Analysis;
   ticket: Ticket;
   /** El índice ya hecho, de `AnalysisResult`. Solo para nombrar los bloqueos. */
   byId: Map<string, Ticket>;
@@ -299,6 +314,23 @@ function TicketCard({
           ))}
         </div>
       ) : null}
+
+      {/* La exportación de ESTE Ticket, al pie de su tarjeta y bajo su propia
+          línea. Aquí y no en una barra de arriba porque lo que se copia es un
+          Ticket concreto, y con nueve tarjetas iguales un control lejos de la
+          suya se pulsa sobre el Ticket equivocado.
+
+          Lo que sale no es lo que se ve: `renderTicketPrompt` le añade la
+          Intención, el problema y las decisiones del Spec, que es lo que hace
+          que el Ticket se entienda pegado solo en un agente. */}
+      <div className="flex items-center justify-between gap-2.5 border-t border-border pt-3.5">
+        <span className={LABEL_CLASS}>{ANALYSIS_COPY.ticketPrompt}</span>
+        <PromptActions
+          build={() => ticketExport(analysis, ticket.id)}
+          copyLabel={ANALYSIS_COPY.copyTicket(ticket.id)}
+          downloadLabel={ANALYSIS_COPY.downloadTicket(ticket.id)}
+        />
+      </div>
     </article>
   );
 }

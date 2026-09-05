@@ -709,13 +709,153 @@ export const ANALYSIS_COPY = {
     "Parece que no hay conexión. Puedes seguir editando el árbol y volver a intentarlo.",
 
   /**
-   * QUÉ modelo lo escribió. No cuándo: la fecha es material del historial (#17).
+   * QUIÉN lo escribió y CUÁNDO.
    *
-   * Se enseña porque el adaptador tiene cadena de reserva y el ADR 0003 pide
-   * que degradar no sea silencioso: un Análisis flojo se explica sabiendo que
-   * lo sirvió un plan B. Por eso existe `ai_analyses.model`.
+   * El modelo se enseña porque el adaptador tiene cadena de reserva y el ADR
+   * 0003 pide que degradar no sea silencioso: un Análisis flojo se explica
+   * sabiendo que lo sirvió un plan B. Por eso existe `ai_analyses.model`.
+   *
+   * La fecha se sumó con el Historial, y hasta entonces sobraba: con un solo
+   * Análisis a la vista, «cuál estoy leyendo» no era una pregunta. Ahora lo es,
+   * y ésta es la línea que la contesta sin abrir la lista. Va en el mismo
+   * formato que la fila del Historial y que el sello del `.md` descargado
+   * (`fileStamp`), para que las tres cosas se crucen de un vistazo.
    */
-  provenance: (model: string) => `Escrito por ${model}`,
+  provenance: (model: string, when: string | null) =>
+    when ? `Escrito por ${model} · ${when}` : `Escrito por ${model}`,
+
+  /* ── El Historial ─────────────────────────────────────────────────────── */
+
+  /**
+   * El Historial es el OTRO LADO de la misma hoja, no otra pantalla.
+   *
+   * Por eso su puerta vive en la cabecera del panel junto a cerrar —es
+   * navegación del panel, no contenido del Análisis— y «Volver» ocupa
+   * exactamente el mismo sitio que la puerta. El número al lado dice que hay
+   * algo detrás sin obligar a abrirlo.
+   */
+  history: "Historial",
+  historyOpen: (n: number) =>
+    `Ver el Historial: ${n} ${n === 1 ? "Análisis guardado" : "Análisis guardados"}`,
+  historyBack: "Volver",
+  historyMeta: (n: number) =>
+    `${n} ${n === 1 ? "Análisis guardado" : "Análisis guardados"}`,
+  /** La insignia del que manda. Ver `isCurrent` en `components/analysis/history.ts`. */
+  historyCurrent: "Vigente",
+  /**
+   * Lo que resume una entrada: cuánto trabajo describe y quién lo escribió.
+   *
+   * Las preguntas solo se cuentan cuando las hay. Un Análisis sin preguntas es
+   * correcto —el prompt prohíbe las retóricas—, y «0 preguntas» se leería como
+   * una carencia en vez de como lo que es.
+   */
+  historyEntry: (tickets: number, questions: number, model: string) =>
+    [
+      `${tickets} ${tickets === 1 ? "Ticket" : "Tickets"}`,
+      questions > 0 ? `${questions} ${questions === 1 ? "pregunta" : "preguntas"}` : null,
+      model,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  /** Lo que se le pidió a la IA aquel día: es lo que explica por qué salió distinto. */
+  historyGuidelines: (text: string) => `Directrices: ${text}`,
+  historyHint: "Los Análisis no se editan: se leen, se exportan y se borran.",
+  /** Se queda vacío solo si borras el último desde aquí mismo. */
+  historyEmpty: "No queda ningún Análisis de esta Versión.",
+
+  /**
+   * El aviso de que lo que se lee no es el vigente.
+   *
+   * Va ARRIBA DEL TODO del contenido, antes que la Intención, y es la única
+   * cosa que se pone por delante de ella en todo el panel. Se lo gana: cambia
+   * el significado de todo lo que hay debajo, y descubrirlo después de leer el
+   * Spec entero es tiempo tirado.
+   */
+  past: (currentWhen: string | null) =>
+    currentWhen
+      ? `Estás leyendo un Análisis antiguo. El vigente es el de ${currentWhen}.`
+      : "Estás leyendo un Análisis antiguo, no el vigente.",
+  pastGoToCurrent: "Ir al vigente",
+  /**
+   * Lo que hace «Regenerar» desde un Análisis pasado, dicho antes de pulsarlo.
+   *
+   * Un Análisis no se edita nunca (`ports/entities.ts`), así que generar crea
+   * uno nuevo y el que se está leyendo se queda donde está. Sin esta línea,
+   * pulsar «Regenerar» mirando el de anteayer parece que lo va a sobrescribir.
+   */
+  pastRegenerate: "Regenerar crea un Análisis nuevo; éste se queda.",
+
+  /* ── Exportar ─────────────────────────────────────────────────────────── */
+
+  /**
+   * Las dos exportaciones, nombradas por lo que producen y no por el verbo.
+   *
+   * `CONTEXT.md` las llama así, y son términos del dominio: lo que se pega en
+   * un agente de código es un Master Prompt o un Ticket Prompt, no «el texto».
+   */
+  masterPrompt: "Master Prompt",
+  ticketPrompt: "Ticket Prompt",
+
+  copy: "Copiar",
+  /**
+   * Cuando el navegador no deja copiar.
+   *
+   * Pasa de verdad: fuera de un contexto seguro `navigator.clipboard` ni
+   * existe. Está aquí y no en el `throw` que lo lanza porque es una frase que
+   * lee una persona, no una invariante de programador — la interfaz es toda en
+   * español y eso se revisa de una lectura solo si está todo junto.
+   */
+  copyUnsupported: "Este navegador no deja copiar al portapapeles.",
+  /** La confirmación se queda DENTRO de la pastilla: un toast taparía el Ticket. */
+  copied: "Copiado",
+  copyFailed: "No se copió",
+  /**
+   * La descarga se nombra por la extensión y no por el verbo.
+   *
+   * «.md» dice a la vez qué hace y qué sale, en dos caracteres, que es lo que
+   * cabe al lado de «Copiar» en una hoja de teléfono.
+   */
+  download: ".md",
+  downloaded: "Descargado",
+
+  copyMaster: "Copiar el Master Prompt al portapapeles",
+  downloadMaster: "Descargar el Master Prompt como .md",
+  copyTicket: (id: string) => `Copiar el Ticket Prompt de ${id} al portapapeles`,
+  downloadTicket: (id: string) => `Descargar el Ticket Prompt de ${id} como .md`,
+
+  /* ── Borrar un Análisis ───────────────────────────────────────────────── */
+
+  deleteLabel: "Borrar",
+  /**
+   * Los dos se fechan cuando se sabe la fecha, y callan cuando no.
+   *
+   * El «cuando no» no es teórico por poco: `now` se fija al ABRIR la hoja, así
+   * que en la práctica siempre hay reloj aquí. Lo que no puede pasar es que la
+   * rama muerta invente una fecha — la primera versión rellenaba el hueco con
+   * el modelo, y decía «¿Borrar el Análisis de gemini-2.5-flash?».
+   */
+  deleteOne: (when: string | null) =>
+    when ? `Borrar el Análisis de ${when}` : "Borrar este Análisis",
+  deleteTitle: (when: string | null) =>
+    when ? `¿Borrar el Análisis de ${when}?` : "¿Borrar este Análisis?",
+  /** El pie de la cifra grande, como al podar un Nodo. Ver `VERSIONS_COPY.deleteFalls`. */
+  deleteFalls: (n: number) =>
+    n === 1 ? "Ticket se va con él" : "Tickets se van con él",
+  deleteSubtree:
+    "Se va el Análisis entero: su Spec, sus Tickets y sus Checks. Los prompts que ya exportaste no se tocan.",
+  /**
+   * Lo que NO se lleva por delante, que es lo que de verdad preocupa.
+   *
+   * Un Análisis sale del árbol, no al revés: la cascada de la migración va en
+   * la otra dirección —una Versión se lleva sus Análisis— y quien no lo sepa
+   * puede dejar de limpiar por miedo a perder lo que escribió.
+   */
+  deleteBody:
+    "Tu árbol no se toca: los Análisis salen de él, no al revés. No se puede deshacer.",
+  deleteSubmit: "Borrar",
+  deleting: "Borrando",
+  cancel: "Cancelar",
+  close: "Cerrar",
 
   /* ── El Análisis ──────────────────────────────────────────────────────── */
 

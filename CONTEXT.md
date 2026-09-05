@@ -60,6 +60,10 @@ El Análisis entero renderizado a texto para pegar en un agente de código (p. e
 El mismo render acotado a un solo Ticket, con el contexto mínimo del Spec para que valga por sí solo.
 _Avoid_: Feature Prompt
 
+**Historial**:
+Todos los Análisis de una Versión, del más nuevo al más viejo. El primero es el **vigente**: el que el panel enseña por defecto. Cualquiera se puede abrir y exportar —un Análisis viejo se re-rendera con el renderer de hoy— y borrar a mano con confirmación, pero ninguno se edita nunca. Es el otro lado de la hoja del Panel de IA, no otra pantalla.
+_Avoid_: versiones del Análisis, revisiones
+
 **Directrices del Usuario**:
 Texto opcional que el usuario escribe antes de generar un Análisis; se inyecta con máxima precedencia en la llamada a la IA. Es también la única palanca para corregir la Intención que la IA dedujo.
 

@@ -2,20 +2,27 @@
 
 import { useEffect, useRef } from "react";
 
+import { AnalysisHistory } from "@/components/analysis/analysis-history";
 import { AnalysisResult } from "@/components/analysis/analysis-result";
 import { useAnalysis } from "@/components/analysis/analysis-provider";
 import { AnalysisToast } from "@/components/analysis/analysis-toast";
+import { masterExport } from "@/components/analysis/export";
+import { analysisWhen } from "@/components/analysis/history";
 import { retryPlan } from "@/components/analysis/panel";
+import { PromptActions } from "@/components/analysis/prompt-actions";
 import { useElapsedSeconds } from "@/components/analysis/use-elapsed";
 import { useWide } from "@/components/analysis/use-wide";
 import { useBlocked } from "@/components/connection/connection-provider";
 import { AnalysesIcon } from "@/components/icons/analyses-icon";
+import { ChevronLeftIcon } from "@/components/icons/chevron-left-icon";
 import { CloseIcon } from "@/components/icons/close-icon";
+import { HistoryIcon } from "@/components/icons/history-icon";
 import {
   CTA_PRIMARY_CLASS,
   CTA_SECONDARY_CLASS,
   ICON_BUTTON_CLASS,
   LABEL_CLASS,
+  PILL_CLASS,
   PILL_PRIMARY_CLASS,
 } from "@/components/layout/site-chrome";
 import { fire } from "@/components/tree/fire";
@@ -26,6 +33,7 @@ import {
   ANALYSIS_INPUT_LIMITS,
   hasSomethingToAnalyze,
 } from "@/lib/services/analyses";
+
 
 /**
  * El Panel de IA: dónde se escriben las Directrices y dónde se lee el Análisis.
@@ -62,7 +70,22 @@ export function AnalysisLayer() {
   useEffect(() => {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") closePanel();
+      if (event.key !== "Escape") return;
+
+      // Con un diálogo delante, Escape es SUYO. Los dos escuchan en
+      // `document`, así que sin esto una sola pulsación disparaba los dos:
+      // cancelaba el borrado y además cerraba el Panel de IA entero, dejando a
+      // quien solo quería echarse atrás mirando el árbol.
+      //
+      // Se mira el DOM y no un estado compartido porque el diálogo puede
+      // nacer de cualquier sitio de dentro del panel —hoy el Historial, mañana
+      // otro— y un contador de diálogos abiertos obligaría a que todos se
+      // acordaran de apuntarse. `aria-modal` ya lo declara quien lo abre.
+      // Y no sirve `stopPropagation`: dos escuchas del mismo nodo no se
+      // detienen entre sí, las ordena quien se registró antes.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+
+      closePanel();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
@@ -125,53 +148,146 @@ export function AnalysisLayer() {
  * quedaría a varias pantallas del sitio donde se descubre que hace falta.
  */
 function PanelBody() {
+  const { view, status } = useAnalysis();
+  // El pie desaparece con la lista delante: «Regenerar» sobre un Historial es
+  // una acción sobre la Versión y no sobre lo que se está mirando, y ofrecerla
+  // ahí invita a generar creyendo que se recarga la lista.
+  //
+  // SALVO mientras genera. Con el pie fuera, el Historial era el único sitio
+  // del panel donde una generación en vuelo no se veía por ningún lado —el
+  // cuerpo enseña la lista guardada, no la silueta— y el Análisis aterrizaba
+  // de golpe, arrastrando la vista de vuelta sin que nada lo hubiera
+  // anunciado. El botón deshabilitado diciendo «Generando…» es ese aviso.
+  const footer = view !== "history" || status === "generating";
+
   return (
     <>
       <PanelHeader />
       <div className="flex-1 overflow-y-auto px-6 pb-6">
         <PanelContent />
       </div>
-      <GuidelinesFooter />
+      {footer ? <GuidelinesFooter /> : null}
     </>
   );
 }
 
+/**
+ * La cabecera: quién escribió lo que se está leyendo, la puerta al Historial y
+ * la exportación del Master Prompt.
+ *
+ * ── Por qué la puerta va AQUÍ ─────────────────────────────────────────────
+ *
+ * Porque el Historial es navegación del panel, no contenido del Análisis: es
+ * el otro lado de la misma hoja. Puesto dentro del desplazamiento sería una
+ * sección más entre el Spec y los Tickets, y habría que buscarlo. Al lado de
+ * cerrar, es lo que es — y «Volver» ocupa exactamente su sitio cuando la lista
+ * está delante, así que ir y venir es pulsar dos veces en el mismo punto.
+ *
+ * ── Por qué la exportación del Master está ANCLADA ────────────────────────
+ *
+ * El Master Prompt es el Análisis ENTERO, así que su exportación no puede
+ * depender de dónde estés en una lista de nueve Tickets. Anclada arriba está a
+ * un toque siempre. Y va en la cabecera y no en el cuerpo por una razón que es
+ * un criterio de aceptación de #16: lo primero que se LEE del contenido tiene
+ * que seguir siendo la Intención, y una barra de acciones por delante la
+ * empujaría fuera de la vista.
+ */
 function PanelHeader() {
-  const { analysis, closePanel } = useAnalysis();
+  const { analysis, closePanel, view, analyses, now, openHistory, closeHistory } =
+    useAnalysis();
+  const history = view === "history";
+  const when = analysis ? analysisWhen(analysis, now) : null;
 
   return (
-    <div className="flex items-center justify-between gap-4 px-6 pt-4 pb-3.5">
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <p className="flex items-center gap-2">
-          <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
-          <span className={LABEL_CLASS}>{ANALYSIS_COPY.label}</span>
-        </p>
-        {analysis ? (
-          // Qué modelo lo escribió NO es diagnóstico opcional: el adaptador
-          // tiene cadena de reserva, así que un Análisis flojo se explica
-          // sabiendo que lo sirvió un plan B. Por eso `ai_analyses.model`
-          // existe, y por eso se enseña. La FECHA no: eso es historial (#17).
-          <p className="truncate text-[11px] text-muted-foreground">
-            {ANALYSIS_COPY.provenance(analysis.model)}
+    <div className="flex shrink-0 flex-col gap-3.5 px-6 pt-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <p className="flex items-center gap-2">
+            <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
+            <span className={LABEL_CLASS}>
+              {history ? ANALYSIS_COPY.history : ANALYSIS_COPY.label}
+            </span>
           </p>
-        ) : null}
+          {history ? (
+            <p className="truncate text-[11px] text-muted-foreground">
+              {ANALYSIS_COPY.historyMeta(analyses.length)}
+            </p>
+          ) : analysis ? (
+            // Qué modelo lo escribió NO es diagnóstico opcional: el adaptador
+            // tiene cadena de reserva, así que un Análisis flojo se explica
+            // sabiendo que lo sirvió un plan B. La fecha se sumó con el
+            // Historial: con varios Análisis guardados, «cuál estoy leyendo»
+            // pasó a ser una pregunta.
+            <p className="truncate text-[11px] text-muted-foreground">
+              {ANALYSIS_COPY.provenance(analysis.model, when)}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {history ? (
+            <button
+              type="button"
+              onClick={closeHistory}
+              className={PILL_PRIMARY_CLASS}
+            >
+              <ChevronLeftIcon width={14} height={14} />
+              {ANALYSIS_COPY.historyBack}
+            </button>
+          ) : analyses.length > 0 ? (
+            // Sin Análisis no hay puerta: una lista vacía no tiene nada que
+            // enseñar, y un botón que abre la nada solo se pulsa una vez.
+            <button
+              type="button"
+              onClick={openHistory}
+              aria-label={ANALYSIS_COPY.historyOpen(analyses.length)}
+              className={`${PILL_CLASS} border-border text-muted-foreground`}
+            >
+              <HistoryIcon width={15} height={15} />
+              {analyses.length}
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={closePanel}
+            aria-label={ANALYSIS_COPY.closePanel}
+            className={ICON_BUTTON_CLASS}
+          >
+            <CloseIcon width={18} height={18} />
+          </button>
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={closePanel}
-        aria-label={ANALYSIS_COPY.closePanel}
-        className={ICON_BUTTON_CLASS}
-      >
-        <CloseIcon width={18} height={18} />
-      </button>
+
+      {/* La línea siempre está: separa la cabecera anclada de lo que se
+          desplaza. Lo que cambia es si lleva la barra encima. */}
+      {!history && analysis ? (
+        <div className="flex items-center justify-between gap-2.5 border-t border-border pt-3 pb-3.5">
+          <span className={LABEL_CLASS}>{ANALYSIS_COPY.masterPrompt}</span>
+          <PromptActions
+            build={() => masterExport(analysis)}
+            copyLabel={ANALYSIS_COPY.copyMaster}
+            downloadLabel={ANALYSIS_COPY.downloadMaster}
+          />
+        </div>
+      ) : (
+        <div className="border-t border-border pb-3.5" />
+      )}
     </div>
   );
 }
 
 /** Los cuatro estados del panel, explícitos. Es un criterio del ticket. */
 function PanelContent() {
-  const { status, analysis, loadError, reload } = useAnalysis();
+  const { status, analysis, loadError, reload, view } = useAnalysis();
   const tree = useTree();
+
+  // El Historial se pinta ANTES de mirar `status`, y a propósito: la lista ya
+  // está en memoria, así que enseñarla no depende de que haya terminado una
+  // lectura ni de que la generación en curso llegue. Con la comprobación
+  // debajo, abrir la lista durante una generación enseñaría la silueta de un
+  // Análisis en camino en vez de los que ya hay guardados.
+  if (view === "history") return <AnalysisHistory />;
 
   if (status === "error") {
     return (
@@ -213,7 +329,14 @@ function PanelContent() {
     );
   }
 
-  if (analysis) return <AnalysisResult analysis={analysis.content} />;
+  if (analysis) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PastNotice />
+        <AnalysisResult analysis={analysis} />
+      </div>
+    );
+  }
 
   // Vacío: esta Versión no se ha analizado nunca. Lo que hay que hacer está en
   // el pie, así que aquí solo se dice dónde se está.
@@ -225,6 +348,52 @@ function PanelContent() {
       <p className="text-xs text-muted-foreground">
         {ANALYSIS_COPY.emptyMeta(tree.nodes.length)}
       </p>
+    </div>
+  );
+}
+
+/**
+ * El aviso de que lo que se está leyendo NO es el vigente.
+ *
+ * Es lo único en todo el panel que se pone por delante de la Intención, y se
+ * lo gana: cambia el significado de todo lo que hay debajo. Un Spec de
+ * anteayer leído como si fuera el de hoy manda a implementar lo que ya se
+ * descartó, y descubrirlo al final es haber leído el panel entero para nada.
+ *
+ * Lleva las dos salidas dentro —volver al vigente, o volver a la lista— porque
+ * un aviso que dice «esto es antiguo» sin decir dónde está lo nuevo obliga a
+ * buscarlo.
+ */
+function PastNotice() {
+  const { past, current, now, goToCurrent, openHistory } = useAnalysis();
+  if (!past || !current) return null;
+
+  const when = analysisWhen(current, now);
+
+  return (
+    <div className="flex gap-3 rounded-[20px] border border-border bg-accent p-4">
+      <HistoryIcon width={18} height={18} className="mt-px shrink-0 text-primary" />
+      <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+        <p className="text-[13px] leading-relaxed text-pretty">
+          {ANALYSIS_COPY.past(when)}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={goToCurrent}
+            className={`${PILL_PRIMARY_CLASS} h-8 px-3.5`}
+          >
+            {ANALYSIS_COPY.pastGoToCurrent}
+          </button>
+          <button
+            type="button"
+            onClick={openHistory}
+            className={`${PILL_CLASS} h-8 border-border px-3.5 text-muted-foreground`}
+          >
+            {ANALYSIS_COPY.history}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -279,6 +448,7 @@ function GuidelinesFooter() {
     failure,
     failedAt,
     analysis,
+    past,
   } = useAnalysis();
   const field = useRef<HTMLTextAreaElement>(null);
   const tree = useTree();
@@ -333,7 +503,13 @@ function GuidelinesFooter() {
 
   if (!guidelinesOpen) {
     return (
-      <div className="flex shrink-0 items-center gap-3 border-t border-border px-6 pt-3.5 pb-5">
+      <div className="flex shrink-0 flex-col gap-2.5 border-t border-border px-6 pt-3.5 pb-5">
+        {past ? (
+          <p className="text-[11px] leading-relaxed text-pretty text-muted-foreground">
+            {ANALYSIS_COPY.pastRegenerate}
+          </p>
+        ) : null}
+        <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={toggleGuidelines}
@@ -344,14 +520,15 @@ function GuidelinesFooter() {
             {guidelines.trim() || ANALYSIS_COPY.guidelinesPlaceholder}
           </span>
         </button>
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => fire(generate())}
-          className={`${PILL_PRIMARY_CLASS} h-10 disabled:border-border disabled:text-muted-foreground`}
-        >
-          {label}
-        </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => fire(generate())}
+            className={`${PILL_PRIMARY_CLASS} h-10 disabled:border-border disabled:text-muted-foreground`}
+          >
+            {label}
+          </button>
+        </div>
       </div>
     );
   }
@@ -392,9 +569,16 @@ function GuidelinesFooter() {
 
       {action}
 
-      {/* La última línea de la hoja, bajo el botón: los dos datos que la gente
-          pregunta antes de pulsar — cuánto tarda y si puede irse. */}
-      {analysis ? null : (
+      {/* La última línea de la hoja, bajo el botón. Con un Análisis pasado
+          delante dice lo que va a pasar —nace uno nuevo, éste se queda—; sin
+          ningún Análisis, los dos datos que la gente pregunta antes de pulsar:
+          cuánto tarda y si puede irse. Con el vigente delante no hace falta
+          ninguna de las dos. */}
+      {past ? (
+        <p className="text-center text-[11px] leading-relaxed text-pretty text-muted-foreground">
+          {ANALYSIS_COPY.pastRegenerate}
+        </p>
+      ) : analysis ? null : (
         <p className="text-center text-[11px] leading-relaxed text-pretty text-muted-foreground">
           {ANALYSIS_COPY.generateHint}
         </p>

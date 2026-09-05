@@ -168,6 +168,19 @@ export type AnalysisService = {
     /** Directrices del Usuario. En blanco es no haber escrito ninguna. */
     guidelines?: string | null;
   }): Promise<Analysis>;
+  /**
+   * Borra un Análisis del Historial. No toca el árbol de su Versión.
+   *
+   * Es la única operación de este servicio que escribe sin pasar por la IA, y
+   * la única que no añade ninguna regla al puerto: pasa derecha. Está aquí de
+   * todas formas porque el ADR 0001 no admite excepciones —«cero llamadas al
+   * backend desde componentes o páginas»—, y un componente que llamara al
+   * repositorio para esto abriría la puerta que el resto del archivo cierra.
+   *
+   * @throws NotFoundError si no existe o no es tuyo. Bajo RLS las dos son la
+   *   misma respuesta, y eso es todo lo que se dice.
+   */
+  remove(id: string): Promise<void>;
 };
 
 /**
@@ -247,6 +260,10 @@ export function createAnalysisService(
         model: result.model,
         content: parsed.data,
       });
+    },
+
+    remove(id) {
+      return backend.analyses.delete(id);
     },
   };
 }

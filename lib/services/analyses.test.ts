@@ -22,7 +22,11 @@ import {
   describeAnalysisFailure,
 } from "@/lib/ai/errors";
 import { sampleAnalysis } from "@/lib/ai/testing/samples";
-import type { BackendProvider, ProjectVersion } from "@/lib/backend/ports";
+import {
+  NotFoundError,
+  type BackendProvider,
+  type ProjectVersion,
+} from "@/lib/backend/ports";
 import {
   createInMemoryBackend,
   type InMemoryBackend,
@@ -254,6 +258,53 @@ describe("capa de servicios: Análisis", () => {
         second.id,
         first.id,
       ]);
+    });
+  });
+
+  /**
+   * Borrar es la única operación del Historial que escribe, y la única del
+   * servicio que no pasa por la IA: no gasta cuota, no serializa nada y no
+   * toca el árbol. Por eso se prueba sobre todo por lo que NO se lleva.
+   */
+  describe("borrar", () => {
+    it("un Análisis borrado deja de listarse", async () => {
+      const analyses = serviceWith(respondingWith());
+      const analysis = await analyses.generate({ versionId: version.id });
+
+      await analyses.remove(analysis.id);
+
+      expect(await analyses.list(version.id)).toEqual([]);
+    });
+
+    it("borrar uno no se lleva a los demás", async () => {
+      const analyses = serviceWith(respondingWith());
+      const first = await analyses.generate({ versionId: version.id });
+      const second = await analyses.generate({ versionId: version.id });
+
+      await analyses.remove(second.id);
+
+      expect((await analyses.list(version.id)).map((a) => a.id)).toEqual([first.id]);
+    });
+
+    /**
+     * La promesa que el diálogo de confirmación le hace a quien borra: «tu
+     * árbol no se toca». Los Análisis salen del árbol, no al revés, y la
+     * cascada de la migración va en la otra dirección — una Versión se lleva
+     * sus Análisis, un Análisis no se lleva nada.
+     */
+    it("y no se lleva por delante el árbol de la Versión", async () => {
+      const analyses = serviceWith(respondingWith());
+      const analysis = await analyses.generate({ versionId: version.id });
+
+      await analyses.remove(analysis.id);
+
+      expect(await backend.nodes.listByVersion(version.id)).toHaveLength(2);
+    });
+
+    it("borrar uno que no está —o que no es tuyo— es NotFoundError", async () => {
+      const analyses = serviceWith(respondingWith());
+
+      await expect(analyses.remove("no-existe")).rejects.toThrow(NotFoundError);
     });
   });
 });

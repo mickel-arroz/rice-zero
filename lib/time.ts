@@ -63,3 +63,56 @@ export function relativeTime(date: Date, now: Date): string {
   const years = Math.floor(elapsed / YEAR);
   return `hace ${years} ${years === 1 ? "año" : "años"}`;
 }
+
+/**
+ * Los meses, abreviados y en minúscula. A mano por lo mismo que los sufijos de
+ * arriba: `toLocaleDateString` depende de los datos de locale del entorno, y
+ * una fila del Historial que dice «2 sept.» en un navegador y «2 sep» en otro
+ * no es la misma fila.
+ */
+const MONTHS = [
+  "ene", "feb", "mar", "abr", "may", "jun",
+  "jul", "ago", "sep", "oct", "nov", "dic",
+];
+
+function clock(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** Cuántos días de calendario —no de 24 h— separan a dos fechas. */
+function calendarDaysApart(date: Date, now: Date): number {
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return Math.round((day(now) - day(date)) / DAY);
+}
+
+/**
+ * «hoy 14:32», «ayer 19:05», «2 sep · 11:48», «11 dic 2025 · 09:20».
+ *
+ * Aparte de `relativeTime` y no una variante suya porque contestan a preguntas
+ * distintas. «Hace 2 h» sirve para ordenar de un vistazo una lista de Proyectos
+ * que se tocan a diario; el Historial de Análisis necesita lo contrario —QUÉ
+ * MOMENTO fue— porque es donde se comparan dos Análisis entre sí y donde se
+ * cruza una fila con el nombre del `.md` que se descargó de ella, que lleva el
+ * mismo sello. «Hace 5 d» no se cruza con nada.
+ *
+ * Se cuenta por días de CALENDARIO y no por horas transcurridas, y ahí está la
+ * única sutileza: a las 00:30, lo de las 23:50 de anoche pasó hace cuarenta
+ * minutos y aun así fue ayer. Contar 24 h lo llamaría «hoy», que es la única
+ * respuesta que no vale.
+ *
+ * @param now contra qué se compara, por lo mismo que en `relativeTime`: la
+ *   función se queda pura y una lista entera se pinta con el MISMO ahora.
+ */
+export function dateTimeLabel(date: Date, now: Date): string {
+  const days = calendarDaysApart(date, now);
+  if (days <= 0) return `hoy ${clock(date)}`;
+  // «Ayer» manda sobre el año: un 1 de enero, lo del 31 de diciembre es de
+  // ayer y de otro año a la vez, y «ayer» es lo útil. El año ya se dirá
+  // pasado mañana, cuando «ayer» deje de valer.
+  if (days === 1) return `ayer ${clock(date)}`;
+
+  const day = `${date.getDate()} ${MONTHS[date.getMonth()]}`;
+  const year = date.getFullYear() === now.getFullYear() ? "" : ` ${date.getFullYear()}`;
+  return `${day}${year} · ${clock(date)}`;
+}
