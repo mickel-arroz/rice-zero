@@ -50,6 +50,9 @@ npm run dev
 | `npm run account:verify`     | Confirma su email sin buzón, con la conexión de dueño            |
 | `npm run test:contract:live` | La contract suite contra el proveedor activo. Bajo demanda; falla si no hay credenciales |
 | `npm run ai:live`            | Tres generaciones de verdad contra Gemini. Bajo demanda; falla si no hay API key |
+| `npm run test:e2e`           | La suite E2E (Playwright) contra el backend activo. Bajo demanda; falla si no hay credenciales |
+| `npm run test:e2e:ui`        | La misma, en el modo interactivo de Playwright                  |
+| `npm run smoke`              | Smoke público contra un despliegue. Pide `SMOKE_URL`; no entra con ninguna cuenta |
 
 ## El Proveedor de Backend
 
@@ -97,6 +100,122 @@ Los errores que el puerto puede lanzar son cinco: `NotFoundError`,
 denegación por RLS se reporta como `NotFoundError` a propósito: bajo RLS «no es
 tuyo» y «no existe» son cero filas, y distinguirlas confirmaría que el recurso
 existe.
+
+## La suite E2E
+
+Los flujos del spec, de punta a punta, en un Chromium de verdad: registro y
+login, crear un Proyecto, editar el árbol en Vista Registro, alternar a Canvas,
+clonar una Versión, generar un Análisis y exportar sus prompts, y el bloqueo de
+edición sin conexión.
+
+```
+e2e/
+├── apoyo/       entorno (con test de Vitest), semilla y los gestos compartidos
+├── preparar/    la cuenta y la sesión que heredan las demás pruebas
+├── humo/        el smoke del despliegue, con su propia configuración
+└── *.spec.ts    un archivo por flujo
+```
+
+Corre en **dos formatos**: `escritorio` (Desktop Chrome) y `movil` (Pixel 5
+emulado). No es lujo — la app se comporta distinto en cada uno: la Vista Canvas
+es solo consulta en el teléfono, y la navegación vive en la sidebar o dentro del
+menú de la cabecera según el ancho.
+
+### Contra qué corre
+
+Contra **Neon**, el Proveedor de Backend activo. El ticket original (#20) pedía
+un proyecto de Supabase de prueba, pero eso se escribió antes de que #21 dejara
+a Supabase como el proveedor dormido: probar el dormido habría dejado sin
+ejercitar justo el camino que se despliega.
+
+El Proveedor de IA es **siempre el falso**, forzado desde `playwright.config.ts`
+sin mirar lo que hubiera en `.env.local`. Es el mismo criterio absoluto de
+`vitest.setup.ts`: la diferencia entre «la suite no suele gastar cuota» y «la
+suite no puede gastar cuota».
+
+### Ponerla en marcha
+
+```bash
+# en .env.local
+E2E_LIVE=1
+E2E_EMAIL=e2e@tu-dominio.test
+E2E_PASSWORD=una-contraseña-larga
+
+npm run test:e2e
+```
+
+`DATABASE_URL` ya tiene que estar (es la misma de `db:apply`): con ella la
+semilla confirma el email sin buzón y vacía la cuenta. Sin alguna de las cuatro,
+el comando sale con código 1 diciendo cuál falta, en lugar de fingir que pasó.
+
+⚠ La cuenta de `E2E_EMAIL` es **de usar y tirar**: la semilla borra **todos sus
+Proyectos** antes de cada corrida. Es lo que hace que la corrida número cien
+empiece igual que la primera. Nunca la apuntes a una cuenta con datos que te
+importen.
+
+La primera corrida construye la app (`next build`) y la levanta en
+`http://localhost:3100`. Las dos mitades de esa URL costaron una tarde:
+
+- **`localhost`, nunca `127.0.0.1`.** Son la misma máquina y son orígenes
+  distintos. Managed Better Auth solo confía en los registrados, así que contra
+  `127.0.0.1` toda petición de auth vuelve `INVALID_ORIGIN` y el login no puede
+  dejar entrar a nadie. `localhost` vale en cualquier puerto.
+- **El 3100, no el 3000.** Un `next build` escribe sobre el mismo `.next` que
+  está sirviendo `next dev`, así que compartir puerto dejaba al `npm run dev` de
+  al lado devolviendo 403 en sus propios chunks.
+
+Para iterar sin esperar al build, levanta tú un servidor y apunta la suite a él:
+
+```bash
+# en otra terminal, sobre un build ya hecho
+AI_PROVIDER=falso npx next start --port 3100
+E2E_BASE_URL=http://localhost:3100 npm run test:e2e:ui
+```
+
+⚠ `AI_PROVIDER=falso` a mano, porque `E2E_BASE_URL` se salta el entorno que fija
+`playwright.config.ts`. Si se olvida, la suite genera Análisis contra Gemini de
+verdad — `analisis.spec.ts` lo caza en la primera generación comprobando qué
+modelo dice el panel, pero para entonces ya habrá gastado una llamada.
+
+### Qué afirma —y qué no— el escenario offline
+
+`context.setOffline` de Playwright apaga la red de verdad, así que la suite
+puede afirmar las tres mitades del #19: que la franja sale, que los botones que
+escriben se apagan, y que lo tecleado justo antes del corte queda **Pendiente** y
+se escribe solo al volver.
+
+Lo que **no** afirma es que el árbol se vea tras una recarga sin red, porque no
+pasa y no debe pasar: por el ADR 0001 el navegador pide los Nodos directamente
+al Data API, que es otro origen, y `lib/pwa/cache.ts` deja fuera de lo que
+sobrevive todo lo que pueda llevar datos de alguien dentro. Lo que sí se afirma
+es lo que el usuario nota: que una recarga sin conexión devuelve **la app** —su
+cascarón, sus accesos directos y una pantalla en español con su botón de
+reintentar— y no el dinosaurio del navegador.
+
+### Hasta dónde llega Google
+
+Hasta el arranque del login social: se afirma que el botón le pide al proveedor
+un login con Google y le dice a dónde volver, y la navegación al dominio de
+Google se aborta. Lo que viene después es la pantalla de consentimiento de
+Google — no es nuestra, cambia sin avisarnos y pediría una cuenta real. Si esa
+prueba falla, lo más probable es que el origen de la corrida no esté registrado
+en Neon Auth (ver `scripts/setup-neon.sh`).
+
+### El smoke del despliegue
+
+Después de cada despliegue, contra la URL que quedó publicada:
+
+```bash
+SMOKE_URL=https://tu-app.vercel.app npm run smoke
+```
+
+Seis comprobaciones, todas públicas y ninguna destructiva: la landing, `/about`,
+que sin sesión el dashboard rebota a login, el manifest, el service worker y que
+`/api/auth` está montado. **No entra con ninguna cuenta y no escribe nada** — es
+producción, y los datos que hay ahí son de personas. Con eso se cazan los fallos
+que de verdad trae un despliegue (una variable que no se copió, el proxy caído,
+el worker sin publicar) sin tocar un solo Proyecto.
+
 
 ## Base de datos
 

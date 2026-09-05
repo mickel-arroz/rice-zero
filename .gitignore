@@ -13,6 +13,14 @@
 # testing
 /coverage
 
+# Playwright: la sesion que deja el proyecto de preparacion (es una cookie de
+# verdad, de la cuenta de usar y tirar) y lo que escupe una corrida fallida.
+/e2e/.auth/
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
+
 # next.js
 /.next/
 /out/

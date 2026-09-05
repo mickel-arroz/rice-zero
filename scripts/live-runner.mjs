@@ -41,46 +41,58 @@ export function requireLiveEnv(keys, help) {
 }
 
 /**
- * Dónde está el binario de vitest.
+ * Dónde está el binario de un paquete.
  *
  * Se resuelve el `package.json` y se lee su `bin`: el entrypoint del binario no
  * está en el mapa de `exports`, así que pedirlo por subpath falla.
+ *
+ * @param pkg el paquete (`vitest`, `@playwright/test`).
+ * @param bin qué entrada de su `bin` se quiere, cuando hay varias.
  */
-function resolveVitestBin() {
+export function resolveBin(pkg, bin = pkg) {
   const require = createRequire(import.meta.url);
   try {
-    const manifest = require.resolve("vitest/package.json");
-    const { bin } = require(manifest);
-    return join(dirname(manifest), typeof bin === "string" ? bin : bin.vitest);
+    const manifest = require.resolve(`${pkg}/package.json`);
+    const declared = require(manifest).bin;
+    return join(
+      dirname(manifest),
+      typeof declared === "string" ? declared : declared[bin],
+    );
   } catch {
-    console.error("✗ No encuentro vitest. ¿Falta `npm install`?");
+    console.error(`✗ No encuentro ${pkg}. ¿Falta \`npm install\`?`);
     process.exit(1);
   }
 }
 
 /**
- * Lanza vitest con esa configuración y ese archivo, y sale con su código.
+ * Lanza un binario del repo con el mismo Node que corre esto, y sale con su
+ * código.
  *
- * Se lanza `node` contra el entrypoint de vitest, no `npx`. En Windows `npx` es
- * un `.cmd`, y desde Node 20 lanzar un `.cmd` sin `shell: true` devuelve EINVAL
+ * Se lanza `node` contra el entrypoint, no `npx`. En Windows `npx` es un
+ * `.cmd`, y desde Node 20 lanzar un `.cmd` sin `shell: true` devuelve EINVAL
  * (endurecimiento por CVE-2024-27980). Resolver el binario y ejecutarlo con el
- * mismo Node que corre esto no depende del shell ni del PATH, así que se
- * comporta igual en las tres plataformas.
+ * mismo Node no depende del shell ni del PATH, así que se comporta igual en las
+ * tres plataformas.
  */
-export function runLiveVitest(config, target) {
-  const { status, error } = spawnSync(
-    process.execPath,
-    [resolveVitestBin(), "run", "--config", config, target],
-    { stdio: "inherit" },
-  );
+export function runBin(entry, args, nombre) {
+  const { status, error } = spawnSync(process.execPath, [entry, ...args], {
+    stdio: "inherit",
+  });
 
   // Sin esto, un fallo al ARRANCAR el proceso salía sin imprimir nada: el
   // comando parecía no hacer nada en vez de decir qué pasó. Es justo lo que
   // estos scripts existen para evitar.
   if (error) {
-    console.error(`✗ No pude lanzar vitest: ${error.message}`);
+    console.error(`✗ No pude lanzar ${nombre}: ${error.message}`);
     process.exit(1);
   }
 
   process.exit(status ?? 1);
+}
+
+/**
+ * Lanza vitest con esa configuración y ese archivo. Ver `runBin`.
+ */
+export function runLiveVitest(config, target) {
+  runBin(resolveBin("vitest"), ["run", "--config", config, target], "vitest");
 }

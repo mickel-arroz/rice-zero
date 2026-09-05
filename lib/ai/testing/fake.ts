@@ -90,8 +90,14 @@ function buildTickets(tree: string): Analysis["tickets"] {
  * Tiene nombre —y no cadena vacía— porque el puerto promete que todo Análisis
  * se guarda diciendo con qué modelo se hizo, y un Análisis del falso también se
  * guarda. Al leerlo después, `sin-modelo` dice la verdad de golpe.
+ *
+ * Se EXPORTA porque la suite E2E lo lee: el panel enseña el modelo de cada
+ * Análisis, así que este texto en pantalla es la prueba de que la corrida no
+ * está hablando con Gemini. Una segunda copia del literal en el test se
+ * desincronizaría el día que este cambie, y entonces el cortafuegos de la cuota
+ * dejaría de cerrar sin que nada avisara.
  */
-const FAKE_MODEL = "sin-modelo";
+export const FAKE_MODEL = "sin-modelo";
 
 /**
  * El proveedor falso.

@@ -11,6 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:contract:live": "node scripts/contract-live.mjs",
+    "test:e2e": "node scripts/e2e.mjs",
+    "test:e2e:ui": "node scripts/e2e.mjs --ui",
+    "smoke": "node scripts/smoke.mjs",
     "ai:live": "node scripts/ai-live.mjs",
     "db:apply": "node scripts/apply-schema.mjs",
     "verify:neon": "node scripts/verify-schema.mjs neon",
@@ -35,6 +38,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",
