@@ -18,6 +18,9 @@ loadEnvLocal();
 const TARGETS = {
   signup: "lib/backend/testing/signup.live.test.ts",
   contract: "lib/backend/testing/contract.live.test.ts",
+  // `reset` se trae su propia cuenta y la borra: no depende de las otras dos ni
+  // toca la de `BACKEND_CONTRACT_EMAIL`, porque le cambiaría la contraseña.
+  reset: "lib/backend/testing/reset-password.live.test.ts",
 };
 
 const target = process.argv[2] ?? "contract";
