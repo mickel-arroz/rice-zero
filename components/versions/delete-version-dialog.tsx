@@ -1,23 +1,17 @@
 "use client";
 
-import { useState } from "react";
-
-import { useBlocked } from "@/components/connection/connection-provider";
-import { AlertIcon } from "@/components/icons/alert-icon";
-import { TrashIcon } from "@/components/icons/trash-icon";
-import {
-  CTA_PRIMARY_CLASS,
-  CTA_SECONDARY_CLASS,
-} from "@/components/layout/site-chrome";
-import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { useNodeCount } from "@/components/versions/use-node-count";
 import { useVersions } from "@/components/versions/versions-provider";
 import type { ProjectVersion } from "@/lib/backend/ports";
 import { TREE_COPY, VERSIONS_COPY } from "@/lib/constants";
-import { errorMessage } from "@/lib/errors";
 
 /**
  * Borrar una Versión, con la cuenta de lo que se lleva por delante.
+ *
+ * La anatomía —la cifra, el fallo que no cierra, el primario que se apaga sin
+ * red— la pone `ConfirmDeleteDialog`. Aquí queda lo que solo sabe una Versión:
+ * cuántos Nodos caen, y a quién hay que tranquilizar.
  *
  * La cifra grande no es adorno: el spec pide que al podar un Nodo la
  * confirmación diga cuántos descendientes caen, y una Versión se lleva por
@@ -37,10 +31,8 @@ export function DeleteVersionDialog({
   onClose: () => void;
 }) {
   const versions = useVersions();
-  const [pending, setPending] = useState(false);
-  const blocked = useBlocked();
-  const [error, setError] = useState<string | null>(null);
 
+  // La cifra solo aparece cuando se sabe: ver `useNodeCount`.
   const nodes = useNodeCount(version.id);
 
   /**
@@ -53,83 +45,25 @@ export function DeleteVersionDialog({
 
   const name = TREE_COPY.versionName(version.versionNumber, version.label);
 
-  async function confirm() {
-    setPending(true);
-    setError(null);
-    try {
-      await versions.remove(version.id);
-      onClose();
-    } catch (cause) {
-      setError(errorMessage(cause));
-      setPending(false);
-    }
-  }
-
   return (
-    <Dialog
+    <ConfirmDeleteDialog
       label={VERSIONS_COPY.delete}
       title={VERSIONS_COPY.deleteTitle(name)}
-      onClose={onClose}
       closeLabel={VERSIONS_COPY.close}
-    >
-      {/* La cifra solo aparece cuando se sabe: ver `useNodeCount`.
-
-          Enmarcada y centrada, no en línea con el texto: la NDot es una fuente
-          de matriz de puntos y sus cifras ocupan bastante menos alto que su
-          `font-size`, así que puesta al lado de una frase se queda flotando en
-          un hueco. Es el mismo recuadro de 72 px que ya usa la confirmación de
-          podar un Nodo, que es de donde viene esta pantalla. */}
-      {nodes === null ? null : (
-        <div className="flex items-center gap-4 rounded-[18px] border border-border p-4">
-          <div className="flex w-[72px] shrink-0 flex-col items-center gap-1">
-            <span className="font-display text-[44px] leading-none text-primary">
-              {nodes}
-            </span>
-            <span className="text-center text-[9px] tracking-[0.1em] text-muted-foreground uppercase">
-              {VERSIONS_COPY.deleteFalls(nodes)}
-            </span>
-          </div>
-          <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-pretty text-muted-foreground">
-            {VERSIONS_COPY.deleteSubtree}
-          </p>
-        </div>
-      )}
-
-      <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
-        {hasClones ? `${VERSIONS_COPY.deleteKeepsClones} ` : ""}
-        {VERSIONS_COPY.deleteBody}
-      </p>
-
-      {error ? (
-        <p
-          role="alert"
-          className="flex items-start gap-2 text-[13px] leading-relaxed text-primary"
-        >
-          <AlertIcon width={16} height={16} className="mt-0.5 shrink-0" />
-          {error}
-        </p>
-      ) : null}
-
-      <div className="mt-auto flex flex-col gap-2.5 pt-2 sm:flex-row-reverse">
-        <button
-          type="button"
-          onClick={confirm}
-          // La conexión se cayó con el diálogo delante. Ver `CreateProjectDialog`.
-          disabled={pending || blocked}
-          className={`${CTA_PRIMARY_CLASS} px-8 disabled:opacity-45 sm:flex-1`}
-        >
-          <TrashIcon width={18} height={18} />
-          {pending ? VERSIONS_COPY.deleting : VERSIONS_COPY.deleteSubmit}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={pending}
-          className={`${CTA_SECONDARY_CLASS} px-8 disabled:opacity-45 sm:flex-1`}
-        >
-          {VERSIONS_COPY.cancel}
-        </button>
-      </div>
-    </Dialog>
+      count={nodes}
+      countLabel={VERSIONS_COPY.deleteFalls}
+      detail={VERSIONS_COPY.deleteSubtree}
+      body={
+        <>
+          {hasClones ? `${VERSIONS_COPY.deleteKeepsClones} ` : ""}
+          {VERSIONS_COPY.deleteBody}
+        </>
+      }
+      submitLabel={VERSIONS_COPY.deleteSubmit}
+      pendingLabel={VERSIONS_COPY.deleting}
+      cancelLabel={VERSIONS_COPY.cancel}
+      onConfirm={() => versions.remove(version.id)}
+      onClose={onClose}
+    />
   );
 }

@@ -1,19 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
-import { useBlocked } from "@/components/connection/connection-provider";
-import { AlertIcon } from "@/components/icons/alert-icon";
-import { TrashIcon } from "@/components/icons/trash-icon";
-import {
-  CTA_PRIMARY_CLASS,
-  CTA_SECONDARY_CLASS,
-} from "@/components/layout/site-chrome";
 import { useTree } from "@/components/tree/tree-provider";
-import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import type { TreeNode } from "@/lib/backend/ports";
 import { TREE_COPY } from "@/lib/constants";
-import { errorMessage } from "@/lib/errors";
 import { countDescendants } from "@/lib/tree/model";
 import { subtreeRows } from "@/lib/tree/rows";
 
@@ -27,6 +19,8 @@ import { subtreeRows } from "@/lib/tree/rows";
  *
  * La cuenta la hace el dominio sobre el árbol que ya está en pantalla: no
  * cuesta una consulta, y es exactamente el mismo recorrido que hará el motor.
+ *
+ * La anatomía la pone `ConfirmDeleteDialog`; lo de aquí es la lista y el orden.
  */
 
 /** Cuántas bajas se enumeran antes de resumir. Más que esto es una pared. */
@@ -40,9 +34,6 @@ export function DeleteNodeDialog({
   onClose: () => void;
 }) {
   const { nodes, remove, textOf } = useTree();
-  const [pending, setPending] = useState(false);
-  const blocked = useBlocked();
-  const [error, setError] = useState<string | null>(null);
 
   // Las dos cifras salen del MISMO árbol que está en pantalla y del mismo
   // dominio que aplicará el motor: la cuenta no puede discrepar de la lista.
@@ -52,92 +43,41 @@ export function DeleteNodeDialog({
 
   const title = TREE_COPY.nodeLabel(textOf(node));
 
-  async function confirm() {
-    setPending(true);
-    setError(null);
-    try {
-      await remove(node.id);
-      onClose();
-    } catch (cause) {
-      setError(errorMessage(cause));
-      setPending(false);
-    }
-  }
-
   return (
-    <Dialog
+    <ConfirmDeleteDialog
       label={TREE_COPY.deleteLabel}
       title={TREE_COPY.deleteTitle(title)}
-      onClose={onClose}
       closeLabel={TREE_COPY.close}
-    >
-      <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
-        {TREE_COPY.deleteBody}
-      </p>
-
-      {total > 0 ? (
-        <div className="flex items-center gap-4 rounded-[18px] border border-border p-4">
-          <div className="flex w-[72px] shrink-0 flex-col items-center gap-1">
-            <span className="font-display text-[44px] leading-none text-primary">
-              {total}
-            </span>
-            <span className="text-center text-[9px] tracking-[0.1em] uppercase text-muted-foreground">
-              {TREE_COPY.deleteFalls(total)}
-            </span>
-          </div>
-          <ul className="flex min-w-0 flex-1 flex-col gap-0.5">
-            {subtree.slice(0, PREVIEW_LIMIT).map((row) => (
-              <li
-                key={row.node.id}
-                className={`truncate text-xs ${
-                  row.node.id === node.id
-                    ? "font-bold"
-                    : "text-muted-foreground"
-                }`}
-                style={{ paddingLeft: (row.depth - base) * 14 }}
-              >
-                {textOf(row.node).trim() || TREE_COPY.nodePlaceholder}
-              </li>
-            ))}
-            {subtree.length > PREVIEW_LIMIT ? (
-              <li className="text-xs text-muted-foreground">
-                {TREE_COPY.andMore(subtree.length - PREVIEW_LIMIT)}
-              </li>
-            ) : null}
-          </ul>
-        </div>
-      ) : null}
-
-      {error ? (
-        <p
-          role="alert"
-          className="flex items-start gap-2 text-[13px] leading-relaxed text-primary"
-        >
-          <AlertIcon width={16} height={16} className="mt-0.5 shrink-0" />
-          {error}
-        </p>
-      ) : null}
-
-      <div className="mt-auto flex flex-col gap-2.5 pt-2 sm:flex-row-reverse">
-        <button
-          type="button"
-          onClick={() => void confirm()}
-          // La conexión se cayó con el diálogo delante. Ver `CreateProjectDialog`.
-          disabled={pending || blocked}
-          className={`${CTA_PRIMARY_CLASS} px-8 disabled:opacity-45 sm:flex-1`}
-        >
-          <TrashIcon width={18} height={18} />
-          {TREE_COPY.deleteSubmit}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={pending}
-          className={`${CTA_SECONDARY_CLASS} px-8 disabled:opacity-45 sm:flex-1`}
-        >
-          {TREE_COPY.cancel}
-        </button>
-      </div>
-    </Dialog>
+      // Un Nodo sin subnodos no se lleva nada por delante: no hay cifra que dar.
+      count={total > 0 ? total : null}
+      countLabel={TREE_COPY.deleteFalls}
+      detail={
+        <ul className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {subtree.slice(0, PREVIEW_LIMIT).map((row) => (
+            <li
+              key={row.node.id}
+              className={`truncate text-xs ${
+                row.node.id === node.id ? "font-bold" : "text-muted-foreground"
+              }`}
+              style={{ paddingLeft: (row.depth - base) * 14 }}
+            >
+              {textOf(row.node).trim() || TREE_COPY.nodePlaceholder}
+            </li>
+          ))}
+          {subtree.length > PREVIEW_LIMIT ? (
+            <li className="text-xs text-muted-foreground">
+              {TREE_COPY.andMore(subtree.length - PREVIEW_LIMIT)}
+            </li>
+          ) : null}
+        </ul>
+      }
+      body={TREE_COPY.deleteBody}
+      // El cuerpo ya dice qué se lleva; a la derecha de la cifra va la lista.
+      bodyFirst
+      submitLabel={TREE_COPY.deleteSubmit}
+      cancelLabel={TREE_COPY.cancel}
+      onConfirm={() => remove(node.id)}
+      onClose={onClose}
+    />
   );
 }
