@@ -2,6 +2,7 @@
 
 import { useAnalysis } from "@/components/analysis/analysis-provider";
 import { analysisWhen } from "@/components/analysis/history";
+import { useBlocked } from "@/components/connection/connection-provider";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import type { Analysis } from "@/lib/backend/ports";
 import { ANALYSIS_COPY } from "@/lib/constants";
@@ -32,6 +33,7 @@ export function DeleteAnalysisDialog({
   // Pasearlo por la lista solo daba una segunda forma de que las dos fechas
   // discreparan.
   const { remove, now } = useAnalysis();
+  const blocked = useBlocked();
 
   const when = analysisWhen(analysis, now);
   const tickets = analysis.content.tickets.length;
@@ -41,15 +43,18 @@ export function DeleteAnalysisDialog({
       label={ANALYSIS_COPY.deleteLabel}
       title={ANALYSIS_COPY.deleteTitle(when)}
       closeLabel={ANALYSIS_COPY.close}
-      // Sin `null`: un Análisis sin Tickets sigue enseñando el cero, porque el
-      // cero es justo la noticia que hace que borrarlo salga barato.
-      count={tickets}
-      countLabel={ANALYSIS_COPY.deleteFalls}
-      detail={ANALYSIS_COPY.deleteSubtree}
+      // Sin hueco posible: un Análisis sin Tickets sigue enseñando el cero,
+      // porque el cero es justo la noticia que hace que borrarlo salga barato.
+      figure={{
+        count: tickets,
+        label: ANALYSIS_COPY.deleteFalls,
+        detail: ANALYSIS_COPY.deleteSubtree,
+      }}
       body={ANALYSIS_COPY.deleteBody}
       submitLabel={ANALYSIS_COPY.deleteSubmit}
       pendingLabel={ANALYSIS_COPY.deleting}
       cancelLabel={ANALYSIS_COPY.cancel}
+      blocked={blocked}
       onConfirm={() => remove(analysis.id)}
       onClose={onClose}
     />

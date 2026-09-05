@@ -656,6 +656,15 @@ export const TREE_COPY = {
   deleteFalls: (n: number) =>
     n === 1 ? "subnodo cae con él" : "subnodos caen con él",
   deleteSubmit: "Borrar",
+  /**
+   * Lo que se lee mientras la poda está en vuelo.
+   *
+   * Faltaba, y por eso el único de los cuatro borrados que NO decía nada
+   * mientras esperaba era éste: el botón se apagaba y se quedaba leyéndose
+   * «Borrar», que sin red lenta es indistinguible de un clic que no llegó a
+   * registrarse. Los otros tres dominios ya lo decían.
+   */
+  deleting: "Borrando",
 
   cancel: "Cancelar",
   close: "Cerrar",

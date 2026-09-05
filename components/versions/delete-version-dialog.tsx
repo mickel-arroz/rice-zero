@@ -1,5 +1,6 @@
 "use client";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { useNodeCount } from "@/components/versions/use-node-count";
 import { useVersions } from "@/components/versions/versions-provider";
@@ -31,6 +32,7 @@ export function DeleteVersionDialog({
   onClose: () => void;
 }) {
   const versions = useVersions();
+  const blocked = useBlocked();
 
   // La cifra solo aparece cuando se sabe: ver `useNodeCount`.
   const nodes = useNodeCount(version.id);
@@ -50,9 +52,15 @@ export function DeleteVersionDialog({
       label={VERSIONS_COPY.delete}
       title={VERSIONS_COPY.deleteTitle(name)}
       closeLabel={VERSIONS_COPY.close}
-      count={nodes}
-      countLabel={VERSIONS_COPY.deleteFalls}
-      detail={VERSIONS_COPY.deleteSubtree}
+      figure={
+        nodes === null
+          ? undefined
+          : {
+              count: nodes,
+              label: VERSIONS_COPY.deleteFalls,
+              detail: VERSIONS_COPY.deleteSubtree,
+            }
+      }
       body={
         <>
           {hasClones ? `${VERSIONS_COPY.deleteKeepsClones} ` : ""}
@@ -62,6 +70,7 @@ export function DeleteVersionDialog({
       submitLabel={VERSIONS_COPY.deleteSubmit}
       pendingLabel={VERSIONS_COPY.deleting}
       cancelLabel={VERSIONS_COPY.cancel}
+      blocked={blocked}
       onConfirm={() => versions.remove(version.id)}
       onClose={onClose}
     />

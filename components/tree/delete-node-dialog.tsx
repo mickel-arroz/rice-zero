@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { useTree } from "@/components/tree/tree-provider";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import type { TreeNode } from "@/lib/backend/ports";
@@ -34,6 +35,7 @@ export function DeleteNodeDialog({
   onClose: () => void;
 }) {
   const { nodes, remove, textOf } = useTree();
+  const blocked = useBlocked();
 
   // Las dos cifras salen del MISMO árbol que está en pantalla y del mismo
   // dominio que aplicará el motor: la cuenta no puede discrepar de la lista.
@@ -43,39 +45,50 @@ export function DeleteNodeDialog({
 
   const title = TREE_COPY.nodeLabel(textOf(node));
 
+  /** Las bajas, con su sangría relativa al Nodo que se poda. */
+  const bajas = (
+    <ul className="flex min-w-0 flex-1 flex-col gap-0.5">
+      {subtree.slice(0, PREVIEW_LIMIT).map((row) => (
+        <li
+          key={row.node.id}
+          className={`truncate text-xs ${
+            row.node.id === node.id ? "font-bold" : "text-muted-foreground"
+          }`}
+          style={{ paddingLeft: (row.depth - base) * 14 }}
+        >
+          {textOf(row.node).trim() || TREE_COPY.nodePlaceholder}
+        </li>
+      ))}
+      {subtree.length > PREVIEW_LIMIT ? (
+        <li className="text-xs text-muted-foreground">
+          {TREE_COPY.andMore(subtree.length - PREVIEW_LIMIT)}
+        </li>
+      ) : null}
+    </ul>
+  );
+
   return (
     <ConfirmDeleteDialog
       label={TREE_COPY.deleteLabel}
       title={TREE_COPY.deleteTitle(title)}
       closeLabel={TREE_COPY.close}
       // Un Nodo sin subnodos no se lleva nada por delante: no hay cifra que dar.
-      count={total > 0 ? total : null}
-      countLabel={TREE_COPY.deleteFalls}
-      detail={
-        <ul className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {subtree.slice(0, PREVIEW_LIMIT).map((row) => (
-            <li
-              key={row.node.id}
-              className={`truncate text-xs ${
-                row.node.id === node.id ? "font-bold" : "text-muted-foreground"
-              }`}
-              style={{ paddingLeft: (row.depth - base) * 14 }}
-            >
-              {textOf(row.node).trim() || TREE_COPY.nodePlaceholder}
-            </li>
-          ))}
-          {subtree.length > PREVIEW_LIMIT ? (
-            <li className="text-xs text-muted-foreground">
-              {TREE_COPY.andMore(subtree.length - PREVIEW_LIMIT)}
-            </li>
-          ) : null}
-        </ul>
+      figure={
+        total === 0
+          ? undefined
+          : {
+              count: total,
+              label: TREE_COPY.deleteFalls,
+              detail: bajas,
+              // El cuerpo ya dice qué se lleva; aquí va la lista de las bajas.
+              below: true,
+            }
       }
       body={TREE_COPY.deleteBody}
-      // El cuerpo ya dice qué se lleva; a la derecha de la cifra va la lista.
-      bodyFirst
       submitLabel={TREE_COPY.deleteSubmit}
+      pendingLabel={TREE_COPY.deleting}
       cancelLabel={TREE_COPY.cancel}
+      blocked={blocked}
       onConfirm={() => remove(node.id)}
       onClose={onClose}
     />
