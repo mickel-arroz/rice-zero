@@ -1137,6 +1137,18 @@ export const VERSIONS_COPY = {
   /** Al renombrar no hay botón de guardar: la app autoguarda. */
   renameHint: "Se guarda solo",
 
+  /**
+   * Cuando clonar o borrar se paran porque la etiqueta no llegó a guardarse.
+   *
+   * Se para por lo mismo que `TREE_COPY.blockedByText` para un Nodo, y con sus
+   * propias palabras porque lo que se perdería aquí es un nombre y no una
+   * idea: clonar una Versión cuyo nuevo nombre no se persistió dejaría dos
+   * filas llamándose igual, y borrarla enseñaría en la confirmación un nombre
+   * que ya no existe en ninguna parte.
+   */
+  blockedByLabel:
+    "No se pudo guardar la etiqueta, así que no se hizo el cambio. Revisa la conexión.",
+
   cloneTitle: (versionNumber: number) => `Clonar la Versión ${versionNumber}`,
   /**
    * Lo que de verdad hace clonar, dicho entero.

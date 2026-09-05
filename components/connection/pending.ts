@@ -9,10 +9,11 @@
  *
  * Y vive en `components/connection` y no junto a cada Autoguardado porque los
  * DOS lo consultan con la misma tabla — el texto de un Nodo y la etiqueta de
- * una Versión rebotan igual y se retienen igual. Que el cableado siga
- * duplicado en los dos providers es sabido y tiene su propio ticket (#24); lo
- * que no puede estar duplicado es la regla, porque entonces un día una de las
- * dos copias suelta el borrador y la otra no.
+ * una Versión rebotan igual y se retienen igual. Quien la consulta, desde #24,
+ * es un solo sitio: `components/autosave/debounced-write.ts`, el cableado que
+ * los dos providers comparten. Sigue siendo un módulo aparte porque son dos
+ * preguntas distintas —qué hacer con lo pendiente, y cómo llevarlo a cabo— y
+ * la primera se puede comprobar entera con una tabla de cinco filas.
  *
  * Módulo puro, sin imports.
  */

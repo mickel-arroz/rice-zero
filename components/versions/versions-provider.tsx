@@ -11,13 +11,14 @@ import {
   useState,
 } from "react";
 
+import { useDebouncedWrite } from "@/components/autosave/debounced-write";
 import { useBlocked } from "@/components/connection/connection-provider";
 import {
   planLabelSave,
   VERSION_LABEL_DEBOUNCE_MS,
 } from "@/components/versions/autosave";
 import type { ProjectVersion } from "@/lib/backend/ports";
-import { CONNECTION_COPY, ROUTES } from "@/lib/constants";
+import { CONNECTION_COPY, ROUTES, VERSIONS_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { versionService } from "@/lib/services/versions";
 
@@ -55,6 +56,10 @@ import { versionService } from "@/lib/services/versions";
  * `VERSION_LABEL_DEBOUNCE_MS` y no hay botón de guardar; clonar y borrar se
  * escriben en el acto y después se RELEE la lista, porque clonar asigna un
  * número que decide el motor y no se puede adivinar desde aquí.
+ *
+ * «Igual que el árbol» es literal desde #24: el rebote, la retención sin red y
+ * las tres salidas de la pantalla las pone `useDebouncedWrite`, el mismo hook
+ * que usa `TreeProvider`. Lo de aquí es qué se escribe y qué se enseña.
  */
 
 type Status = "loading" | "ready" | "error";
@@ -87,8 +92,15 @@ type VersionsContextValue = {
 
   reload(): Promise<void>;
   setLabel(id: string, label: string): void;
-  /** Escribe ya lo que quede pendiente. Al cerrar el campo o el desplegable. */
-  flushLabel(): Promise<void>;
+  /**
+   * Escribe ya lo que quede pendiente. Al cerrar el campo o el desplegable.
+   *
+   * Devuelve si la etiqueta quedó A SALVO. El desplegable no lo mira —cerrar
+   * un menú no depende de que la escritura fuera bien, y el pie ya lo cuenta—,
+   * pero se dice porque es la misma respuesta de la que dependen `clone` y
+   * `remove`, y devolver `void` aquí obligaría a tener dos verdades.
+   */
+  flushLabel(): Promise<boolean>;
 
   /** Clona y NAVEGA al clon: se clona para trabajar en el clon. */
   clone(id: string, label: string | null): Promise<void>;
@@ -133,23 +145,6 @@ export function VersionsProvider({
   // Una carga puede llegar tarde y pisar a la siguiente. El contador dice cuál
   // es la vigente; las respuestas de las viejas se tiran.
   const loadTicket = useRef(0);
-
-  // Espejo para lo que dispara FUERA del render: el temporizador del rebote y
-  // el vuelco al salir. Ver `blockedRef` en `TreeProvider`.
-  const blockedRef = useRef(blocked);
-
-  /**
-   * La etiqueta pendiente de escribir. Solo puede haber una: ver `schedule`.
-   *
-   * `timer: null` es RETENIDA por falta de red, igual que en `TreeProvider`.
-   */
-  const pending = useRef<{
-    id: string;
-    timer: ReturnType<typeof setTimeout> | null;
-  } | null>(null);
-
-  /** La escritura que ya salió y todavía no ha vuelto. */
-  const inFlight = useRef<Promise<void> | null>(null);
 
   const putVersions = useCallback((versions: ProjectVersion[]) => {
     versionsRef.current = versions;
@@ -199,16 +194,20 @@ export function VersionsProvider({
    *
    * El borrador NO se descarta al escribirlo, igual que en el árbol: mientras
    * el campo siga abierto, lo que se ve es lo que el usuario tecleó.
+   *
+   * Devuelve si la etiqueta quedó A SALVO —`true` también cuando no había nada
+   * que escribir—, y eso es lo que hace que clonar y borrar se paren cuando el
+   * renombrado falló, igual que mover un Nodo se para cuando falla su texto.
    */
   const writeLabel = useCallback(
-    async (id: string): Promise<void> => {
+    async (id: string): Promise<boolean> => {
       const draft = draftsRef.current[id];
-      if (draft === undefined) return;
+      if (draft === undefined) return true;
 
       const saved = versionsRef.current.find((version) => version.id === id);
       // La Versión se borró mientras el rebote esperaba. No hay a quién
       // escribirle.
-      if (!saved) return;
+      if (!saved) return true;
 
       const plan = planLabelSave(draft, saved.label);
       if (plan.kind === "idle") {
@@ -216,7 +215,7 @@ export function VersionsProvider({
         // porque `setLabel` lo marcó al teclear: volver a lo que ya estaba
         // guardado también es quedarse a salvo.
         setState((prev) => (prev.save === "saving" ? { ...prev, save: "saved" } : prev));
-        return;
+        return true;
       }
 
       try {
@@ -230,112 +229,49 @@ export function VersionsProvider({
         );
         putVersions(versions);
         setState((prev) => ({ ...prev, versions, save: "saved", saveError: null }));
+        return true;
       } catch (error) {
         setState((prev) => ({
           ...prev,
           save: "error",
           saveError: errorMessage(error),
         }));
+        return false;
       }
     },
     [putVersions],
   );
 
-  /** Lo mismo, dejando constancia de que hay una escritura EN VUELO. */
-  const flush = useCallback(
-    (id: string): Promise<void> => {
-      const work = writeLabel(id).finally(() => {
-        if (inFlight.current === work) inFlight.current = null;
-      });
-      inFlight.current = work;
-      return work;
-    },
-    [writeLabel],
-  );
+  /**
+   * Lo que el pie enseña cuando el rebote retiene y cuando suelta.
+   *
+   * Los gemelos de los de `TreeProvider`, y se quedan aquí por lo que se
+   * explica allí: el hook decide cuándo, pero `LabelSaveState` es estado de
+   * esta pantalla y el `setState` que lo mueve no puede vivir en otra.
+   */
+  const onHold = useCallback(() => {
+    setState((prev) => ({ ...prev, save: "pending", saveError: null }));
+  }, []);
+
+  const onRelease = useCallback(() => {
+    setState((prev) => ({ ...prev, save: "saving", saveError: null }));
+  }, []);
 
   /**
-   * Programa la escritura de la etiqueta que se está tecleando.
+   * El rebote, la retención sin red y las tres salidas de la pantalla.
    *
-   * Solo hay UN rebote vivo, y cambiar de Versión vacía el anterior en el acto
-   * en vez de cancelarlo: sin eso, renombrar la v7 y saltar a la v3 perdería lo
-   * tecleado en la v7.
+   * El MISMO módulo que usa `TreeProvider` (#24): hasta entonces esto era una
+   * transcripción línea a línea de aquello, y la copia de aquí ya había
+   * empezado a divergir —re-retenía en cada repintado lo que ya estaba
+   * retenido, que es justo la fila que `movePending` existe para evitar—.
    */
-  const schedule = useCallback(
-    (id: string) => {
-      const currentPending = pending.current;
-      if (currentPending) {
-        if (currentPending.timer) clearTimeout(currentPending.timer);
-        if (currentPending.id !== id) void flush(currentPending.id);
-      }
-      pending.current = {
-        id,
-        timer: setTimeout(() => {
-          // Se retiene en vez de escribir contra el vacío. Ver `TreeProvider`.
-          if (blockedRef.current) {
-            pending.current = { id, timer: null };
-            setState((prev) => ({ ...prev, save: "pending", saveError: null }));
-            return;
-          }
-          pending.current = null;
-          void flush(id);
-        }, VERSION_LABEL_DEBOUNCE_MS),
-      };
-    },
-    [flush],
-  );
-
-  /**
-   * Retener la etiqueta al perder la red y soltarla al volver.
-   *
-   * El mismo mecanismo que el del texto de un Nodo, y por el mismo criterio:
-   * «ninguna mutación se pierde» vale también para el nombre que le acabas de
-   * poner a una Versión. Ver el efecto gemelo en `TreeProvider`.
-   */
-  useEffect(() => {
-    blockedRef.current = blocked;
-    const currentPending = pending.current;
-    if (!currentPending) return;
-
-    if (blocked) {
-      if (currentPending.timer) clearTimeout(currentPending.timer);
-      pending.current = { id: currentPending.id, timer: null };
-      setState((prev) => ({ ...prev, save: "pending", saveError: null }));
-      return;
-    }
-
-    if (currentPending.timer === null) {
-      pending.current = null;
-      setState((prev) => ({ ...prev, save: "saving", saveError: null }));
-      void flush(currentPending.id);
-    }
-  }, [blocked, flush]);
-
-  /**
-   * Deja la etiqueta a salvo antes de tocar la lista.
-   *
-   * Espera DOS cosas: el rebote que aún no ha disparado, y la escritura que el
-   * temporizador pudo lanzar hace un instante. Sin la segunda, su respuesta
-   * aterrizaría después de la relectura y pisaría la lista recién leída con la
-   * fila de antes.
-   */
-  const flushPending = useCallback(async (): Promise<void> => {
-    await inFlight.current;
-
-    const currentPending = pending.current;
-    if (!currentPending) return;
-
-    // Sin red no se adelanta: se retiene. Ver `flushPending` en `TreeProvider`.
-    if (blocked) {
-      if (currentPending.timer) clearTimeout(currentPending.timer);
-      pending.current = { id: currentPending.id, timer: null };
-      setState((prev) => ({ ...prev, save: "pending", saveError: null }));
-      return;
-    }
-
-    if (currentPending.timer) clearTimeout(currentPending.timer);
-    pending.current = null;
-    await flush(currentPending.id);
-  }, [blocked, flush]);
+  const { schedule, flushPending } = useDebouncedWrite({
+    delayMs: VERSION_LABEL_DEBOUNCE_MS,
+    write: writeLabel,
+    blocked,
+    onHold,
+    onRelease,
+  });
 
   const setLabel = useCallback(
     (id: string, label: string) => {
@@ -352,36 +288,6 @@ export function VersionsProvider({
     [schedule],
   );
 
-  /**
-   * Escribe YA lo que quede pendiente. Las tres salidas de la pantalla.
-   *
-   * Las mismas que en `TreeProvider`, y por lo mismo: el rebote de medio
-   * segundo es la única ventana en la que una etiqueta escrita puede no estar
-   * guardada.
-   */
-  useEffect(() => {
-    function leaving() {
-      const currentPending = pending.current;
-      if (!currentPending) return;
-      // Sin red la petición no llega a ninguna parte: lo retenido se queda.
-      if (blockedRef.current) return;
-      if (currentPending.timer) clearTimeout(currentPending.timer);
-      pending.current = null;
-      void flush(currentPending.id);
-    }
-    function onVisibility() {
-      if (document.visibilityState === "hidden") leaving();
-    }
-
-    window.addEventListener("pagehide", leaving);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("pagehide", leaving);
-      document.removeEventListener("visibilitychange", onVisibility);
-      leaving();
-    };
-  }, [flush]);
-
   const labelOf = useCallback(
     (version: ProjectVersion) => drafts[version.id] ?? version.label ?? "",
     [drafts],
@@ -395,8 +301,10 @@ export function VersionsProvider({
       // `TreeProvider` sobre por qué esa diferencia es la que lo hace valer.
       if (blocked) throw new Error(CONNECTION_COPY.blocked);
       // Lo tecleado va ANTES: renombrar y clonar tocan la misma lista, y la
-      // relectura de después tiene que traer las dos cosas.
-      await flushPending();
+      // relectura de después tiene que traer las dos cosas. Y si la etiqueta
+      // NO se pudo guardar, aquí se para: seguir dejaría dos Versiones
+      // llamándose igual, con el nombre nuevo viviendo solo en la pantalla.
+      if (!(await flushPending())) throw new Error(VERSIONS_COPY.blockedByLabel);
       const created = await versionService().clone(id, label);
       await fetchVersions();
       // Se clona para trabajar en el clon: quedarse en el origen obligaría a
@@ -409,7 +317,10 @@ export function VersionsProvider({
   const remove = useCallback(
     async (id: string) => {
       if (blocked) throw new Error(CONNECTION_COPY.blocked);
-      await flushPending();
+      // Igual que al clonar: la confirmación acaba de enseñar un nombre, y
+      // borrar sobre una etiqueta que no llegó a persistirse dejaría al
+      // usuario creyendo que se llevó por delante una Versión distinta.
+      if (!(await flushPending())) throw new Error(VERSIONS_COPY.blockedByLabel);
       await versionService().remove(id);
       const versions = await versionService().list(projectId);
       putVersions(versions);
