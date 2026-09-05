@@ -2,6 +2,7 @@
 
 import { useAnalysis } from "@/components/analysis/analysis-provider";
 import { Checks } from "@/components/analysis/checks";
+import { useBlocked } from "@/components/connection/connection-provider";
 import { ToTreeIcon } from "@/components/icons/to-tree-icon";
 import { ChevronRightIcon } from "@/components/icons/chevron-right-icon";
 import { BlockedIcon } from "@/components/icons/blocked-icon";
@@ -9,7 +10,7 @@ import { LABEL_CLASS } from "@/components/layout/site-chrome";
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
 import { ticketsById, type AnalysisContent, type Ticket } from "@/lib/ai";
-import { ANALYSIS_COPY } from "@/lib/constants";
+import { ANALYSIS_COPY, CONNECTION_COPY } from "@/lib/constants";
 
 /**
  * El Análisis, pintado en el orden en que está el objeto (ADR 0003).
@@ -122,6 +123,7 @@ function Intent({ analysis }: { analysis: AnalysisContent }) {
  */
 function Questions({ questions }: { questions: string[] }) {
   const { createQuestion } = useTree();
+  const blocked = useBlocked();
 
   return (
     <section className="flex flex-col gap-3">
@@ -144,8 +146,15 @@ function Questions({ questions }: { questions: string[] }) {
             <button
               type="button"
               onClick={() => fire(createQuestion(question))}
+              // Escribe DOS Nodos en el árbol, así que se apaga como el resto.
+              // Es la mitad «/IA» del criterio: el Panel se puede leer entero
+              // sin red, pero lo que de ahí sale hacia el árbol, no.
+              disabled={blocked}
+              title={blocked ? CONNECTION_COPY.blocked : undefined}
               aria-label={ANALYSIS_COPY.questionToTreeHint(question)}
-              className="flex h-9 items-center gap-[7px] self-end rounded-full border border-border px-3.5 text-[10px] tracking-[0.1em] uppercase text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className={`flex h-9 items-center gap-[7px] self-end rounded-full border border-border px-3.5 text-[10px] tracking-[0.1em] uppercase text-muted-foreground transition-colors disabled:opacity-35 ${
+                blocked ? "" : "hover:border-primary hover:text-primary"
+              }`}
             >
               <ToTreeIcon width={14} height={14} />
               {ANALYSIS_COPY.questionToTree}

@@ -14,6 +14,7 @@ import {
 } from "@xyflow/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { BlockedIcon } from "@/components/icons/blocked-icon";
 import { CollapseIcon } from "@/components/icons/collapse-icon";
 import { ExpandIcon } from "@/components/icons/expand-icon";
@@ -160,7 +161,7 @@ type Drag = {
  * lo que cambia mientras el dedo está abajo.
  */
 type Card = Omit<CanvasNode, "data" | "draggable" | "zIndex"> & {
-  data: Omit<CanvasNodeData, "drop" | "dragging" | "editable">;
+  data: Omit<CanvasNodeData, "drop" | "dragging" | "editable" | "blocked">;
 };
 
 /**
@@ -187,6 +188,10 @@ function pointerOf(
 function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
   const tree = useTree();
   const { textOf, nodes: treeNodes, editingId, select, reparent } = tree;
+  // `offline` y no `blocked`: en este archivo `blocked` ya es el motivo por el
+  // que un destino de arrastre no vale, y dos cosas distintas con el mismo
+  // nombre en la misma función es cómo se lee mal un `if`.
+  const offline = useBlocked();
   const desktop = useDesktop();
   const { screenToFlowPosition } = useReactFlow();
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -267,8 +272,11 @@ function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
           ...card,
           position: dragging ? drag.position : card.position,
           // Se apaga mientras se escribe dentro: con el campo abierto, elegir
-          // una palabra con el ratón despegaría el Nodo de su sitio.
-          draggable: desktop && editingId !== card.id,
+          // una palabra con el ratón despegaría el Nodo de su sitio. Y sin red,
+          // porque arrastrar aquí ES re-parentar: dejar que el Nodo se mueva
+          // bajo el dedo para que después no se guarde sería enseñar un árbol
+          // que no existe.
+          draggable: desktop && !offline && editingId !== card.id,
           // El que va en el aire pasa por ENCIMA de los que sobrevuela. Sin
           // esto, el destino lo tapaba justo cuando hay que mirarlo.
           zIndex: dragging ? 10 : 0,
@@ -276,11 +284,12 @@ function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
             ...card.data,
             drop: dropMark(aimed),
             dragging,
-            editable: desktop,
+            editable: desktop && !offline,
+            blocked: offline,
           },
         } satisfies CanvasNode;
       }),
-    [cards, drag, desktop, editingId],
+    [cards, drag, desktop, offline, editingId],
   );
 
   /**

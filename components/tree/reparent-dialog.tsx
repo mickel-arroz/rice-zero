@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { AlertIcon } from "@/components/icons/alert-icon";
 import { BlockedIcon } from "@/components/icons/blocked-icon";
 import { CheckIcon } from "@/components/icons/check-icon";
@@ -113,6 +114,7 @@ export function ReparentDialog({
   const [rejected, setRejected] = useState<ReparentRule | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
+  const blocked = useBlocked();
 
   const title = TREE_COPY.nodeLabel(textOf(node));
   const alreadyRoot = node.parentId === null;
@@ -155,7 +157,8 @@ export function ReparentDialog({
           <button
             type="button"
             onClick={() => void submit()}
-            disabled={picked === undefined || moving}
+            // La conexión se cayó con el diálogo delante. Ver `CreateProjectDialog`.
+            disabled={picked === undefined || moving || blocked}
             className={`${CTA_PRIMARY_CLASS} disabled:opacity-40`}
           >
             {TREE_COPY.moveSubmit}

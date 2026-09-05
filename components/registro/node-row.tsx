@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { TREE_COPY } from "@/lib/constants";
+import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 import type { TreeRow } from "@/lib/tree/rows";
 
 /**
@@ -122,6 +122,7 @@ export function NodeRow({
   selected,
   editing,
   text,
+  blocked,
   onSelect,
   onEdit,
   onChange,
@@ -132,6 +133,16 @@ export function NodeRow({
   editing: boolean;
   /** Lo que va en el campo: el borrador si lo hay, si no lo guardado. */
   text: string;
+  /**
+   * Sin conexión: el texto se lee pero no se toca.
+   *
+   * Llega como prop y no de `useBlocked()` aquí dentro porque esta fila ya
+   * recibe TODO lo demás de quien la pinta —lo seleccionado, lo que se está
+   * editando, el texto— y sacar un solo dato de un contexto propio la
+   * convertiría en el único componente del Registro que sabe cosas por su
+   * cuenta. La vista es quien decide; la fila pinta.
+   */
+  blocked: boolean;
   onSelect: () => void;
   onEdit: () => void;
   onChange: (value: string) => void;
@@ -178,6 +189,13 @@ export function NodeRow({
             ref={area}
             value={text}
             rows={1}
+            // `readOnly` y no `disabled`: un campo deshabilitado se pinta gris
+            // y deja de poder seleccionarse con el dedo, y lo que se está
+            // bloqueando es ESCRIBIR, no leer. Lo que hay dentro es la idea que
+            // la persona acaba de teclear, y sin red es justo cuando más
+            // quiere poder mirarla y copiarla.
+            readOnly={blocked}
+            title={blocked ? CONNECTION_COPY.blocked : undefined}
             onChange={(event) => onChange(event.target.value)}
             onBlur={onStopEditing}
             // Escape cierra el campo pero NO deselecciona: lo más probable
@@ -199,9 +217,16 @@ export function NodeRow({
             // Un toque selecciona; el segundo abre el campo. Fusionarlos
             // levantaría el teclado del teléfono encima de la barra de
             // acciones cada vez que se toca una fila para moverla.
-            onClick={selected ? onEdit : onSelect}
+            //
+            // Sin red el segundo toque no abre nada: levantar el teclado sobre
+            // un campo que no acepta teclas es prometer una edición que no va
+            // a poder ocurrir. Seleccionar SÍ se puede, porque de eso vive el
+            // borrado y el movimiento que se harán al volver la conexión.
+            onClick={selected && !blocked ? onEdit : onSelect}
             aria-label={
-              selected ? TREE_COPY.edit(named) : TREE_COPY.select(named)
+              selected && !blocked
+                ? TREE_COPY.edit(named)
+                : TREE_COPY.select(named)
             }
             className={`w-full px-3.5 py-3.5 text-left text-sm leading-relaxed break-words whitespace-pre-wrap ${
               selected ? "text-primary" : ""

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { AlertIcon } from "@/components/icons/alert-icon";
 import { TrashIcon } from "@/components/icons/trash-icon";
 import {
@@ -37,6 +38,7 @@ export function DeleteVersionDialog({
 }) {
   const versions = useVersions();
   const [pending, setPending] = useState(false);
+  const blocked = useBlocked();
   const [error, setError] = useState<string | null>(null);
 
   const nodes = useNodeCount(version.id);
@@ -112,7 +114,8 @@ export function DeleteVersionDialog({
         <button
           type="button"
           onClick={confirm}
-          disabled={pending}
+          // La conexión se cayó con el diálogo delante. Ver `CreateProjectDialog`.
+          disabled={pending || blocked}
           className={`${CTA_PRIMARY_CLASS} px-8 disabled:opacity-45 sm:flex-1`}
         >
           <TrashIcon width={18} height={18} />

@@ -10,7 +10,9 @@ import {
   useState,
 } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import type { Project, ProjectOverview } from "@/lib/backend/ports";
+import { CONNECTION_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import {
   projectService,
@@ -123,7 +125,18 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  /**
+   * ¿Prohibido escribir? El portazo va ADEMÁS de que los botones se apaguen.
+   *
+   * Aquí no hay espejo: las tres operaciones lo leen del render, y por eso ven
+   * la red caída en el mismo repintado en que se cae. Recrearlas cuesta un
+   * repintado y solo al cambiar la conexión —no en cada tecla—, que es lo que
+   * hacía falta comprobar antes de temerlo. Ver `TreeProvider`.
+   */
+  const blocked = useBlocked();
+
   const create = useCallback(async (input: NewProjectInput) => {
+    if (blocked) throw new Error(CONNECTION_COPY.blocked);
     const project = await projectService().create(input);
     setState((prev) => ({
       ...prev,
@@ -142,22 +155,24 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         ...prev.projects,
       ]),
     }));
-  }, []);
+  }, [blocked]);
 
   const update = useCallback(
     async (id: string, patch: ProjectPatchInput) => {
+      if (blocked) throw new Error(CONNECTION_COPY.blocked);
       patchRow(await projectService().update(id, patch));
     },
-    [patchRow],
+    [blocked, patchRow],
   );
 
   const remove = useCallback(async (id: string) => {
+    if (blocked) throw new Error(CONNECTION_COPY.blocked);
     await projectService().remove(id);
     setState((prev) => ({
       ...prev,
       projects: prev.projects.filter((project) => project.id !== id),
     }));
-  }, []);
+  }, [blocked]);
 
   const value = useMemo(
     () => ({ ...state, reload, create, update, remove }),

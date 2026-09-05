@@ -10,7 +10,7 @@ import { TrashIcon } from "@/components/icons/trash-icon";
 import { VersionsIcon } from "@/components/icons/versions-icon";
 import type { IconComponent } from "@/components/icons/types";
 import type { ProjectOverview } from "@/lib/backend/ports";
-import { PROJECTS_COPY } from "@/lib/constants";
+import { CONNECTION_COPY, PROJECTS_COPY } from "@/lib/constants";
 import { relativeTime } from "@/lib/time";
 
 /**
@@ -53,6 +53,7 @@ export function ProjectCard({
   project,
   icon: Icon,
   now,
+  blocked,
   onEdit,
   onDelete,
 }: {
@@ -68,6 +69,14 @@ export function ProjectCard({
   icon: IconComponent;
   /** El mismo instante para toda la lista: ver `relativeTime`. */
   now: Date;
+  /**
+   * Sin conexión. La tarjeta se lee entera; lo único que se apaga es el menú
+   * de tres puntos, que es todo lo que esta tarjeta puede escribir.
+   *
+   * Llega como prop y no de `useBlocked()` por lo mismo que en `NodeRow`: la
+   * tarjeta recibe de fuera todo lo demás que decide qué pinta.
+   */
+  blocked: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -129,13 +138,17 @@ export function ProjectCard({
           <button
             type="button"
             onClick={() => setOpen((value) => !value)}
+            disabled={blocked}
+            title={blocked ? CONNECTION_COPY.blocked : undefined}
             aria-expanded={open}
             aria-haspopup="menu"
             aria-label={PROJECTS_COPY.actions(project.title)}
-            className={`flex size-9 shrink-0 items-center justify-center rounded-full border transition-colors ${
+            className={`flex size-9 shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-35 ${
               open
                 ? "border-primary bg-accent text-primary"
-                : "border-transparent text-muted-foreground hover:border-border hover:text-primary"
+                : `border-transparent text-muted-foreground ${
+                    blocked ? "" : "hover:border-border hover:text-primary"
+                  }`
             }`}
           >
             <MoreIcon width={18} height={18} />

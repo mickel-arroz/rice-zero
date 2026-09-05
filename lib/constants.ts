@@ -945,12 +945,6 @@ export const PWA_COPY = {
    * `offlineTitle`, en mayúsculas y NDot, y son dos cosas distintas.
    */
   offlineLabel: "Sin conexión",
-  /**
-   * Lo que sigue funcionando, dicho antes que lo que no. Es el contrato de
-   * Autoguardado de `CONTEXT.md`: consultar sí, editar no.
-   */
-  bannerDetail:
-    "Puedes consultar lo que ya visitaste. Editar espera a que vuelva la red.",
 
   /** El titular de `/offline`, en NDot como el resto de los `h1`. */
   offlineTitle: "SIN CONEXIÓN",
@@ -968,4 +962,64 @@ export const PWA_COPY = {
   offlineRetry: "Reintentar",
   /** El destino de vuelta, que puede estar en caché. */
   offlineBack: "Ir a mis Proyectos",
+} as const;
+
+/**
+ * El texto del bloqueo de edición sin conexión.
+ *
+ * Aparte de `PWA_COPY` aunque las dos hablen de estar sin red, y la frontera
+ * es de qué hablan: allí es la CONSULTA —qué se puede seguir leyendo, y la
+ * pantalla que sale cuando algo no estaba guardado—; aquí es la EDICIÓN —que
+ * está prohibida, y que se reactiva sola—. Son dos mitades del mismo estado
+ * escritas por dos tickets (#18 y #19), y juntarlas en un objeto obligaría a
+ * leer los comentarios para saber cuál de las dos cosas dice cada clave.
+ *
+ * Mismo criterio que `AUTH_COPY` y compañía: «la interfaz es toda en español»
+ * es un criterio de aceptación, y repartido por doce componentes no se puede
+ * revisar de una lectura.
+ */
+export const CONNECTION_COPY = {
+  /** La versalita del banner. La misma palabra que `/offline` en su `h1`. */
+  offline: PWA_COPY.offlineLabel,
+  /**
+   * La frase del banner, en el orden en que importa: primero lo que NO se
+   * puede, porque es lo que explica que los botones no respondan, y después lo
+   * que SÍ, para que nadie crea que la app se cayó entera.
+   */
+  offlineBody:
+    "No puedes editar hasta reconectar. Lo ya abierto se puede seguir consultando.",
+  /**
+   * Que se está reintentando solo.
+   *
+   * Va sin botón al lado a propósito: quien reintenta es el sondeo de Next,
+   * cada 3 s como mucho, y un botón sería ofrecer un gesto que no cambia nada
+   * —lo pulses o no, la próxima comprobación ya venía—. Es al revés que el
+   * «Reintentar» de un Análisis fallido, que sí decide algo.
+   */
+  retrying: "Reintentando",
+
+  /** La vuelta, mientras el aviso se apaga solo. */
+  back: "De vuelta",
+  backBody: "Ya puedes editar.",
+
+  /**
+   * El cuarto estado del pie del Autoguardado.
+   *
+   * Existe porque sin él ese pie mentiría exactamente en el instante en que no
+   * puede permitírselo: lo tecleado justo antes del corte no está guardado
+   * («Guardado» sería falso) y tampoco está saliendo hacia ningún sitio
+   * («Guardando…» también). Está esperando a que vuelva la red, y se escribirá
+   * solo cuando vuelva.
+   */
+  savePending: "Pendiente",
+  /**
+   * El motivo de un control apagado, al pasar por encima.
+   *
+   * Va en `title`, así que es una pista de RATÓN y no de lector de pantalla —
+   * un `title` sobre un botón deshabilitado no se anuncia—. Quien no ve la
+   * pantalla se entera por la franja, que es un `role="status"` y sí se lee
+   * sola en cuanto sale. Duplicarlo en un `aria-describedby` por botón sería
+   * hacer que la misma frase se leyera veinte veces.
+   */
+  blocked: "Sin conexión: no puedes editar hasta reconectar.",
 } as const;

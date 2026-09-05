@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { AlertIcon } from "@/components/icons/alert-icon";
 import { TrashIcon } from "@/components/icons/trash-icon";
 import {
@@ -40,6 +41,7 @@ export function DeleteNodeDialog({
 }) {
   const { nodes, remove, textOf } = useTree();
   const [pending, setPending] = useState(false);
+  const blocked = useBlocked();
   const [error, setError] = useState<string | null>(null);
 
   // Las dos cifras salen del MISMO árbol que está en pantalla y del mismo
@@ -120,7 +122,8 @@ export function DeleteNodeDialog({
         <button
           type="button"
           onClick={() => void confirm()}
-          disabled={pending}
+          // La conexión se cayó con el diálogo delante. Ver `CreateProjectDialog`.
+          disabled={pending || blocked}
           className={`${CTA_PRIMARY_CLASS} px-8 disabled:opacity-45 sm:flex-1`}
         >
           <TrashIcon width={18} height={18} />

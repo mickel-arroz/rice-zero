@@ -10,7 +10,7 @@ import type { DropMark } from "@/components/canvas/drop";
 import { CANVAS_NODE } from "@/components/canvas/geometry";
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
-import { CANVAS_COPY, TREE_COPY } from "@/lib/constants";
+import { CANVAS_COPY, CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 
 /**
  * Un Nodo dibujado en el lienzo.
@@ -35,8 +35,9 @@ import { CANVAS_COPY, TREE_COPY } from "@/lib/constants";
  * confirmación, y un botón de borrar sobre la misma superficie que se arrastra
  * es un accidente esperando a pasar.
  *
- * Todo eso solo en escritorio (`data.editable`). En un teléfono el Canvas es
- * consulta y el cuerpo del Nodo solo selecciona.
+ * Todo eso solo en escritorio y con red (`data.editable`). En un teléfono el
+ * Canvas es consulta y el cuerpo del Nodo solo selecciona; sin conexión, lo
+ * mismo en los dos formatos.
  */
 
 /**
@@ -59,8 +60,24 @@ export type CanvasNodeData = {
   drop: DropMark | null;
   /** Este es el Nodo que va en el aire. */
   dragging: boolean;
-  /** Se puede arrastrar y escribir dentro: escritorio. Ver `useDesktop`. */
+  /**
+   * Se puede arrastrar, abrir el campo y colgar un subnodo.
+   *
+   * Escritorio Y con red (ver `useDesktop` y `useBlocked`): las dos cosas
+   * apagan los mismos gestos, y por motivos distintos —en el teléfono el
+   * Canvas es consulta; sin conexión no se escribe en ningún sitio—. Van
+   * juntas en una sola bandera porque quien la lee solo pregunta «¿puedo?».
+   */
   editable: boolean;
+  /**
+   * No hay red.
+   *
+   * Aparte de `editable` y no deducido de ella porque el campo ABIERTO es el
+   * único gesto cuyos dos motivos no coinciden: en un teléfono se puede llegar
+   * aquí con un Nodo abierto desde la Vista Registro, y ahí lo escrito tiene
+   * que seguir aceptando teclas mientras haya conexión.
+   */
+  blocked: boolean;
 };
 
 export type CanvasNode = Node<CanvasNodeData, typeof CANVAS_NODE_TYPE>;
@@ -167,6 +184,10 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
           }}
           placeholder={TREE_COPY.nodePlaceholder}
           aria-label={TREE_COPY.edit(named)}
+          // `readOnly` y no `disabled`, por lo mismo que en `NodeRow`: lo que
+          // se bloquea es escribir, no leer ni copiar lo que ya hay dentro.
+          readOnly={data.blocked}
+          title={data.blocked ? CONNECTION_COPY.blocked : undefined}
           className="nodrag nopan nowheel size-full resize-none rounded-2xl border border-primary bg-node-bg px-3.5 text-[13px] break-words outline-none placeholder:text-muted-foreground"
           style={{
             paddingBlock: CANVAS_NODE.padding / 2,
@@ -250,6 +271,11 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
       <button
         type="button"
         onClick={() => fire(tree.createChild(data.nodeId))}
+        // Sin red se apaga igual que el resto de lo que escribe. Sigue
+        // pintándose —solo aparece al pasar por encima— porque esconderlo
+        // dejaría al Nodo sin ninguna pista de que ahí había algo.
+        disabled={!data.editable}
+        title={data.blocked ? CONNECTION_COPY.blocked : undefined}
         aria-label={CANVAS_COPY.addChild(named)}
         className="nodrag absolute top-1/2 right-0 z-10 hidden size-6 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary bg-card text-primary opacity-0 shadow-popover transition-opacity lg:pointer-events-none lg:flex lg:group-hover:pointer-events-auto lg:group-hover:opacity-100 lg:focus-visible:pointer-events-auto lg:focus-visible:opacity-100"
       >

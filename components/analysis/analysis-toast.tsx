@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAnalysis } from "@/components/analysis/analysis-provider";
 import { retryPlan } from "@/components/analysis/panel";
 import { useElapsedSeconds } from "@/components/analysis/use-elapsed";
+import { useBlocked } from "@/components/connection/connection-provider";
 import { AlertIcon } from "@/components/icons/alert-icon";
 import { CloseIcon } from "@/components/icons/close-icon";
 import {
@@ -38,6 +39,7 @@ import { ANALYSIS_COPY, ROUTES } from "@/lib/constants";
  */
 export function AnalysisToast({ className }: { className: string }) {
   const { failure, failedAt, dismissFailure, generate, status } = useAnalysis();
+  const blocked = useBlocked();
   const elapsed = useElapsedSeconds(failedAt);
 
   // Empezar de nuevo ya dice todo lo que este aviso tenía que decir.
@@ -79,7 +81,10 @@ export function AnalysisToast({ className }: { className: string }) {
         ) : plan.kind === "nunca" ? null : (
           <button
             type="button"
-            disabled={plan.kind === "espera"}
+            // Sin red se apaga: `generate` ya no manda nada, así que un botón
+            // vivo dejaría el aviso igual sin decir por qué. El texto lo
+            // explica la franja de arriba.
+            disabled={plan.kind === "espera" || blocked}
             onClick={() => fire(generate())}
             className={`${PILL_PRIMARY_CLASS} mt-0.5 self-start disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground`}
           >

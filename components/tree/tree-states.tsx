@@ -1,5 +1,6 @@
 "use client";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { PlusIcon } from "@/components/icons/plus-icon";
 import {
   CTA_PRIMARY_CLASS,
@@ -8,7 +9,7 @@ import {
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
 import { ErrorCard } from "@/components/ui/error-card";
-import { CANVAS_COPY, TREE_COPY } from "@/lib/constants";
+import { CANVAS_COPY, CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 
 /**
  * Los dos estados del árbol que no son «aquí está»: no se pudo, y no hay nada.
@@ -54,6 +55,11 @@ export function TreeEmpty({
   readOnlyOnMobile?: boolean;
 }) {
   const { createRoot } = useTree();
+  // Este botón escribe igual que cualquier otro, y era el único de la pantalla
+  // vacía: sin apagarlo, sin red se pulsaba y no pasaba absolutamente nada
+  // —`run` lanza y `fire` se traga el rechazo—, que es la peor de las
+  // respuestas posibles.
+  const blocked = useBlocked();
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3.5 rounded-[20px] border border-dashed border-border p-6">
@@ -66,7 +72,11 @@ export function TreeEmpty({
       <button
         type="button"
         onClick={() => fire(createRoot())}
-        className={`${CTA_PRIMARY_CLASS} px-6 ${readOnlyOnMobile ? "hidden lg:flex" : ""}`}
+        disabled={blocked}
+        title={blocked ? CONNECTION_COPY.blocked : undefined}
+        className={`${CTA_PRIMARY_CLASS} px-6 disabled:opacity-35 ${
+          readOnlyOnMobile ? "hidden lg:flex" : ""
+        }`}
       >
         <PlusIcon />
         {TREE_COPY.firstNode}

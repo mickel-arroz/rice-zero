@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { AlertIcon } from "@/components/icons/alert-icon";
 import { CheckIcon } from "@/components/icons/check-icon";
 import {
@@ -16,7 +17,7 @@ import { useProjects } from "@/components/projects/projects-provider";
 import { CTA_SECONDARY_CLASS } from "@/components/layout/site-chrome";
 import { Dialog } from "@/components/ui/dialog";
 import type { ProjectOverview } from "@/lib/backend/ports";
-import { PROJECTS_COPY } from "@/lib/constants";
+import { CONNECTION_COPY, PROJECTS_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { PROJECT_LIMITS } from "@/lib/services/projects";
 
@@ -53,6 +54,7 @@ export function EditProjectDialog({
   onClose: () => void;
 }) {
   const { update } = useProjects();
+  const blocked = useBlocked();
 
   const initial: ProjectDraft = {
     title: project.title,
@@ -64,7 +66,9 @@ export function EditProjectDialog({
   };
 
   const [draft, setDraft] = useState<ProjectDraft>(initial);
-  const [status, setStatus] = useState<"clean" | "saving" | "saved" | "error">("clean");
+  const [status, setStatus] = useState<
+    "clean" | "saving" | "saved" | "error" | "pending"
+  >("clean");
   const [error, setError] = useState<string | null>(null);
 
   // Lo último que el motor confirmó. En una ref y no en estado porque cambiarlo
@@ -112,10 +116,22 @@ export function EditProjectDialog({
 
   // El rebote del texto. Depende del borrador entero y no solo del texto para
   // que el `patch` que se manda incluya lo que haya cambiado mientras tanto.
+  //
+  // Sin red no se programa nada: lo tecleado se RETIENE. Y como `blocked` es
+  // una dependencia, al volver la conexión este mismo efecto vuelve a correr y
+  // suelta lo retenido sin que nadie pulse — que es lo que hace que «ninguna
+  // mutación se pierde» valga también aquí dentro. No hace falta un mecanismo
+  // aparte como el de `TreeProvider` porque este rebote ya se reprograma solo.
   useEffect(() => {
+    if (blocked) {
+      // Solo si de verdad hay algo esperando: decir «Pendiente» sobre un
+      // diálogo que nadie tocó sería inventarse un cambio.
+      if (planAutosave(draft, saved.current).kind !== "idle") setStatus("pending");
+      return;
+    }
     const timer = setTimeout(() => void persist(draft), TYPING_DELAY);
     return () => clearTimeout(timer);
-  }, [draft, persist]);
+  }, [draft, persist, blocked]);
 
   // El borrador vigente, para poder leerlo desde el desmontaje sin que el
   // efecto de abajo dependa de él — si dependiera, se «desmontaría» en cada
@@ -152,9 +168,11 @@ export function EditProjectDialog({
   const footerText =
     status === "saving"
       ? PROJECTS_COPY.saving
-      : status === "saved"
-        ? PROJECTS_COPY.saved
-        : null;
+      : status === "pending"
+        ? CONNECTION_COPY.savePending
+        : status === "saved"
+          ? PROJECTS_COPY.saved
+          : null;
 
   return (
     <Dialog
@@ -199,6 +217,8 @@ export function EditProjectDialog({
         value={draft.title}
         onChange={(title) => setDraft((prev) => ({ ...prev, title }))}
         maxLength={PROJECT_LIMITS.titleMax}
+        readOnly={blocked}
+        title={blocked ? CONNECTION_COPY.blocked : undefined}
         autoFocus
       />
       <Field
@@ -208,8 +228,12 @@ export function EditProjectDialog({
         placeholder={PROJECTS_COPY.descriptionPlaceholder}
         maxLength={PROJECT_LIMITS.descriptionMax}
         rows={3}
+        readOnly={blocked}
+        title={blocked ? CONNECTION_COPY.blocked : undefined}
       />
-      <IconPicker value={draft.icon} onChange={chooseIcon} />
+      {/* El icono sí se DESHABILITA y no se pone de solo lectura: no hay nada
+          que copiar de una rejilla de botones. */}
+      <IconPicker value={draft.icon} onChange={chooseIcon} disabled={blocked} />
     </Dialog>
   );
 }

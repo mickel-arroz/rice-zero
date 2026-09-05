@@ -11,12 +11,13 @@ import {
   useState,
 } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import {
   planLabelSave,
   VERSION_LABEL_DEBOUNCE_MS,
 } from "@/components/versions/autosave";
 import type { ProjectVersion } from "@/lib/backend/ports";
-import { ROUTES } from "@/lib/constants";
+import { CONNECTION_COPY, ROUTES } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { versionService } from "@/lib/services/versions";
 
@@ -59,7 +60,7 @@ import { versionService } from "@/lib/services/versions";
 type Status = "loading" | "ready" | "error";
 
 /** Lo que el Autoguardado le está haciendo a la etiqueta. Ver `SaveState`. */
-export type LabelSaveState = "saved" | "saving" | "error";
+export type LabelSaveState = "saved" | "saving" | "error" | "pending";
 
 type VersionsState = {
   status: Status;
@@ -117,6 +118,12 @@ export function VersionsProvider({
   });
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
+  /**
+   * ¿Prohibido escribir? Mismo reparto que en `TreeProvider`: los guardianes
+   * leen esto, y solo lo que dispara fuera del render mira el espejo.
+   */
+  const blocked = useBlocked();
+
   // Espejos de lo que necesita el Autoguardado. El rebote dispara fuera del
   // render, así que leer el estado desde su cierre daría el de hace medio
   // segundo — que es justo el que se quiere pisar. Igual que en `TreeProvider`.
@@ -127,10 +134,19 @@ export function VersionsProvider({
   // es la vigente; las respuestas de las viejas se tiran.
   const loadTicket = useRef(0);
 
-  /** La etiqueta pendiente de escribir. Solo puede haber una: ver `schedule`. */
-  const pending = useRef<{ id: string; timer: ReturnType<typeof setTimeout> } | null>(
-    null,
-  );
+  // Espejo para lo que dispara FUERA del render: el temporizador del rebote y
+  // el vuelco al salir. Ver `blockedRef` en `TreeProvider`.
+  const blockedRef = useRef(blocked);
+
+  /**
+   * La etiqueta pendiente de escribir. Solo puede haber una: ver `schedule`.
+   *
+   * `timer: null` es RETENIDA por falta de red, igual que en `TreeProvider`.
+   */
+  const pending = useRef<{
+    id: string;
+    timer: ReturnType<typeof setTimeout> | null;
+  } | null>(null);
 
   /** La escritura que ya salió y todavía no ha vuelto. */
   const inFlight = useRef<Promise<void> | null>(null);
@@ -248,12 +264,18 @@ export function VersionsProvider({
     (id: string) => {
       const currentPending = pending.current;
       if (currentPending) {
-        clearTimeout(currentPending.timer);
+        if (currentPending.timer) clearTimeout(currentPending.timer);
         if (currentPending.id !== id) void flush(currentPending.id);
       }
       pending.current = {
         id,
         timer: setTimeout(() => {
+          // Se retiene en vez de escribir contra el vacío. Ver `TreeProvider`.
+          if (blockedRef.current) {
+            pending.current = { id, timer: null };
+            setState((prev) => ({ ...prev, save: "pending", saveError: null }));
+            return;
+          }
           pending.current = null;
           void flush(id);
         }, VERSION_LABEL_DEBOUNCE_MS),
@@ -261,6 +283,32 @@ export function VersionsProvider({
     },
     [flush],
   );
+
+  /**
+   * Retener la etiqueta al perder la red y soltarla al volver.
+   *
+   * El mismo mecanismo que el del texto de un Nodo, y por el mismo criterio:
+   * «ninguna mutación se pierde» vale también para el nombre que le acabas de
+   * poner a una Versión. Ver el efecto gemelo en `TreeProvider`.
+   */
+  useEffect(() => {
+    blockedRef.current = blocked;
+    const currentPending = pending.current;
+    if (!currentPending) return;
+
+    if (blocked) {
+      if (currentPending.timer) clearTimeout(currentPending.timer);
+      pending.current = { id: currentPending.id, timer: null };
+      setState((prev) => ({ ...prev, save: "pending", saveError: null }));
+      return;
+    }
+
+    if (currentPending.timer === null) {
+      pending.current = null;
+      setState((prev) => ({ ...prev, save: "saving", saveError: null }));
+      void flush(currentPending.id);
+    }
+  }, [blocked, flush]);
 
   /**
    * Deja la etiqueta a salvo antes de tocar la lista.
@@ -275,10 +323,19 @@ export function VersionsProvider({
 
     const currentPending = pending.current;
     if (!currentPending) return;
-    clearTimeout(currentPending.timer);
+
+    // Sin red no se adelanta: se retiene. Ver `flushPending` en `TreeProvider`.
+    if (blocked) {
+      if (currentPending.timer) clearTimeout(currentPending.timer);
+      pending.current = { id: currentPending.id, timer: null };
+      setState((prev) => ({ ...prev, save: "pending", saveError: null }));
+      return;
+    }
+
+    if (currentPending.timer) clearTimeout(currentPending.timer);
     pending.current = null;
     await flush(currentPending.id);
-  }, [flush]);
+  }, [blocked, flush]);
 
   const setLabel = useCallback(
     (id: string, label: string) => {
@@ -306,7 +363,9 @@ export function VersionsProvider({
     function leaving() {
       const currentPending = pending.current;
       if (!currentPending) return;
-      clearTimeout(currentPending.timer);
+      // Sin red la petición no llega a ninguna parte: lo retenido se queda.
+      if (blockedRef.current) return;
+      if (currentPending.timer) clearTimeout(currentPending.timer);
       pending.current = null;
       void flush(currentPending.id);
     }
@@ -332,6 +391,9 @@ export function VersionsProvider({
 
   const clone = useCallback(
     async (id: string, label: string | null) => {
+      // El portazo, leyendo el valor del render y no el espejo. Ver `run` en
+      // `TreeProvider` sobre por qué esa diferencia es la que lo hace valer.
+      if (blocked) throw new Error(CONNECTION_COPY.blocked);
       // Lo tecleado va ANTES: renombrar y clonar tocan la misma lista, y la
       // relectura de después tiene que traer las dos cosas.
       await flushPending();
@@ -341,11 +403,12 @@ export function VersionsProvider({
       // desplegar el menú y elegirlo, que es el paso que nadie quiere dar.
       router.push(ROUTES.version(projectId, created.id));
     },
-    [fetchVersions, flushPending, projectId, router],
+    [blocked, fetchVersions, flushPending, projectId, router],
   );
 
   const remove = useCallback(
     async (id: string) => {
+      if (blocked) throw new Error(CONNECTION_COPY.blocked);
       await flushPending();
       await versionService().remove(id);
       const versions = await versionService().list(projectId);
@@ -360,7 +423,7 @@ export function VersionsProvider({
         if (newest) router.replace(ROUTES.version(projectId, newest.id));
       }
     },
-    [flushPending, projectId, putVersions, router, versionId],
+    [blocked, flushPending, projectId, putVersions, router, versionId],
   );
 
   const value = useMemo(

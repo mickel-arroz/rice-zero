@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { doorState, type DoorState } from "@/components/analysis/panel";
+import { useBlocked } from "@/components/connection/connection-provider";
 import { generateAnalysis } from "@/app/(dashboard)/projects/[projectId]/[versionId]/actions";
 import { describeAnalysisFailure, type AnalysisFailure } from "@/lib/ai";
 import type { Analysis } from "@/lib/backend/ports";
@@ -176,6 +177,9 @@ export function AnalysisProvider({
   /** ¿Hay una generación en vuelo? Impide lanzar dos a la vez. */
   const generating = useRef(false);
 
+  /** ¿Prohibido escribir? Lo lee `generate`, del render. Ver `TreeProvider`. */
+  const blocked = useBlocked();
+
   // El servicio se arma UNA vez: `analysisService` no memoiza, y construirlo en
   // cada llamada creaba dos objetos para hablar con el mismo motor.
   const service = useMemo(() => analysisService(generateAnalysis), []);
@@ -229,6 +233,12 @@ export function AnalysisProvider({
   }, [fetchLatest]);
 
   const generate = useCallback(async () => {
+    // Sin red no se manda. Next dejaría la Server Action PENDIENTE y la
+    // repetiría al reconectar —`experimental.useOffline`—, y eso es peor que
+    // no mandarla: el panel se quedaría diciendo «Generando…» sin límite sobre
+    // una petición que puede salir dentro de media hora, contra un árbol que
+    // para entonces ya no es el que se mandó.
+    if (blocked) return;
     // Dos generaciones a la vez son dos peticiones del free tier para que solo
     // una se guarde. El botón ya está deshabilitado; esto es la red de abajo.
     if (generating.current) return;
@@ -274,7 +284,7 @@ export function AnalysisProvider({
     } finally {
       generating.current = false;
     }
-  }, [versionId, guidelines, open, service]);
+  }, [blocked, versionId, guidelines, open, service]);
 
   const askForGuidelines = useCallback(() => {
     setGuidelinesOpen(true);

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DotPattern } from "@/components/backgrounds/dot-pattern";
-import { OfflineBanner } from "@/components/pwa/offline-banner";
+import { ConnectionBanner } from "@/components/connection/connection-banner";
+import { ConnectionProvider } from "@/components/connection/connection-provider";
 import { ServiceWorker } from "@/components/pwa/service-worker";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { fontVariables } from "@/app/fonts";
@@ -67,13 +68,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               interactivo, así que se monta como hermano del contenido —nunca
               envolviéndolo— y el contenido se pone encima con `relative z-10`. */}
           <DotPattern />
-          {/* El service worker y el aviso de sin conexión viven aquí por lo
+          {/* El service worker y el estado de la conexión viven aquí por lo
               mismo que el fondo: no son de una pantalla, son de la app. El
               registro tiene que envolver al contenido —de él cuelga el contexto
-              de Serwist—; el aviso es un hermano `fixed`, como el fondo. */}
+              de Serwist—; y el provider de la conexión también, porque de él
+              cuelgan tanto la franja como cada botón que se apaga sin red.
+
+              La franja va ANTES del contenido y en flujo, no encima: es
+              `sticky`, así que ocupa su alto y empuja la cabecera hacia abajo
+              en vez de taparla. Ver `connection-banner.tsx`. */}
           <ServiceWorker>
-            {children}
-            <OfflineBanner />
+            <ConnectionProvider>
+              <ConnectionBanner />
+              {children}
+            </ConnectionProvider>
           </ServiceWorker>
         </ThemeProvider>
       </body>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { AlertIcon } from "@/components/icons/alert-icon";
 import { TrashIcon } from "@/components/icons/trash-icon";
 import { useProjects } from "@/components/projects/projects-provider";
@@ -34,6 +35,7 @@ export function DeleteProjectDialog({
 }) {
   const { remove } = useProjects();
   const [pending, setPending] = useState(false);
+  const blocked = useBlocked();
   const [error, setError] = useState<string | null>(null);
 
   /** Solo lo que hay: «0 Análisis» en la lista de bajas no informa de nada. */
@@ -91,7 +93,8 @@ export function DeleteProjectDialog({
         <button
           type="button"
           onClick={confirm}
-          disabled={pending}
+          // La conexión se cayó con el diálogo delante. Ver `CreateProjectDialog`.
+          disabled={pending || blocked}
           className={`${CTA_PRIMARY_CLASS} px-8 disabled:opacity-45 sm:flex-1`}
         >
           <TrashIcon width={18} height={18} />

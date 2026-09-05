@@ -1,11 +1,12 @@
 "use client";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { PlusIcon } from "@/components/icons/plus-icon";
 import { INDENT, ROW_HEIGHT, NodeRow } from "@/components/registro/node-row";
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
 import { TreeEmpty, TreeError } from "@/components/tree/tree-states";
-import { TREE_COPY } from "@/lib/constants";
+import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 
 /**
  * La Vista Registro: el árbol en filas de texto unidas por líneas, editable
@@ -33,6 +34,7 @@ function RowSkeleton({ depth }: { depth: number }) {
 
 export function RegistroView() {
   const tree = useTree();
+  const blocked = useBlocked();
 
   if (tree.status === "loading") {
     return (
@@ -57,6 +59,7 @@ export function RegistroView() {
             selected={tree.selectedId === row.node.id}
             editing={tree.editingId === row.node.id}
             text={tree.textOf(row.node)}
+            blocked={blocked}
             onSelect={() => tree.select(row.node.id)}
             onEdit={() => tree.startEditing(row.node.id)}
             onChange={(value) => tree.setText(row.node.id, value)}
@@ -70,7 +73,11 @@ export function RegistroView() {
       <button
         type="button"
         onClick={() => fire(tree.createRoot())}
-        className="mt-1.5 flex h-12.5 items-center justify-center gap-2 rounded-2xl border border-dashed border-border text-[13px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+        disabled={blocked}
+        title={blocked ? CONNECTION_COPY.blocked : undefined}
+        className={`mt-1.5 flex h-12.5 items-center justify-center gap-2 rounded-2xl border border-dashed border-border text-[13px] text-muted-foreground transition-colors disabled:opacity-35 ${
+          blocked ? "" : "hover:border-primary hover:text-primary"
+        }`}
       >
         <PlusIcon width={16} height={16} />
         {TREE_COPY.newRoot}

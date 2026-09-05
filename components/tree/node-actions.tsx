@@ -1,5 +1,6 @@
 "use client";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { ArrowDownIcon } from "@/components/icons/arrow-down-icon";
 import { ArrowUpIcon } from "@/components/icons/arrow-up-icon";
 import { CloseIcon } from "@/components/icons/close-icon";
@@ -10,7 +11,7 @@ import { TrashIcon } from "@/components/icons/trash-icon";
 import type { IconComponent } from "@/components/icons/types";
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
-import { TREE_COPY } from "@/lib/constants";
+import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 import type { TreeRow } from "@/lib/tree/rows";
 
 /**
@@ -109,6 +110,10 @@ export function NodeActions({
   // siete callbacks de props, la pantalla tenía que reenviar una por una unas
   // operaciones que no son suyas.
   const tree = useTree();
+  // Sin red se apagan las SEIS que escriben. «Quitar» no: cerrar la barra no
+  // toca el árbol, y dejar a la persona con una barra que no se puede quitar
+  // encima de la pantalla sería castigarla por quedarse sin conexión.
+  const blocked = useBlocked();
   const id = row.node.id;
 
   const actions: Action[] = [
@@ -162,20 +167,27 @@ export function NodeActions({
             `col-span-2` en la última la rejilla queda exacta en dos filas de
             cuatro en vez de dejar un hueco a la derecha. */}
         <div className="grid grid-cols-4 gap-2 lg:flex lg:items-center lg:gap-1">
-          {actions.map((action) => (
+          {actions.map((action) => {
+            const off = blocked || action.disabled;
+            return (
             <button
               key={action.id}
               type="button"
               onClick={action.run}
-              disabled={action.disabled}
+              disabled={off}
+              // Solo cuando el motivo es la red. «No hay a dónde subir» ya se
+              // entiende del sitio del Nodo, y repetirlo en un `title` sería
+              // ruido en las cinco veces de cada seis que no hace falta.
+              title={blocked ? CONNECTION_COPY.blocked : undefined}
               className={`${BUTTON_CLASS} ${action.danger ? "text-primary" : ""} ${
-                action.disabled ? "" : "hover:border-primary hover:text-primary"
+                off ? "" : "hover:border-primary hover:text-primary"
               }`}
             >
               <action.icon width={18} height={18} />
               <span className={BUTTON_LABEL_CLASS}>{action.label}</span>
             </button>
-          ))}
+            );
+          })}
 
           {/* Solo en escritorio: en la pastilla separa las acciones del cierre.
               En móvil la rejilla ya los separa por filas y una raya suelta

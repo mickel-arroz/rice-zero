@@ -8,6 +8,7 @@ import { AnalysisToast } from "@/components/analysis/analysis-toast";
 import { retryPlan } from "@/components/analysis/panel";
 import { useElapsedSeconds } from "@/components/analysis/use-elapsed";
 import { useWide } from "@/components/analysis/use-wide";
+import { useBlocked } from "@/components/connection/connection-provider";
 import { AnalysesIcon } from "@/components/icons/analyses-icon";
 import { CloseIcon } from "@/components/icons/close-icon";
 import {
@@ -281,6 +282,7 @@ function GuidelinesFooter() {
   } = useAnalysis();
   const field = useRef<HTMLTextAreaElement>(null);
   const tree = useTree();
+  const blocked = useBlocked();
 
   // Desplegar sin llevar el cursor dejaría a quien pulsó «Corregir» mirando un
   // campo abierto y teniendo que tocarlo otra vez para escribir.
@@ -299,7 +301,11 @@ function GuidelinesFooter() {
   // rechaza igual, pero enterarse ANTES de pulsar es la diferencia entre un
   // botón apagado y un fallo. La regla sale del servicio, no se reescribe aquí.
   const empty = !hasSomethingToAnalyze(tree.nodes);
-  const disabled = generating || waiting || empty;
+  // Sin red tampoco. Generar gasta cuota y PERSISTE el Análisis, así que es
+  // una mutación como cualquier otra. Lo que NO se apaga son las Directrices:
+  // viven en la pantalla hasta que se generan (no hay Autoguardado detrás), y
+  // escribirlas mientras vuelve la conexión es justo lo que se puede hacer.
+  const disabled = generating || waiting || empty || blocked;
 
   const label = generating
     ? ANALYSIS_COPY.generating

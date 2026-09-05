@@ -30,7 +30,7 @@ _Avoid_: outliner, vista lista, vista simple
 ### Comportamiento
 
 **Autoguardado**:
-Todo cambio mínimo se persiste de inmediato; no existe botón "guardar". Editar requiere conexión: sin ella la edición se bloquea con aviso y reintento automático de reconexión, quedando la consulta de lo ya creado disponible offline.
+Todo cambio mínimo se persiste de inmediato; no existe botón "guardar". Editar requiere conexión: sin ella la edición se bloquea con aviso y reintento automático de reconexión, quedando la consulta de lo ya creado disponible offline. Lo tecleado justo antes del corte queda **Pendiente** —retenido en la pantalla, nunca dado por guardado— y se escribe solo al volver la red; no hay cola de sincronización, así que cerrar la pestaña sin conexión lo pierde.
 
 ### IA
 

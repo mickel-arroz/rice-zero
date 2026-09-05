@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { AlertIcon } from "@/components/icons/alert-icon";
 import { PlusIcon } from "@/components/icons/plus-icon";
 import {
@@ -13,7 +14,7 @@ import { IconPicker } from "@/components/projects/icon-picker";
 import { useProjects } from "@/components/projects/projects-provider";
 import { CTA_PRIMARY_CLASS } from "@/components/layout/site-chrome";
 import { Dialog } from "@/components/ui/dialog";
-import { PROJECTS_COPY } from "@/lib/constants";
+import { CONNECTION_COPY, PROJECTS_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { PROJECT_LIMITS } from "@/lib/services/projects";
 
@@ -32,6 +33,7 @@ export function CreateProjectDialog({ onClose }: { onClose: () => void }) {
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState<ProjectIconKey>(DEFAULT_PROJECT_ICON);
   const [pending, setPending] = useState(false);
+  const blocked = useBlocked();
   const [error, setError] = useState<string | null>(null);
 
   const canSubmit = title.trim().length > 0 && !pending;
@@ -93,7 +95,12 @@ export function CreateProjectDialog({ onClose }: { onClose: () => void }) {
 
         <button
           type="submit"
-          disabled={!canSubmit}
+          // El disparador que abre este diálogo ya está apagado sin red, así
+          // que aquí solo queda el caso de que la conexión se caiga con él
+          // delante. Se apaga el botón en vez de cerrarlo: cerrarle a alguien
+          // un diálogo en la cara se lee como que la app se rompió.
+          disabled={!canSubmit || blocked}
+          title={blocked ? CONNECTION_COPY.blocked : undefined}
           className={`${CTA_PRIMARY_CLASS} mt-auto disabled:opacity-45`}
         >
           <PlusIcon />

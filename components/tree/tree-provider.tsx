@@ -10,12 +10,18 @@ import {
   useState,
 } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
+import {
+  movePending,
+  pendingState,
+  type PendingSlot,
+} from "@/components/connection/pending";
 import {
   NODE_TEXT_DEBOUNCE_MS,
   planNodeSave,
 } from "@/components/tree/autosave";
 import type { TreeNode } from "@/lib/backend/ports";
-import { TREE_COPY } from "@/lib/constants";
+import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { nodeService } from "@/lib/services/nodes";
 import { treeRows, type TreeRow } from "@/lib/tree/rows";
@@ -62,8 +68,14 @@ type Status = "loading" | "ready" | "error";
  * Vive aquí y no junto a la política de rebote porque es ESTADO del provider,
  * no una decisión: `autosave.ts` contesta «¿hay que escribir?», y esto es lo
  * que la cabecera enseña mientras se escribe.
+ *
+ * `pending` es el que añadió el bloqueo offline (#19), y existe porque sin él
+ * el pie mentiría justo cuando no puede permitírselo: lo tecleado en el medio
+ * segundo anterior al corte no está guardado —«Guardado» sería falso— y
+ * tampoco está saliendo hacia ningún sitio —«Guardando…» también—. Está
+ * retenido, y saldrá solo cuando vuelva la red.
  */
-export type SaveState = "saved" | "saving" | "error";
+export type SaveState = "saved" | "saving" | "error" | "pending";
 
 type TreeState = {
   status: Status;
@@ -152,6 +164,23 @@ export function TreeProvider({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
+  /**
+   * ¿Está prohibido escribir? Lo dice la conexión, no el árbol.
+   *
+   * El provider lo consulta ADEMÁS de que los botones se apaguen, y no en vez
+   * de: apagar un botón cierra el camino de delante, y esto cierra el de
+   * dentro — cualquier escritura que llegue por otra vía, incluido un botón
+   * que alguien olvide apagar mañana.
+   *
+   * Los guardianes lo leen del RENDER y no del espejo de abajo, y esa
+   * diferencia es la que los hace valer: entre el render que ve la red caída y
+   * el commit del efecto que escribe el espejo hay una ventana, y un guardián
+   * que mirase el espejo la vería abierta justo en el instante que dice
+   * cerrar. Recrear las operaciones cuesta lo que cuesta —un repintado— y solo
+   * al cambiar la conexión, dos veces por episodio; no en cada tecla.
+   */
+  const blocked = useBlocked();
+
   // Espejos de lo que necesita el Autoguardado. El rebote dispara fuera del
   // render, así que leer el estado desde su cierre daría el de hace medio
   // segundo — que es justo el que se quiere pisar.
@@ -163,10 +192,27 @@ export function TreeProvider({
   // `ProjectsProvider`.
   const loadTicket = useRef(0);
 
-  /** El texto pendiente de escribir. Solo puede haber uno: ver `schedule`. */
-  const pending = useRef<{ id: string; timer: ReturnType<typeof setTimeout> } | null>(
-    null,
-  );
+  /**
+   * Espejo de `blocked` para lo que dispara FUERA del render.
+   *
+   * Solo dos sitios: el temporizador del rebote y el vuelco al salir de la
+   * pantalla. Los dos corren mucho después del commit del efecto que lo
+   * escribe —medio segundo el uno, un evento del navegador el otro—, así que
+   * ahí el espejo es la lectura correcta y no hay ventana que cerrar. Todo lo
+   * que decide DENTRO de un clic lee `blocked` a secas.
+   */
+  const blockedRef = useRef(blocked);
+
+  /**
+   * El texto pendiente de escribir. Solo puede haber uno: ver `schedule`.
+   *
+   * Con el temporizador a `null` está RETENIDO por falta de red. Quién lo
+   * retiene y cuándo se suelta lo decide `movePending`; aquí solo se ejecuta.
+   * No es una cola de sincronización —eso sigue fuera de alcance en el spec
+   * #1—: es el mismo único borrador que el rebote ya sostenía, esperando más
+   * de la cuenta.
+   */
+  const pending = useRef<PendingSlot<ReturnType<typeof setTimeout>> | null>(null);
 
   /** La escritura de texto que ya salió y todavía no ha vuelto. */
   const inFlight = useRef<Promise<boolean> | null>(null);
@@ -294,12 +340,22 @@ export function TreeProvider({
     (id: string) => {
       const current = pending.current;
       if (current) {
-        clearTimeout(current.timer);
+        if (current.timer) clearTimeout(current.timer);
         if (current.id !== id) void flush(current.id);
       }
       pending.current = {
         id,
         timer: setTimeout(() => {
+          // La red se fue mientras el rebote esperaba: se RETIENE en vez de
+          // disparar la escritura contra el vacío. El efecto de más abajo la
+          // soltará al volver la conexión. Se comprueba aquí además de en el
+          // efecto porque los dos pueden caer en el mismo repintado, y de los
+          // dos éste es el que ya tiene el temporizador en la mano.
+          if (blockedRef.current) {
+            pending.current = { id, timer: null };
+            setState((prev) => ({ ...prev, save: "pending", saveError: null }));
+            return;
+          }
           pending.current = null;
           void flush(id);
         }, NODE_TEXT_DEBOUNCE_MS),
@@ -307,6 +363,42 @@ export function TreeProvider({
     },
     [flush],
   );
+
+  /**
+   * Retener lo tecleado al perder la red, y soltarlo solo al recuperarla.
+   *
+   * Es lo que cumple «ninguna mutación se pierde ni se envía a medias durante
+   * la transición». Sin esto, el rebote disparaba su escritura contra una red
+   * que ya no estaba: la petición fallaba, el pie decía «No se guardó» y lo
+   * escrito se quedaba únicamente en la pantalla hasta que alguien volviera a
+   * teclear en ese Nodo — que es exactamente la idea perdida que el
+   * Autoguardado promete que no existe.
+   *
+   * Al volver la red SALE SOLA, sin que nadie pulse nada: la reactivación
+   * automática de la edición no vale de mucho si el usuario tiene que
+   * acordarse de retocar el campo para que lo suyo se guarde.
+   *
+   * El límite conocido, y es el que el spec ya asume al dejar fuera las colas
+   * de sincronización: lo retenido vive en memoria. Cerrar la pestaña sin red
+   * lo pierde, y por eso el pie dice «Pendiente» y no «Guardado».
+   */
+  useEffect(() => {
+    blockedRef.current = blocked;
+    const current = pending.current;
+    const move = movePending(pendingState(current), blocked);
+    if (!current || move === "keep") return;
+
+    if (move === "hold") {
+      if (current.timer) clearTimeout(current.timer);
+      pending.current = { id: current.id, timer: null };
+      setState((prev) => ({ ...prev, save: "pending", saveError: null }));
+      return;
+    }
+
+    pending.current = null;
+    setState((prev) => ({ ...prev, save: "saving", saveError: null }));
+    void flush(current.id);
+  }, [blocked, flush]);
 
   /**
    * Deja el texto a salvo antes de tocar la estructura. Devuelve si lo logró.
@@ -321,10 +413,21 @@ export function TreeProvider({
 
     const current = pending.current;
     if (!current) return settled;
-    clearTimeout(current.timer);
+
+    // Sin red no se adelanta nada: se retiene y se dice que NO quedó a salvo.
+    // Devolver `true` aquí sería lo que hace que `run` siga adelante y acabe
+    // diciendo «Guardado» sobre un texto que sigue solo en la pantalla.
+    if (blocked) {
+      if (current.timer) clearTimeout(current.timer);
+      pending.current = { id: current.id, timer: null };
+      setState((prev) => ({ ...prev, save: "pending", saveError: null }));
+      return false;
+    }
+
+    if (current.timer) clearTimeout(current.timer);
     pending.current = null;
     return (await flush(current.id)) && settled;
-  }, [flush]);
+  }, [blocked, flush]);
 
   const setText = useCallback(
     (id: string, content: string) => {
@@ -365,7 +468,12 @@ export function TreeProvider({
     function leaving() {
       const current = pending.current;
       if (!current) return;
-      clearTimeout(current.timer);
+      // Sin red la petición no llega a ninguna parte, así que no se manda: lo
+      // retenido se queda retenido. Es el límite que el spec ya asume al dejar
+      // fuera las colas de sincronización — cerrar la pestaña sin conexión
+      // pierde lo escrito, y el pie lo viene diciendo desde el corte.
+      if (blockedRef.current) return;
+      if (current.timer) clearTimeout(current.timer);
       pending.current = null;
       void flush(current.id);
     }
@@ -398,6 +506,13 @@ export function TreeProvider({
    */
   const run = useCallback(
     async (write: () => Promise<TreeNode | void>) => {
+      // El portazo, por si el clic ya iba de camino cuando se cayó la red. Va
+      // ANTES del `try` y sin tocar `save` a propósito: no es un guardado que
+      // falló, es uno que no se intentó, y la franja de arriba ya explica por
+      // qué. Lo que sí hace falta es LANZAR, para que un diálogo abierto no se
+      // cierre creyendo que su operación salió.
+      if (blocked) throw new Error(CONNECTION_COPY.blocked);
+
       // Lo tecleado va ANTES que el cambio de estructura: las dos escrituras
       // tocan la misma fila y la relectura de después tiene que traer las dos.
       // Y si el texto NO se pudo guardar, aquí se para: seguir dejaría el pie
@@ -430,7 +545,7 @@ export function TreeProvider({
         throw error;
       }
     },
-    [flushPending, putNodes, versionId],
+    [blocked, flushPending, putNodes, versionId],
   );
 
   const createRoot = useCallback(

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { AlertIcon } from "@/components/icons/alert-icon";
 import { PlusIcon } from "@/components/icons/plus-icon";
 import { projectIconFor } from "@/components/icons/projects";
@@ -15,7 +16,7 @@ import { DeleteProjectDialog } from "@/components/projects/delete-project-dialog
 import { EditProjectDialog } from "@/components/projects/edit-project-dialog";
 import { ProjectCard } from "@/components/projects/project-card";
 import { useProjects } from "@/components/projects/projects-provider";
-import { PROJECTS_COPY } from "@/lib/constants";
+import { CONNECTION_COPY, PROJECTS_COPY } from "@/lib/constants";
 
 /**
  * La rejilla, con las tres formas que puede tomar.
@@ -53,6 +54,10 @@ type Overlay = { kind: "create" } | { kind: "edit" | "delete"; id: string } | nu
 
 export function ProjectsScreen() {
   const { status, projects, error, reload } = useProjects();
+  // Sin red no se crea, ni se edita, ni se borra. Reintentar la LECTURA sí
+  // sigue disponible: consultar nunca se bloquea, y con la caché del service
+  // worker delante puede incluso funcionar.
+  const blocked = useBlocked();
   const [overlay, setOverlay] = useState<Overlay>(null);
 
   // Un solo «ahora» para toda la lista: con el reloj dentro de cada tarjeta,
@@ -101,7 +106,9 @@ export function ProjectsScreen() {
           <button
             type="button"
             onClick={() => setOverlay({ kind: "create" })}
-            className={`${CTA_PRIMARY_CLASS} px-6`}
+            disabled={blocked}
+            title={blocked ? CONNECTION_COPY.blocked : undefined}
+            className={`${CTA_PRIMARY_CLASS} px-6 disabled:opacity-35`}
           >
             <PlusIcon />
             {PROJECTS_COPY.newProject}
@@ -149,7 +156,9 @@ export function ProjectsScreen() {
           <button
             type="button"
             onClick={() => setOverlay({ kind: "create" })}
-            className={`${CTA_PRIMARY_CLASS} px-6`}
+            disabled={blocked}
+            title={blocked ? CONNECTION_COPY.blocked : undefined}
+            className={`${CTA_PRIMARY_CLASS} px-6 disabled:opacity-35`}
           >
             <PlusIcon />
             {PROJECTS_COPY.newProject}
@@ -168,6 +177,7 @@ export function ProjectsScreen() {
               // la app no puede tumbar la lista entera.
               icon={projectIconFor(project.icon)}
               now={now}
+              blocked={blocked}
               onEdit={() => setOverlay({ kind: "edit", id: project.id })}
               onDelete={() => setOverlay({ kind: "delete", id: project.id })}
             />

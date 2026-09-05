@@ -20,6 +20,8 @@ export function Field({
   rows,
   autoFocus = false,
   disabled = false,
+  readOnly = false,
+  title,
 }: {
   label: string;
   value: string;
@@ -30,6 +32,17 @@ export function Field({
   rows?: number;
   autoFocus?: boolean;
   disabled?: boolean;
+  /**
+   * Se lee pero no se escribe. Es lo que usa el bloqueo sin conexión.
+   *
+   * Aparte de `disabled` y no en vez de él: un campo deshabilitado se pinta
+   * apagado y deja de poder seleccionarse, y sin red lo que hay dentro puede
+   * ser lo único que quede de una idea recién tecleada. Bloquear el teclado no
+   * tiene por qué impedir copiarla.
+   */
+  readOnly?: boolean;
+  /** El motivo, al pasar por encima. Lo pone quien bloquea. */
+  title?: string;
 }) {
   const id = useId();
 
@@ -42,6 +55,8 @@ export function Field({
     placeholder,
     maxLength,
     disabled,
+    readOnly,
+    title,
     autoFocus,
     onChange: (event: { target: { value: string } }) => onChange(event.target.value),
     className:

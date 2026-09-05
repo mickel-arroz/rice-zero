@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useBlocked } from "@/components/connection/connection-provider";
 import { AlertIcon } from "@/components/icons/alert-icon";
 import { BlockedIcon } from "@/components/icons/blocked-icon";
 import { ChevronDownIcon } from "@/components/icons/chevron-down-icon";
@@ -17,7 +18,7 @@ import { DeleteVersionDialog } from "@/components/versions/delete-version-dialog
 import { useVersions } from "@/components/versions/versions-provider";
 import type { ProjectVersion } from "@/lib/backend/ports";
 import { LAST_VERSION_MESSAGE } from "@/lib/backend/ports";
-import { ROUTES, TREE_COPY, VERSIONS_COPY } from "@/lib/constants";
+import { CONNECTION_COPY, ROUTES, TREE_COPY, VERSIONS_COPY } from "@/lib/constants";
 import { relativeTime } from "@/lib/time";
 import { VERSION_LIMITS } from "@/lib/services/versions";
 
@@ -38,6 +39,7 @@ import { VERSION_LIMITS } from "@/lib/services/versions";
  */
 export function VersionPicker({ projectId }: { projectId: string }) {
   const versions = useVersions();
+  const blocked = useBlocked();
   const [open, setOpen] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
 
@@ -208,15 +210,13 @@ export function VersionPicker({ projectId }: { projectId: string }) {
 
           <span aria-hidden="true" className="mx-2 my-1.5 h-px bg-border" />
 
-          <button
-            type="button"
-            role="menuitem"
+          <ActionItem
+            icon={<CloneIcon width={18} height={18} />}
             onClick={() => setCloning(current)}
-            className="flex h-11 items-center gap-2.5 rounded-xl px-3.5 text-sm transition-colors hover:bg-accent hover:text-primary"
+            blocked={blocked}
           >
-            <CloneIcon width={18} height={18} />
             {VERSIONS_COPY.cloneCurrent}
-          </button>
+          </ActionItem>
         </div>
       ) : null}
 
@@ -279,6 +279,7 @@ function Row({
   onNavigate: () => void;
 }) {
   const versions = useVersions();
+  const blocked = useBlocked();
   const field = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -334,6 +335,10 @@ function Row({
             maxLength={VERSION_LIMITS.labelMax}
             placeholder={VERSIONS_COPY.labelPlaceholder}
             aria-label={VERSIONS_COPY.rename}
+            // `readOnly` y no `disabled`, igual que el texto de un Nodo: lo que
+            // se bloquea es escribir, no leer ni copiar la etiqueta.
+            readOnly={blocked}
+            title={blocked ? CONNECTION_COPY.blocked : undefined}
             onChange={(event) => versions.setLabel(version.id, event.target.value)}
             onBlur={onStopRenaming}
             onKeyDown={(event) => {
@@ -389,10 +394,18 @@ function Row({
           role="menu"
           className="absolute top-12 right-2 z-40 flex w-60 flex-col gap-0.5 rounded-[20px] border border-border bg-card p-1.5 shadow-popover"
         >
-          <ActionItem icon={<CloneIcon width={18} height={18} />} onClick={onClone}>
+          <ActionItem
+            icon={<CloneIcon width={18} height={18} />}
+            onClick={onClone}
+            blocked={blocked}
+          >
             {VERSIONS_COPY.clone}
           </ActionItem>
-          <ActionItem icon={<PencilIcon width={18} height={18} />} onClick={onRename}>
+          <ActionItem
+            icon={<PencilIcon width={18} height={18} />}
+            onClick={onRename}
+            blocked={blocked}
+          >
             {VERSIONS_COPY.rename}
           </ActionItem>
 
@@ -400,6 +413,7 @@ function Row({
             <ActionItem
               icon={<TrashIcon width={18} height={18} />}
               onClick={onDelete}
+              blocked={blocked}
               danger
             >
               {VERSIONS_COPY.delete}
@@ -431,11 +445,14 @@ function Row({
 function ActionItem({
   icon,
   onClick,
+  blocked = false,
   danger = false,
   children,
 }: {
   icon: React.ReactNode;
   onClick: () => void;
+  /** Sin red. Se apaga, y se sigue viendo: ver el «no puedes borrar la última». */
+  blocked?: boolean;
   danger?: boolean;
   children: React.ReactNode;
 }) {
@@ -444,9 +461,11 @@ function ActionItem({
       type="button"
       role="menuitem"
       onClick={onClick}
-      className={`flex h-11 items-center gap-2.5 rounded-xl px-3.5 text-sm transition-colors hover:bg-accent ${
-        danger ? "text-primary" : "hover:text-primary"
-      }`}
+      disabled={blocked}
+      title={blocked ? CONNECTION_COPY.blocked : undefined}
+      className={`flex h-11 items-center gap-2.5 rounded-xl px-3.5 text-sm transition-colors disabled:opacity-35 ${
+        danger ? "text-primary" : ""
+      } ${blocked ? "" : `hover:bg-accent ${danger ? "" : "hover:text-primary"}`}`}
     >
       {icon}
       {children}
@@ -457,12 +476,24 @@ function ActionItem({
 /**
  * El pie del Autoguardado de la etiqueta, bajo el campo.
  *
- * Es el de la cabecera en pequeño, y con los mismos tres estados: sin él,
+ * Es el de la cabecera en pequeño, y con los mismos CUATRO estados: sin él,
  * renombrar sería el único sitio de la app donde se escribe algo y nada dice
  * si se guardó.
  */
 function SaveHint() {
   const { save, saveError } = useVersions();
+
+  if (save === "pending") {
+    return (
+      <span className="flex items-center gap-1.5 text-[10px] tracking-[0.12em] text-primary uppercase">
+        <span
+          aria-hidden="true"
+          className="size-[6px] rounded-full border border-primary"
+        />
+        {CONNECTION_COPY.savePending}
+      </span>
+    );
+  }
 
   if (save === "error") {
     return (

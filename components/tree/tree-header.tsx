@@ -10,7 +10,7 @@ import { useProjects } from "@/components/projects/projects-provider";
 import { useTree } from "@/components/tree/tree-provider";
 import { ViewSwitch } from "@/components/tree/view-switch";
 import { VersionPicker } from "@/components/versions/version-picker";
-import { ROUTES, TREE_COPY, type TreeView } from "@/lib/constants";
+import { CONNECTION_COPY, ROUTES, TREE_COPY, type TreeView } from "@/lib/constants";
 
 /**
  * La cabecera de la pantalla del árbol: dónde estás, qué Versión, y cómo verla.
@@ -99,12 +99,28 @@ export function TreeHeader({
 /**
  * El pie del Autoguardado: lo único que le dice al usuario que no hay botón.
  *
- * Tres estados y no dos: «guardado» tranquiliza, «guardando» explica el
- * parpadeo, y el fallo tiene que decir QUÉ pasó — un icono rojo sin frase deja
- * a la persona sin saber si perdió lo que acaba de escribir.
+ * Cuatro estados y no dos: «guardado» tranquiliza, «guardando» explica el
+ * parpadeo, el fallo tiene que decir QUÉ pasó —un icono rojo sin frase deja a
+ * la persona sin saber si perdió lo que acaba de escribir— y «pendiente» es lo
+ * que hace que sin red este pie siga sin mentir: hay algo escrito, no está
+ * guardado, y saldrá solo. Ver `SaveState` en `tree-provider.tsx`.
  */
 function SaveState() {
   const { save, saveError } = useTree();
+
+  if (save === "pending") {
+    return (
+      <span className="flex items-center gap-1.5 text-[10px] tracking-[0.12em] text-primary uppercase">
+        {/* El punto HUECO, contra el lleno de «Guardando…»: nada está saliendo
+            hacia ningún sitio, hay algo esperando a que se pueda. */}
+        <span
+          aria-hidden="true"
+          className="size-[7px] rounded-full border border-primary"
+        />
+        {CONNECTION_COPY.savePending}
+      </span>
+    );
+  }
 
   if (save === "error") {
     return (
