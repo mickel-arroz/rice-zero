@@ -17,6 +17,7 @@ import type { SupabaseBrowserClient } from "@/lib/backend/adapters/supabase/clie
 import {
   ConflictError,
   NetworkError,
+  RESET_TOKEN_RULE,
   UnauthenticatedError,
   type AuthProvider,
   type AuthSession,
@@ -24,6 +25,39 @@ import {
 
 /** Códigos con los que Supabase dice «ese email ya está registrado». */
 const ALREADY_REGISTERED = new Set(["user_already_exists", "email_exists"]);
+
+/**
+ * Códigos con los que Supabase rechaza el enlace de recuperación.
+ *
+ * Aquí el «token» es el `code` de PKCE que trae la URL del correo, así que un
+ * enlace ya usado vuelve como intercambio fallido y no como token expirado. Los
+ * tres son la misma frase para el usuario: pide otro enlace.
+ */
+const BAD_RESET_TOKEN = new Set([
+  "otp_expired",
+  "flow_state_expired",
+  "flow_state_not_found",
+]);
+
+/**
+ * La traducción de `resetPassword`, y SOLO de ella.
+ *
+ * Va aparte de la general por lo mismo que en el adaptador de Neon: dentro de
+ * esta operación el único token en juego es el del correo, y fuera de ella esos
+ * códigos hablarían de otra cosa. Que los dos adaptadores tengan la misma forma
+ * no es estética — es lo que hace que el interruptor del ADR 0001 se pueda
+ * accionar sin releer los dos archivos.
+ */
+function translateResetFailure(error: AuthError): Error {
+  if (error.code && BAD_RESET_TOKEN.has(error.code)) {
+    return new ConflictError(
+      RESET_TOKEN_RULE,
+      "Ese enlace de recuperación ya no vale.",
+      { cause: error },
+    );
+  }
+  return translateAuthError(error);
+}
 
 function toAuthSession(session: Session): AuthSession {
   // Supabase no normaliza el perfil social: nombre y foto llegan dentro de
@@ -137,6 +171,47 @@ export function createSupabaseAuthProvider(
         if (error) throw translateAuthError(error);
       } catch (error) {
         throw translateThrownAuth(error);
+      }
+    },
+
+    async sendPasswordReset(email, redirectTo) {
+      try {
+        const { error } = await client.auth.resetPasswordForEmail(email, {
+          redirectTo,
+        });
+        if (error) throw translateAuthError(error);
+        // Supabase tampoco distingue si el email existe: contesta lo mismo en
+        // los dos casos, y aquí no se añade ninguna comprobación que lo rompa.
+      } catch (error) {
+        throw translateThrownAuth(error);
+      }
+    },
+
+    async resetPassword(token, newPassword) {
+      try {
+        // En Supabase el «token» del puerto es el `code` de PKCE que trae la URL
+        // del correo, y hay que canjearlo por una sesión ANTES de poder cambiar
+        // la contraseña: `updateUser` actúa sobre el usuario de la sesión, no
+        // sobre un id suelto. Es el paso que Better Auth no necesita, y por eso
+        // vive aquí y no en el puerto.
+        const exchanged = await client.auth.exchangeCodeForSession(token);
+        if (exchanged.error) throw translateResetFailure(exchanged.error);
+
+        const { error } = await client.auth.updateUser({ password: newPassword });
+        if (error) throw translateResetFailure(error);
+
+        // Y se cierra, sin condición. No hay ninguna sesión ajena que proteger:
+        // `exchangeCodeForSession` ya SUSTITUYÓ la que hubiera por la del dueño
+        // del enlace, así que para cuando se llega aquí la anterior se perdió en
+        // el canje, no en este `signOut`.
+        //
+        // El puerto promete que esto NO deja sesión abierta, y
+        // Supabase sí la deja: sin esto los dos adaptadores acabarían en
+        // pantallas distintas —uno en /projects, otro en el formulario de
+        // entrar— con el mismo código de interfaz encima.
+        await client.auth.signOut();
+      } catch (error) {
+        throw isAuthError(error) ? translateResetFailure(error) : keepBackendError(error);
       }
     },
 

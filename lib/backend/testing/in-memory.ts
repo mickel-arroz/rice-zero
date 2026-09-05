@@ -34,6 +34,7 @@ import { createRepositories } from "@/lib/backend/adapters/postgrest/kernel";
 import {
   ConflictError,
   NotFoundError,
+  RESET_TOKEN_RULE,
   UnauthenticatedError,
   type AuthProvider,
   type AuthSession,
@@ -56,6 +57,21 @@ type Tables = Record<TableName, Row[]>;
 export type InMemoryBackend = BackendProvider & {
   /** Lo que haría el usuario al pinchar el enlace del correo. */
   verifyEmail(email: string): void;
+  /**
+   * El token que llevaba el último correo de recuperación, o `null` si no se
+   * mandó ninguno.
+   *
+   * Es la otra mitad de `verifyEmail`: aquí no hay buzón, así que el token que
+   * el usuario leería en el correo tiene que salir por algún sitio. Devolver
+   * `null` para un email desconocido es lo que permite AFIRMAR en un test que
+   * pedir el enlace no reveló nada: la llamada contestó igual, y la diferencia
+   * solo se ve desde dentro.
+   *
+   * El ÚLTIMO y no cualquiera: pedir el enlace dos veces emite dos tokens y los
+   * dos siguen valiendo —el proveedor real tampoco invalida el anterior—, así
+   * que un test que canjeara el primero estaría probando el correo viejo.
+   */
+  resetTokenFor(email: string): string | null;
   /** Vacía usuarios y datos. */
   reset(): void;
 };
@@ -134,6 +150,8 @@ function sortRows(rows: Row[], order: Order[]): Row[] {
 
 export function createInMemoryBackend(): InMemoryBackend {
   const users = new Map<string, StoredUser>();
+  /** Token de recuperación → email. Se BORRA al usarlo: los enlaces valen una vez. */
+  const resetTokens = new Map<string, string>();
   let session: StoredUser | null = null;
   let tables: Tables = { projects: [], project_versions: [], nodes: [], ai_analyses: [] };
 
@@ -516,6 +534,42 @@ export function createInMemoryBackend(): InMemoryBackend {
       );
     },
 
+    async sendPasswordReset(email) {
+      // Sin `if (!user) throw`: el puerto promete que esto contesta lo mismo
+      // exista o no la cuenta, y el doble tiene que prometerlo también o los
+      // tests que corren contra él dejarían pasar un adaptador que sí lo revela.
+      // Lo único que cambia es que no hay token que guardar.
+      const user = users.get(email);
+      if (!user) return;
+      resetTokens.set(nextId(), email);
+    },
+
+    async resetPassword(token, newPassword) {
+      const email = resetTokens.get(token);
+      // Caducado, ya usado y nunca existió son la misma respuesta: el token se
+      // borra al gastarlo, así que el segundo intento cae aquí igual que el de
+      // un token inventado.
+      if (!email) {
+        throw new ConflictError(
+          RESET_TOKEN_RULE,
+          "Ese enlace de recuperación ya no vale.",
+        );
+      }
+      resetTokens.delete(token);
+
+      const user = users.get(email);
+      if (!user) {
+        throw new ConflictError(
+          RESET_TOKEN_RULE,
+          "Ese enlace de recuperación ya no vale.",
+        );
+      }
+      user.password = newPassword;
+      // Ni abre sesión ni confirma el email: las dos cosas son lo que promete
+      // el puerto, y las dos son lo que hace que la pantalla de éxito tenga que
+      // avisar de que confirmar la cuenta sigue pendiente.
+    },
+
     async signOut() {
       session = null;
     },
@@ -532,8 +586,21 @@ export function createInMemoryBackend(): InMemoryBackend {
       user.emailVerified = true;
     },
 
+    resetTokenFor(email) {
+      // Un `Map` conserva el orden de inserción, así que el último que casa es
+      // el del correo más reciente. Se recorre entero en vez de salir en el
+      // primero: eso devolvía el token MÁS VIEJO, justo el contrario de lo que
+      // promete el nombre.
+      let ultimo: string | null = null;
+      for (const [token, owner] of resetTokens) {
+        if (owner === email) ultimo = token;
+      }
+      return ultimo;
+    },
+
     reset() {
       users.clear();
+      resetTokens.clear();
       session = null;
       tables = { projects: [], project_versions: [], nodes: [], ai_analyses: [] };
     },

@@ -13,6 +13,7 @@ import type { NeonBrowserClient } from "@/lib/backend/adapters/neon/client";
 import {
   ConflictError,
   NetworkError,
+  RESET_TOKEN_RULE,
   UnauthenticatedError,
   type AuthProvider,
   type AuthSession,
@@ -23,6 +24,43 @@ const ALREADY_REGISTERED = new Set([
   "USER_ALREADY_EXISTS",
   "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL",
 ]);
+
+/**
+ * Códigos con los que llega un token de recuperación que ya no vale.
+ *
+ * Son DOS porque hay DOS capas y el código cambia al pasar de una a la otra.
+ * Better Auth contesta `400 {"code":"INVALID_TOKEN"}` —comprobado contra el
+ * servicio real— pero el SDK de Neon lo NORMALIZA antes de que la app lo vea:
+ * su `BETTER_AUTH_ERROR_MAP` convierte `INVALID_TOKEN` en `bad_jwt`, le pone un
+ * 401 y reescribe el mensaje como «Invalid or expired session token». Lo que
+ * llega aquí es siempre lo segundo; lo primero se deja por si el SDK deja de
+ * normalizar, que es justo el cambio que nadie anunciaría.
+ *
+ * Lo destapó la corrida E2E contra el proveedor de verdad: con el mapeo hecho
+ * solo sobre `INVALID_TOKEN`, un enlace caducado salía como «no hemos podido
+ * guardar la contraseña» y el usuario se quedaba mirando un formulario que
+ * nunca iba a funcionar, sin que nada le dijera que pidiera otro enlace.
+ */
+const BAD_RESET_TOKEN = new Set(["bad_jwt", "INVALID_TOKEN"]);
+
+/**
+ * La traducción de `resetPassword`, y SOLO de ella.
+ *
+ * `bad_jwt` no puede vivir en la traducción general: es también lo que contesta
+ * una sesión caducada de verdad, y ahí «pide otro enlace de recuperación» no
+ * tendría ningún sentido. Dentro de esta operación, en cambio, el único token
+ * en juego es el del correo.
+ */
+function translateResetFailure(failure: BetterAuthFailure): Error {
+  if (failure.code && BAD_RESET_TOKEN.has(failure.code)) {
+    return new ConflictError(
+      RESET_TOKEN_RULE,
+      "Ese enlace de recuperación ya no vale.",
+      { cause: failure },
+    );
+  }
+  return translateAuthFailure(failure);
+}
 
 /** El error de Better Auth, reducido a lo que se mira. */
 type BetterAuthFailure = {
@@ -76,6 +114,7 @@ function translateAuthFailure(failure: BetterAuthFailure): Error {
       cause: failure,
     });
   }
+
   // El 429 va con los 5xx aunque sea 4xx: «espera» es transitorio y se
   // reintenta, mientras que tratarlo como falta de sesión mandaría a login a
   // quien solo tiene que esperar. Lo destapó la corrida en vivo, con 45 logins
@@ -203,6 +242,43 @@ export function createNeonAuthProvider(
         if (error) throw translateAuthFailure(error);
       } catch (error) {
         throw translateThrownAuth(error);
+      }
+    },
+
+    async sendPasswordReset(email, redirectTo) {
+      try {
+        // Better Auth ya contesta lo mismo exista o no la cuenta: cuando el
+        // email no está, genera un id que tira y consulta una verificación
+        // inventada —mitigación de ataque por tiempos— y devuelve el MISMO
+        // `200`. Así que aquí no hay nada que ocultar; lo que hay que hacer es
+        // no romperlo, y por eso ningún camino de abajo mira si el usuario
+        // existe.
+        const { error } = await client.auth.requestPasswordReset({
+          email,
+          redirectTo,
+        });
+        if (error) throw translateAuthFailure(error);
+      } catch (error) {
+        throw translateThrownAuth(error);
+      }
+    },
+
+    async resetPassword(token, newPassword) {
+      try {
+        const { error } = await client.auth.resetPassword({
+          token,
+          newPassword,
+        });
+        if (error) throw translateResetFailure(error);
+        // NO se abre sesión ni se toca `emailVerified`: el endpoint solo cambia
+        // el hash de la contraseña. Una cuenta sin confirmar sigue chocando con
+        // `canAct` después de esto, y la interfaz lo dice.
+      } catch (error) {
+        // El SDK LANZA por este camino —lo hace de verdad, no en teoría—, así
+        // que la traducción específica tiene que estar en los dos sitios.
+        throw isAuthApiError(error)
+          ? translateResetFailure(error as BetterAuthFailure)
+          : keepBackendError(error);
       }
     },
 

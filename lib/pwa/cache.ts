@@ -9,6 +9,9 @@
  * suelta, no a través del sitio donde se aplica.
  */
 
+import { isSameOrUnder, normalizePath } from "@/lib/path";
+import { ROUTES } from "@/lib/constants";
+
 /**
  * Lo mínimo que hace falta saber de una petición para decidir sobre ella.
  *
@@ -48,6 +51,47 @@ export function isOfflineDocument({ request, origin }: CacheQuestion): boolean {
   // El worker ve también lo que sale del origen. Servir NUESTRA pantalla
   // offline en el sitio de una página ajena sería suplantarla.
   return new URL(request.url).origin === origin;
+}
+
+/**
+ * Las rutas que NO se guardan nunca, ni con red ni sin ella.
+ *
+ * Hoy solo hay una, y está por una razón muy concreta: `/reset-password` lleva
+ * el token del correo EN LA URL. Las entradas de `CacheStorage` se guardan
+ * indexadas por la URL de la petición, así que cachear esa página no deja el
+ * token en el cuerpo — lo deja en la CLAVE, en disco, legible por cualquiera
+ * que llegue al perfil del navegador o ejecute algo en el origen.
+ *
+ * Y `clearPrivateCaches` no lo salvaría: solo corre al CERRAR SESIÓN, y quien
+ * recupera su contraseña no tiene ninguna que cerrar. La copia se quedaría
+ * hasta que el navegador decidiera tirarla.
+ *
+ * El coste de no cachearla es cero: es una pantalla que solo se abre desde un
+ * enlace de un correo, una vez, y que sin red no puede hacer nada de todos
+ * modos porque su único botón habla con el proveedor.
+ */
+const NEVER_CACHED: readonly string[] = [ROUTES.resetPassword];
+
+/**
+ * ¿Esta petición no debe tocar la caché?
+ *
+ * Es lista blanca al revés que `SURVIVES_SIGN_OUT` —aquí se NOMBRA lo que no se
+ * guarda— porque la pregunta es distinta: allí se decide qué sobrevive a un
+ * borrado y equivocarse deja datos, aquí se decide qué no llega a entrar y la
+ * lista es de rutas concretas que llevan una credencial en la URL.
+ */
+export function isNeverCached({
+  pathname,
+  sameOrigin,
+}: {
+  readonly pathname: string;
+  readonly sameOrigin: boolean;
+}): boolean {
+  // Lo de fuera del origen tiene su propia regla en `defaultCache`, y nuestras
+  // rutas no pueden coincidir con las de otro sitio.
+  if (!sameOrigin) return false;
+  const path = normalizePath(pathname);
+  return NEVER_CACHED.some((route) => isSameOrUnder(path, route));
 }
 
 /**

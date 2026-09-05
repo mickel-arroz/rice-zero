@@ -7,7 +7,7 @@
  * que lo protegido no, y que entrar funciona.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { credenciales } from "@/e2e/apoyo/entorno";
 import { literal } from "@/e2e/apoyo/texto";
@@ -167,6 +167,148 @@ test.describe("sin sesión", () => {
     const salida = JSON.parse(respuestas[0]) as { url?: string; redirect?: boolean };
     expect(salida.redirect).toBe(true);
     expect(salida.url ?? "").toContain("/sign-in/social/init");
+  });
+});
+
+/**
+ * Recuperar la contraseña (#22).
+ *
+ * Lo que se puede afirmar SIN un buzón, que es casi todo salvo el propio
+ * correo: dónde vive el enlace, que pedirlo no delata quién tiene cuenta, y que
+ * un enlace que no vale se dice en español y no con el texto del SDK. Las dos
+ * mitades que sí necesitan buzón —que el correo llega y que la contraseña nueva
+ * deja entrar— se comprueban a mano; lo demás lo cubre la contract suite contra
+ * el doble en `lib/backend/testing/in-memory.test.ts`.
+ *
+ * Ninguna de estas pruebas provoca un correo de verdad: se piden enlaces para
+ * una dirección que no existe —el proveedor contesta igual y no manda nada— y
+ * se canjean tokens inventados.
+ */
+test.describe("recuperar la contraseña", () => {
+  /** Nadie con esta dirección se ha registrado nunca, y ese es el punto. */
+  const DESCONOCIDO = "nadie-por-aqui@rice-zero.invalid";
+
+  const enlaceOlvido = (page: Page) =>
+    page.getByRole("button", { name: AUTH_COPY.forgotPassword });
+
+  /**
+   * Nuestro aviso, y no el de Next.
+   *
+   * `getByRole("alert")` casa también con `__next-route-announcer__`, que el
+   * framework deja SIEMPRE en la página y SIEMPRE vacío: sin filtrar por texto,
+   * «no hay ningún error» era imposible de afirmar y «hay un error» pasaba por
+   * accidente.
+   */
+  const aviso = (page: Page) =>
+    page.locator('[role="alert"]').filter({ hasText: /\S/ });
+
+  test("el enlace está en «Entrar» y no en «Crear cuenta»", async ({ page }) => {
+    await page.goto(ROUTES.login);
+    await expect(enlaceOlvido(page)).toBeVisible();
+
+    await pulsarHidratado(
+      page.getByRole("tab", { name: AUTH_COPY.signUp.tab }),
+      page.getByRole("heading", { name: AUTH_COPY.signUp.title, level: 1 }),
+    );
+    // En «Crear cuenta» ese hueco lo ocupa el campo de repetir, y ofrecerle
+    // recuperar la contraseña a quien todavía no tiene cuenta no significa nada.
+    await expect(enlaceOlvido(page)).toBeHidden();
+  });
+
+  test("pedir el enlace contesta lo mismo para una cuenta que no existe", async ({
+    page,
+  }) => {
+    await page.goto(ROUTES.login);
+    await pulsarHidratado(
+      enlaceOlvido(page),
+      page.getByRole("heading", { name: AUTH_COPY.recover.title, level: 1 }),
+    );
+
+    // Ni pestañas ni Google mientras se recupera: son dos formas de entrar, y
+    // aquí todavía no se puede.
+    await expect(page.getByRole("tab", { name: AUTH_COPY.signIn.tab })).toBeHidden();
+
+    await page.getByLabel(AUTH_COPY.emailLabel).fill(DESCONOCIDO);
+    await page
+      .getByRole("button", { name: AUTH_COPY.recover.submit, exact: true })
+      .click();
+
+    // El criterio del ticket, visto desde fuera: una dirección sin cuenta llega
+    // a la MISMA pantalla de «revisa tu correo», con el mismo texto. Si aquí
+    // saliera un error, bastaría este formulario para preguntar quién tiene
+    // cuenta en la app.
+    await expect(
+      page.getByRole("heading", {
+        name: AUTH_COPY.mailSent.recover.title,
+        level: 1,
+      }),
+    ).toBeVisible();
+    await expect(page.getByText(DESCONOCIDO)).toBeVisible();
+    await expect(aviso(page)).toBeHidden();
+  });
+
+  test("la ruta del correo se ve sin sesión, y sin token dice que caducó", async ({
+    page,
+  }) => {
+    // Pública a propósito: quien la abre no puede entrar, que es justo por lo
+    // que pidió el enlace. Si `proxy.ts` la protegiera, el correo llevaría a
+    // /login y el flujo no tendría salida.
+    await page.goto(ROUTES.resetPassword);
+    await expect(page).toHaveURL(new RegExp(`${literal(ROUTES.resetPassword)}$`));
+    await expect(
+      page.getByRole("heading", {
+        name: AUTH_COPY.reset.expiredTitle,
+        level: 1,
+      }),
+    ).toBeVisible();
+    // Sin token no hay formulario: dos campos que no pueden llegar a ningún
+    // sitio serían peor que decirlo.
+    await expect(
+      page.getByLabel(AUTH_COPY.reset.passwordLabel, { exact: true }),
+    ).toBeHidden();
+  });
+
+  test("«Pedir otro enlace» abre el login ya en modo Recuperar", async ({
+    page,
+  }) => {
+    await page.goto(ROUTES.resetPassword);
+    await page.getByRole("link", { name: AUTH_COPY.reset.expiredCta }).click();
+
+    await page.waitForURL(new RegExp(literal(ROUTES.login)));
+    await expect(
+      page.getByRole("heading", { name: AUTH_COPY.recover.title, level: 1 }),
+    ).toBeVisible();
+  });
+
+  test("un token que el proveedor rechaza da un error en español", async ({
+    page,
+  }) => {
+    // Token inventado contra el proveedor DE VERDAD: lo que se afirma es la
+    // traducción, es decir que la pantalla no enseña «Invalid token» ni ningún
+    // otro texto del SDK.
+    await page.goto(`${ROUTES.resetPassword}?token=este-token-no-existe`);
+
+    const nueva = "contraseña-nueva-de-prueba";
+    await page
+      .getByLabel(AUTH_COPY.reset.passwordLabel, { exact: true })
+      .fill(nueva);
+    await page.getByLabel(AUTH_COPY.confirmLabel, { exact: true }).fill(nueva);
+    await page
+      .getByRole("button", { name: AUTH_COPY.reset.submit, exact: true })
+      .click();
+
+    await expect(
+      page.getByRole("heading", {
+        name: AUTH_COPY.reset.expiredTitle,
+        level: 1,
+      }),
+    ).toBeVisible();
+    const notice = aviso(page);
+    await expect(notice).toBeVisible();
+    // Lo que se afirma es la TRADUCCIÓN: el SDK contesta «Invalid or expired
+    // session token», y de eso no puede quedar ni rastro en pantalla.
+    await expect(notice).not.toContainText("Invalid", { ignoreCase: true });
+    await expect(notice).not.toContainText("session token", { ignoreCase: true });
   });
 });
 

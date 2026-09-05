@@ -17,6 +17,7 @@ import {
   HERO_LABEL,
   HERO_TAGLINE,
   NEXT_PARAM,
+  RECOVER_PARAM,
   ROUTES,
 } from "@/lib/constants";
 
@@ -75,6 +76,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   // correo de confirmación; reenviarlo a /projects sería un bucle de redirects.
   if (canAct(await requestSession())) redirect(destination);
 
+  // Llega puesto solo desde «Pedir otro enlace», en la pantalla del enlace
+  // caducado. Basta con que el parámetro esté: no lleva ningún dato dentro, así
+  // que no hay nada que filtrar — lo único que decide es qué pinta el card.
+  const recovering = params[RECOVER_PARAM] !== undefined;
+
   return (
     <div className={PAGE_CLASS}>
       <SiteHeader current="login" />
@@ -88,7 +94,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
               `lg`: en tablet el formulario se estiraba a 700px y los campos
               quedaban absurdamente largos para lo poco que se escribe en ellos. */}
           <div className="mx-auto w-full max-w-110 lg:mx-0 lg:w-110 lg:shrink-0">
-            <LoginForm destination={destination} />
+            <LoginForm destination={destination} recovering={recovering} />
           </div>
         </div>
       </main>

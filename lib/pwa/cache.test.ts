@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { clearPrivateCaches, isOfflineDocument } from "@/lib/pwa/cache";
+import {
+  clearPrivateCaches,
+  isNeverCached,
+  isOfflineDocument,
+} from "@/lib/pwa/cache";
+import { ROUTES } from "@/lib/constants";
 
 /** Una petición como la que le llega al matcher del service worker. */
 function ask({
@@ -91,5 +96,51 @@ describe("clearPrivateCaches", () => {
     const store = fakeCaches(["una-caché-de-mañana", "static-font-assets"]);
     await clearPrivateCaches(store);
     expect(await store.keys()).toEqual(["static-font-assets"]);
+  });
+});
+
+/**
+ * Lo que NUNCA se guarda.
+ *
+ * `/reset-password` lleva el token del correo en la URL, y las entradas de
+ * `CacheStorage` se indexan POR la URL: cachearla deja una credencial de un
+ * solo uso escrita en disco como clave. Y `clearPrivateCaches` no la alcanza,
+ * porque solo corre al cerrar sesión y quien recupera su contraseña no tiene
+ * ninguna.
+ */
+describe("isNeverCached", () => {
+  it("no guarda la ruta que lleva el token en la URL", () => {
+    expect(
+      isNeverCached({ pathname: ROUTES.resetPassword, sameOrigin: true }),
+    ).toBe(true);
+  });
+
+  it("tampoco lo que cuelgue de ella", () => {
+    // Por si mañana hay `/reset-password/algo`: una ruta hija hereda el mismo
+    // problema, y descubrirlo entonces sería descubrirlo tarde.
+    expect(
+      isNeverCached({
+        pathname: `${ROUTES.resetPassword}/lo-que-sea`,
+        sameOrigin: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("deja pasar el resto de la app", () => {
+    // La regla va DELANTE de `defaultCache`, así que una que casara de más
+    // apagaría la caché de páginas entera y con ella la consulta sin conexión.
+    for (const pathname of [ROUTES.home, ROUTES.login, ROUTES.projects]) {
+      expect(isNeverCached({ pathname, sameOrigin: true }), pathname).toBe(
+        false,
+      );
+    }
+  });
+
+  it("no opina sobre lo que no es nuestro", () => {
+    // Otro sitio puede tener su propio `/reset-password`, y no es asunto
+    // nuestro: lo de fuera del origen tiene su regla en `defaultCache`.
+    expect(
+      isNeverCached({ pathname: ROUTES.resetPassword, sameOrigin: false }),
+    ).toBe(false);
   });
 });

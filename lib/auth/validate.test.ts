@@ -104,6 +104,75 @@ describe("validateCredentials", () => {
     });
   });
 
+  describe("pedir el enlace de recuperación", () => {
+    it("solo mira el email", () => {
+      // En ese modo el formulario tiene UN campo. Exigir una contraseña que no
+      // está en pantalla dejaría el botón muerto sin decir por qué.
+      expect(validateCredentials({ email: ok.email }, "resetRequest")).toEqual(
+        {},
+      );
+    });
+
+    it("sigue exigiendo que el email tenga forma de email", () => {
+      const { email } = validateCredentials(
+        { email: "mickel" },
+        "resetRequest",
+      );
+      expect(email).toBeTruthy();
+    });
+
+    it("no se queja de la contraseña aunque llegue vacía", () => {
+      const errors = validateCredentials(
+        { email: ok.email, password: "" },
+        "resetRequest",
+      );
+      expect(errors.password).toBeUndefined();
+      expect(errors.confirm).toBeUndefined();
+    });
+  });
+
+  describe("fijar la contraseña nueva", () => {
+    const nueva = { password: ok.password, confirm: ok.confirm };
+
+    it("no pide email", () => {
+      // El email no está en pantalla: lo identifica el token del correo, y
+      // volver a pedirlo sería preguntar algo que ya sabemos.
+      expect(validateCredentials(nueva, "resetPassword")).toEqual({});
+    });
+
+    it("exige la longitud mínima, como al crear cuenta", () => {
+      // Es una contraseña NUEVA, así que el argumento de «esa ya existe» no
+      // aplica: aquí la regla del proveedor se puede comprobar antes de salir.
+      const { password } = validateCredentials(
+        {
+          password: "a".repeat(MIN_PASSWORD_LENGTH - 1),
+          confirm: "a".repeat(MIN_PASSWORD_LENGTH - 1),
+        },
+        "resetPassword",
+      );
+      expect(password).toContain(String(MIN_PASSWORD_LENGTH));
+    });
+
+    it("exige repetirla y avisa cuando no coinciden", () => {
+      expect(
+        validateCredentials({ ...nueva, confirm: "" }, "resetPassword").confirm,
+      ).toBeTruthy();
+      expect(
+        validateCredentials({ ...nueva, confirm: "otra-cosa" }, "resetPassword")
+          .confirm,
+      ).toMatch(/no coinciden/i);
+    });
+
+    it("calla la repetición mientras la contraseña en sí no sea válida", () => {
+      const errors = validateCredentials(
+        { password: "", confirm: "" },
+        "resetPassword",
+      );
+      expect(errors.password).toBeTruthy();
+      expect(errors.confirm).toBeUndefined();
+    });
+  });
+
   it("reporta los dos campos a la vez", () => {
     // El formulario pinta el mensaje debajo de cada campo, así que devolver solo
     // el primer fallo obligaría al usuario a enviar dos veces para verlos.

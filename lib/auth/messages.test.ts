@@ -5,6 +5,7 @@ import {
   ConflictError,
   MissingEnvError,
   NetworkError,
+  RESET_TOKEN_RULE,
   UnauthenticatedError,
 } from "@/lib/backend/ports";
 
@@ -83,7 +84,12 @@ describe("describeAuthFailure", () => {
       new ConflictError("email-registrado", sentinel),
       new Error(sentinel),
     ];
-    for (const action of ["signIn", "signUp"] as const) {
+    for (const action of [
+      "signIn",
+      "signUp",
+      "resetRequest",
+      "resetPassword",
+    ] as const) {
       for (const error of errors) {
         const { title, detail } = describeAuthFailure(error, action);
         expect(`${title} ${detail}`, `${error.name} / ${action}`).not.toContain(
@@ -93,6 +99,48 @@ describe("describeAuthFailure", () => {
         expect(detail.length, `${error.name} / ${action}`).toBeGreaterThan(0);
       }
     }
+  });
+
+  describe("recuperar la contraseña", () => {
+    it("explica que hay que pedir otro enlace cuando el token no vale", () => {
+      const failure = describeAuthFailure(
+        new ConflictError(RESET_TOKEN_RULE, "Ese enlace ya no vale."),
+        "resetPassword",
+      );
+      expect(failure.title).toMatch(/enlace/i);
+      expect(failure.detail).toMatch(/otro/i);
+      // No es reintentable: repetir la misma llamada con el mismo token vuelve
+      // a fallar, y ofrecer «Reintentar» sería mandar al usuario a un bucle.
+      expect(failure.retryable).toBe(false);
+    });
+
+    it("no confunde otra regla del proveedor con un token caducado", () => {
+      // `rule` es lo que el puerto promete estable. Un ConflictError con otra
+      // regla no puede acabar diciendo «pide otro enlace», porque pedirlo no
+      // arreglaría nada.
+      const failure = describeAuthFailure(
+        new ConflictError("otra-regla", "x"),
+        "resetPassword",
+      );
+      expect(failure.title).not.toMatch(/enlace/i);
+    });
+
+    it("no revela si la cuenta existe al pedir el enlace", () => {
+      // El criterio del ticket, visto desde el texto: ninguna categoría de
+      // error puede acabar en una frase que hable de si ese email está
+      // registrado. Si lo hiciera, bastaría provocar el fallo para preguntarlo.
+      for (const error of [
+        new NetworkError(),
+        new UnauthenticatedError(),
+        new ConflictError("email-registrado", "x"),
+        new Error("boom"),
+      ]) {
+        const { title, detail } = describeAuthFailure(error, "resetRequest");
+        expect(`${title} ${detail}`, error.name).not.toMatch(
+          /no (existe|está registrad)|sin cuenta|no tiene cuenta|ya tiene cuenta/i,
+        );
+      }
+    });
   });
 
   it("nombra la variable que falta cuando el fallo es de configuración", () => {

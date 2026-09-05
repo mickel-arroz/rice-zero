@@ -22,6 +22,15 @@ export const ROUTES = {
   home: "/",
   about: "/about",
   login: "/login",
+  /**
+   * Donde aterriza el enlace del correo de recuperación, con el token dentro.
+   *
+   * Es PÚBLICA y tiene que serlo: quien la abre no tiene sesión —justamente
+   * porque no puede entrar— y el token del correo es toda la credencial que
+   * lleva encima. Se queda fuera de `safeNextPath` por ser pública, así que
+   * tampoco puede acabar siendo el destino al que vuelve un login.
+   */
+  resetPassword: "/reset-password",
   projects: "/projects",
   /**
    * La pantalla de un Proyecto: su Vista Registro sobre la Versión activa.
@@ -87,6 +96,7 @@ export const PUBLIC_ROUTES = [
   ROUTES.home,
   ROUTES.about,
   ROUTES.login,
+  ROUTES.resetPassword,
   ROUTES.authApi,
   // Las dos piezas de la PWA las pide el NAVEGADOR, no una persona con sesión.
   // El service worker se descarga antes de saber si hay usuario, y la pantalla
@@ -104,6 +114,16 @@ export const PUBLIC_ROUTES = [
 
 /** El parámetro con el que el login recuerda a dónde iba el usuario. */
 export const NEXT_PARAM = "next";
+
+/**
+ * El parámetro que abre `/login` ya en modo «Recuperar».
+ *
+ * Existe por un solo botón: «Pedir otro enlace», en la pantalla del enlace
+ * caducado. Sin él, ese botón y «Ir a Entrar» llevarían al MISMO sitio y el
+ * usuario tendría que volver a buscar «¿Olvidaste tu contraseña?» — justo
+ * después de que le dijéramos que pidiera otro.
+ */
+export const RECOVER_PARAM = "recover";
 
 export const EXTERNAL_LINKS = {
   repo: "https://github.com/mickel-arroz/rice-zero",
@@ -300,14 +320,94 @@ export const AUTH_COPY = {
     passwordLabel: "Contraseña nueva",
   },
 
-  sentLabel: "Cuenta creada",
-  sentTitle: "Revisa tu correo",
   sentToLabel: "Enviado a",
-  sentBody:
-    "Abre el enlace del correo para confirmar la cuenta. Hasta que lo hagas, entrar está bloqueado.",
-  sentSpam:
-    "Si no llega en unos minutos, mira en spam. Al intentar entrar sin confirmar te reenviamos el correo.",
   sentCta: "Ir a Entrar",
+
+  /**
+   * Los DOS correos que la pantalla de acceso puede provocar.
+   *
+   * Van juntos y con la misma forma porque los pinta el mismo componente: un
+   * sobre, a quién fue, qué hacer y qué pasa si no llega. Agrupados, el bloque
+   * entero viaja como un solo prop y se lee de un vistazo si los dos dicen lo
+   * que tienen que decir — que es para lo que existe este archivo.
+   */
+  mailSent: {
+    signUp: {
+      label: "Cuenta creada",
+      title: "Revisa tu correo",
+      body: "Abre el enlace del correo para confirmar la cuenta. Hasta que lo hagas, entrar está bloqueado.",
+      spam: "Si no llega en unos minutos, mira en spam. Al intentar entrar sin confirmar te reenviamos el correo.",
+    },
+    /**
+     * El texto que NO cambia exista o no la cuenta.
+     *
+     * «Si esa cuenta existe» no es una fórmula de cortesía: es el criterio del
+     * ticket puesto en palabras. Decir «te hemos enviado el correo» cuando el
+     * email está registrado y otra cosa cuando no, convierte esta pantalla en
+     * una forma de preguntar quién tiene cuenta aquí.
+     */
+    recover: {
+      label: "Enlace enviado",
+      title: "Revisa tu correo",
+      body: "Si esa cuenta existe, el correo ya va de camino. Abre su enlace para poner una contraseña nueva.",
+      spam: "Si no llega en unos minutos, mira en spam. El enlace caduca a la hora y solo se puede usar una vez.",
+    },
+  },
+
+  /**
+   * Pedir el enlace: un modo del mismo card, no una ruta.
+   *
+   * El boceto aprobado lo resuelve así porque solo hace falta UNA ruta nueva —la
+   * que recibe el token—, y este paso es un campo y un botón sobre el card que
+   * ya está en pantalla.
+   */
+  recover: {
+    title: "Recuperar",
+    lead: "Escribe tu email y te mandamos un enlace para poner una contraseña nueva.",
+    submit: "Enviar el enlace",
+    pending: "Enviando",
+    back: "← Volver a Entrar",
+  },
+
+  /** La ruta que recibe el token del correo. */
+  reset: {
+    label: "Recuperar",
+    title: "Nueva contraseña",
+    lead: "Elige la contraseña con la que entrarás a partir de ahora.",
+    passwordLabel: "Contraseña nueva",
+    hint: (min: number) => `Mínimo ${min} caracteres.`,
+    submit: "Guardar contraseña",
+    pending: "Guardando",
+    /** Sin token válido no hay formulario que pintar: solo la salida. */
+    expiredTitle: "Enlace caducado",
+    expiredCta: "Pedir otro enlace",
+    /**
+     * El aviso del enlace agotado, con DOS orígenes y un solo texto.
+     *
+     * Lo pinta la ruta de reset cuando llega sin token, y también
+     * `describeAuthFailure` cuando el proveedor rechaza el que llegó. Para quien
+     * lo lee son el mismo suceso, así que vive una vez y aquí: es copy de
+     * pantalla, no la traducción de un error, y este archivo existe para que
+     * «los estados en español» se puedan revisar de una lectura.
+     */
+    expiredNotice: "Ese enlace ya no vale.",
+    expiredDetail:
+      "Los enlaces caducan a la hora y solo se pueden usar una vez. Pide otro y te mandamos uno nuevo.",
+    doneLabel: "Listo",
+    doneTitle: "Contraseña cambiada",
+    doneBody: "Ya puedes entrar con ella. La anterior deja de valer.",
+    /**
+     * El aviso que evita un callejón sin salida.
+     *
+     * Cambiar la contraseña NO confirma el email —el proveedor no toca
+     * `emailVerified` al resetear—, así que una cuenta sin confirmar seguiría
+     * chocando con `canAct`. Prometer «ya puedes entrar» a secas la mandaría a
+     * un «email o contraseña incorrectos» que además miente: la contraseña es
+     * buena.
+     */
+    doneUnverified:
+      "Confirmar la cuenta es otro paso: si aún no lo has hecho, abre el correo de confirmación. Cambiar la contraseña no la confirma.",
+  },
 } as const;
 
 /**

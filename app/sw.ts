@@ -9,12 +9,18 @@
  */
 
 import { defaultCache } from "@serwist/turbopack/worker";
-import { Serwist, type PrecacheEntry, type SerwistGlobalConfig } from "serwist";
+import {
+  NetworkOnly,
+  Serwist,
+  type PrecacheEntry,
+  type SerwistGlobalConfig,
+} from "serwist";
 
 import { ROUTES } from "@/lib/constants";
 import {
   SIGN_OUT_MESSAGE,
   clearPrivateCaches,
+  isNeverCached,
   isOfflineDocument,
 } from "@/lib/pwa/cache";
 
@@ -43,7 +49,21 @@ const serwist = new Serwist({
    * Y es la mitad que obliga a `clearPrivateCaches`: esas copias son del
    * origen, no de la sesión.
    */
-  runtimeCaching: defaultCache,
+  runtimeCaching: [
+    // DELANTE de `defaultCache`, y el orden es lo único que la hace funcionar:
+    // Serwist se queda con la PRIMERA regla que casa, así que detrás de la
+    // política de páginas esta no llegaría a mirarse nunca.
+    //
+    // Está aquí por `/reset-password`, que lleva el token del correo en la URL
+    // y con `NetworkFirst` acabaría en la caché `pages` — con el token como
+    // clave de la entrada, en disco, y sin ningún logout que la fuera a vaciar.
+    {
+      matcher: ({ url, sameOrigin }) =>
+        isNeverCached({ pathname: url.pathname, sameOrigin }),
+      handler: new NetworkOnly(),
+    },
+    ...defaultCache,
+  ],
   fallbacks: {
     entries: [
       {

@@ -17,7 +17,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/wizard-lib.sh"
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=9
+TOTAL_STAGES=10
 ENV_FILE=".env.local"
 
 PROJECT_URL="https://console.neon.tech/app/projects/shy-river-68096283"
@@ -119,6 +119,25 @@ note "La vuelta cae en /projects con un parametro que proxy.ts canjea por la"
 note "cookie de sesion. Si el origen no esta registrado, el login con Google"
 note "termina sin sesion y sin decir por que."
 pause "Enter para seguir"
+
+# ── 4d ────────────────────────────────────────────────────────────────────
+stage "Recuperar contrasena: plantilla de correo y URL de vuelta"
+say "El enlace de '¿Olvidaste tu contrasena?' manda un correo que NO escribe"
+say "la app: lo compone Neon a partir de una plantilla, y hay que activarla."
+open_url "$PROJECT_URL/$BRANCH/auth?tab=configuration"
+step "En Emails, activa la plantilla de reset de contrasena."
+note "Mismo email provider Shared que la de confirmacion (auth@mail.myneon.app),"
+note "asi que no hace falta ni Resend ni SMTP."
+step "Comprueba que http://localhost:3000/reset-password esta entre las URLs de"
+step "retorno permitidas, y anade la de Vercel cuando despliegues."
+warn "Esta es la que se olvida. El SDK valida el destino ANTES de mandar nada"
+warn "(originCheck sobre redirectTo): si el origen no esta registrado, pedir el"
+warn "enlace falla y el correo no sale, sin que el usuario sepa por que."
+note "El correo NO apunta a /reset-password directamente: apunta a Neon, que"
+note "redirige alli con ?token=... o con ?error=INVALID_TOKEN. Las dos caen en"
+note "la misma pantalla, y sin token se pinta 'Enlace caducado'."
+note "Los enlaces caducan a la hora y valen una sola vez."
+pause "Cuando la plantilla este activa y la URL registrada, Enter."
 
 # ── 5 ─────────────────────────────────────────────────────────────────────
 stage "Aplicar el esquema"

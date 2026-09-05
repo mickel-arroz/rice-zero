@@ -28,14 +28,54 @@ export type FieldErrors = {
 export const MIN_PASSWORD_LENGTH = 8;
 
 export type Credentials = {
-  readonly email: string;
-  readonly password: string;
+  /** Ausente al fijar la contraseña nueva: ahí quien identifica es el token. */
+  readonly email?: string;
+  /** Ausente al pedir el enlace: ese formulario tiene un solo campo. */
+  readonly password?: string;
   /**
-   * La repetición, solo al crear cuenta. Se compara aquí y no en el proveedor
-   * porque el proveedor no la ve: es una comprobación contra el dedo del
-   * usuario, no contra ninguna regla del backend.
+   * La repetición, al crear cuenta y al fijar una contraseña nueva. Se compara
+   * aquí y no en el proveedor porque el proveedor no la ve: es una comprobación
+   * contra el dedo del usuario, no contra ninguna regla del backend.
    */
   readonly confirm?: string;
+};
+
+/**
+ * Qué campos tiene el formulario de cada acción, y cuáles se pueden juzgar.
+ *
+ * Es una tabla y no una cadena de `if (action === …)` porque son cuatro
+ * formularios distintos sobre los mismos tres campos, y la pregunta que hay que
+ * poder contestar de un vistazo es «¿qué se comprueba aquí?». Con condiciones
+ * sueltas, añadir la quinta acción obliga a releer la función entera para
+ * descubrir en cuáles entra.
+ *
+ * `newPassword` no es «hay campo de contraseña», es «esta contraseña se está
+ * creando AHORA»: solo entonces se puede exigir la longitud mínima. Al entrar,
+ * la contraseña ya existe y la regla del proveedor pudo endurecerse después.
+ */
+const SHAPE: Record<
+  AuthAction,
+  {
+    readonly email: boolean;
+    readonly password: boolean;
+    readonly confirm: boolean;
+    readonly newPassword: boolean;
+  }
+> = {
+  signIn: { email: true, password: true, confirm: false, newPassword: false },
+  signUp: { email: true, password: true, confirm: true, newPassword: true },
+  resetRequest: {
+    email: true,
+    password: false,
+    confirm: false,
+    newPassword: false,
+  },
+  resetPassword: {
+    email: false,
+    password: true,
+    confirm: true,
+    newPassword: true,
+  },
 };
 
 /**
@@ -74,30 +114,32 @@ export function validateCredentials(
   credentials: Credentials,
   action: AuthAction,
 ): FieldErrors {
+  const shape = SHAPE[action];
   const errors: { email?: string; password?: string; confirm?: string } = {};
+  // Un campo que ese formulario no tiene se lee como vacío, no como ausente: lo
+  // que decide si se juzga es la tabla, y no si el llamante se acordó de pasarlo.
+  const email = credentials.email ?? "";
+  const password = credentials.password ?? "";
 
-  if (credentials.email === "") errors.email = MESSAGES.emailMissing;
-  else if (!EMAIL_SHAPE.test(credentials.email))
-    errors.email = MESSAGES.emailShape;
-
-  if (credentials.password === "") {
-    errors.password = MESSAGES.passwordMissing;
-  } else if (
-    action === "signUp" &&
-    credentials.password.length < MIN_PASSWORD_LENGTH
-  ) {
-    // Solo al CREAR. Al entrar, esa contraseña ya existe y la regla del
-    // proveedor pudo endurecerse después: rechazarla aquí dejaría a su dueño
-    // sin poder entrar nunca, y con un mensaje que además le echa la culpa.
-    errors.password = MESSAGES.passwordShort;
+  if (shape.email) {
+    if (email === "") errors.email = MESSAGES.emailMissing;
+    else if (!EMAIL_SHAPE.test(email)) errors.email = MESSAGES.emailShape;
   }
 
-  // La repetición solo existe al crear cuenta, y solo se compara cuando la
-  // contraseña en sí es válida: decirle «no coinciden» a quien todavía no ha
-  // terminado de escribir la primera es ruido.
-  if (action === "signUp" && !errors.password) {
+  if (shape.password) {
+    if (password === "") {
+      errors.password = MESSAGES.passwordMissing;
+    } else if (shape.newPassword && password.length < MIN_PASSWORD_LENGTH) {
+      errors.password = MESSAGES.passwordShort;
+    }
+  }
+
+  // La repetición solo se compara cuando la contraseña en sí es válida: decirle
+  // «no coinciden» a quien todavía no ha terminado de escribir la primera es
+  // ruido.
+  if (shape.confirm && !errors.password) {
     if (!credentials.confirm) errors.confirm = MESSAGES.confirmMissing;
-    else if (credentials.confirm !== credentials.password) {
+    else if (credentials.confirm !== password) {
       errors.confirm = MESSAGES.confirmMismatch;
     }
   }

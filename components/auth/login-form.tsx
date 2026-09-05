@@ -4,11 +4,14 @@ import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+import {
+  Notice,
+  PasswordField,
+  PendingDots,
+  TextField,
+} from "@/components/auth/fields";
 import { GoogleIcon } from "@/components/icons/google-icon";
 import { MailIcon } from "@/components/icons/mail-icon";
-import { OfflineIcon } from "@/components/icons/offline-icon";
-import { AlertIcon } from "@/components/icons/alert-icon";
-import { EyeIcon } from "@/components/icons/eye-icon";
 import {
   CARD_CLASS,
   CTA_PRIMARY_CLASS,
@@ -20,17 +23,29 @@ import {
   describeAuthFailure,
   type AuthAction,
   type AuthFailure,
+  type AuthTab,
 } from "@/lib/auth/messages";
 import {
   MIN_PASSWORD_LENGTH,
   validateCredentials,
+  type Credentials,
   type FieldErrors,
 } from "@/lib/auth/validate";
 import { getBackend } from "@/lib/backend";
 import { AUTH_COPY, ROUTES } from "@/lib/constants";
 
 /**
- * Los cuatro estados que el #7 pide explícitos, más el modo.
+ * Las dos pestañas, más el modo que no lo es.
+ *
+ * `recover` NO es una tercera pestaña: reemplaza el contenido del card entero
+ * —sin pestañas, sin Google, sin separador—, igual que hace «Revisa tu correo»
+ * tras crear cuenta. Ponerlo en la misma unión es lo que impide que exista
+ * «recuperando Y en la pestaña de crear cuenta».
+ */
+type Mode = AuthTab | "recover";
+
+/**
+ * Los cuatro estados que el #7 pide explícitos, más el del #22.
  *
  * Es una unión y no un puñado de booleanos para que no exista «cargando y con
  * error a la vez»: el formulario solo puede estar en uno.
@@ -40,15 +55,9 @@ type Status =
   | { kind: "submitting"; via: "email" | "google" }
   | { kind: "failed"; failure: AuthFailure }
   /** Cuenta creada y pendiente de confirmar: el email es lo que se muestra. */
-  | { kind: "sent"; email: string };
-
-const FIELD_CLASS =
-  "flex h-13 w-full items-center rounded-[14px] border border-border bg-card px-4 text-[15px] outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-primary/16";
-
-const FIELD_ERROR_CLASS = FIELD_CLASS.replace(
-  "border-border",
-  "border-primary",
-);
+  | { kind: "sent"; email: string }
+  /** Enlace de recuperación pedido. Dice lo mismo exista o no la cuenta. */
+  | { kind: "resetSent"; email: string };
 
 const TAB_CLASS =
   "flex h-9 flex-1 items-center justify-center rounded-full text-xs uppercase tracking-[0.08em] transition-colors";
@@ -57,48 +66,24 @@ const TAB_ON_CLASS = `${TAB_CLASS} bg-accent font-bold text-accent-foreground`;
 
 const TAB_OFF_CLASS = `${TAB_CLASS} text-muted-foreground hover:text-foreground`;
 
-/** El punto rojo que hace de pulso mientras se envía. */
-function PendingDots() {
-  return (
-    <span aria-hidden="true" className="flex items-center gap-1">
-      <span className="size-[5px] rounded-full bg-current" />
-      <span className="size-[5px] rounded-full bg-current opacity-55" />
-      <span className="size-[5px] rounded-full bg-current opacity-25" />
-    </span>
-  );
-}
-
-function Notice({ failure }: { failure: AuthFailure }) {
-  const Icon = failure.retryable ? OfflineIcon : AlertIcon;
-  return (
-    <div
-      role="alert"
-      className="flex gap-2.5 rounded-[14px] border border-primary bg-primary/7 px-4 py-3.5"
-    >
-      <span className="shrink-0 text-primary">
-        <Icon />
-      </span>
-      <div className="flex flex-col gap-1">
-        <span className="text-[13px] font-bold">{failure.title}</span>
-        <span className="text-xs leading-relaxed text-pretty text-muted-foreground">
-          {failure.detail}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 /**
- * La pantalla de «revisa tu correo».
+ * La pantalla de «te hemos mandado un correo», con su sobre y su destinatario.
  *
- * No ofrece «reenviar»: el puerto no tiene esa operación, y llamar otra vez a
- * `signUpWithEmail` devolvería `ConflictError`. Lo que sí reenvía el correo es
- * intentar entrar sin confirmar, así que el único botón lleva ahí.
+ * La comparten los dos correos que esta pantalla puede provocar —el de
+ * confirmar la cuenta y el de recuperar la contraseña— porque son la misma
+ * forma: un sobre, a quién fue, qué hacer y qué pasa si no llega.
+ *
+ * Lo que cambia viaja en UN prop y no en cuatro sueltos: los cuatro textos
+ * salen siempre del mismo bloque de `AUTH_COPY`, así que desmontarlos en el
+ * call site para volver a montarlos aquí solo abría el hueco de cruzar el
+ * cuerpo de un correo con el título del otro.
  */
-function ConfirmEmail({
+function MailSent({
+  copy,
   email,
   onBack,
 }: {
+  copy: (typeof AUTH_COPY.mailSent)[keyof typeof AUTH_COPY.mailSent];
   email: string;
   onBack: () => void;
 }) {
@@ -107,11 +92,9 @@ function ConfirmEmail({
       <div className="flex flex-col gap-3">
         <p className="flex items-center gap-2">
           <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
-          <span className={LABEL_CLASS}>{AUTH_COPY.sentLabel}</span>
+          <span className={LABEL_CLASS}>{copy.label}</span>
         </p>
-        <h1 className="text-4xl leading-none tracking-[0.02em]">
-          {AUTH_COPY.sentTitle}
-        </h1>
+        <h1 className="text-4xl leading-none tracking-[0.02em]">{copy.title}</h1>
       </div>
 
       <div className={`${CARD_CLASS} flex flex-col gap-4.5 p-5`}>
@@ -123,10 +106,10 @@ function ConfirmEmail({
           <span className="text-[15px] font-bold break-all">{email}</span>
         </div>
         <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
-          {AUTH_COPY.sentBody}
+          {copy.body}
         </p>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          {AUTH_COPY.sentSpam}
+          {copy.spam}
         </p>
         <button type="button" onClick={onBack} className={CTA_SECONDARY_CLASS}>
           {AUTH_COPY.sentCta}
@@ -136,92 +119,26 @@ function ConfirmEmail({
   );
 }
 
-/**
- * Un campo de contraseña con su ojo, su error y su pista.
- *
- * Existe porque al crear cuenta hay DOS, y dos copias del mismo bloque de 40
- * líneas se desincronizan en cuanto alguien toca una: el `aria-describedby`, el
- * borde rojo o el `autoComplete` acabarían distintos.
- */
-function PasswordField({
-  id,
-  label,
-  autoComplete,
-  value,
-  onChange,
-  error,
-  hint,
-  visible,
-  onToggleVisible,
-  disabled,
+export function LoginForm({
+  destination,
+  recovering: startRecovering = false,
 }: {
-  id: string;
-  label: string;
-  autoComplete: "new-password" | "current-password";
-  value: string;
-  onChange: (value: string) => void;
-  error?: string;
-  hint?: string;
-  visible: boolean;
-  onToggleVisible: () => void;
-  disabled: boolean;
+  destination: string;
+  /**
+   * Abrir ya en modo «Recuperar». Solo lo pide «Pedir otro enlace», desde la
+   * pantalla del enlace caducado: sin esto, ese botón dejaría al usuario en el
+   * formulario de entrar buscando otra vez «¿Olvidaste tu contraseña?».
+   */
+  recovering?: boolean;
 }) {
-  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
-  return (
-    <div className={`flex flex-col gap-2 ${disabled ? "opacity-45" : ""}`}>
-      <label htmlFor={id} className={LABEL_CLASS}>
-        {label}
-      </label>
-      <div className="relative flex items-center">
-        <input
-          id={id}
-          type={visible ? "text" : "password"}
-          name={id}
-          autoComplete={autoComplete}
-          placeholder={AUTH_COPY.passwordPlaceholder}
-          value={value}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={describedBy}
-          className={`${error ? FIELD_ERROR_CLASS : FIELD_CLASS} pr-12`}
-        />
-        <button
-          type="button"
-          onClick={onToggleVisible}
-          aria-label={visible ? AUTH_COPY.hidePassword : AUTH_COPY.showPassword}
-          aria-pressed={visible}
-          className="absolute right-4 flex text-muted-foreground transition-colors hover:text-primary"
-        >
-          <EyeIcon className="size-5" />
-        </button>
-      </div>
-      {error ? (
-        <span
-          id={`${id}-error`}
-          className="text-xs leading-relaxed text-primary"
-        >
-          {error}
-        </span>
-      ) : hint ? (
-        <span
-          id={`${id}-hint`}
-          className="text-xs leading-relaxed text-pretty text-muted-foreground"
-        >
-          {hint}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-export function LoginForm({ destination }: { destination: string }) {
   const router = useRouter();
   const emailId = useId();
   const passwordId = useId();
   const confirmId = useId();
 
-  const [action, setAction] = useState<AuthAction>("signIn");
+  const [mode, setMode] = useState<Mode>(
+    startRecovering ? "recover" : "signIn",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -232,14 +149,26 @@ export function LoginForm({ destination }: { destination: string }) {
 
   const busy = status.kind === "submitting" || pending;
   const failure = status.kind === "failed" ? status.failure : null;
+  const recovering = mode === "recover";
+  /**
+   * La pestaña activa, o `null` mientras se recupera.
+   *
+   * Es lo que evita `AUTH_COPY[mode as AuthTab]`: ese `as` reintroducía justo el
+   * silencio que `AuthTab` existe para romper. Con una constante estrechada,
+   * TypeScript sabe dentro del bloque que aquí no hay modo «recover», y el día
+   * que aparezca un modo nuevo lo dice él.
+   */
+  const tab: AuthTab | null = mode === "recover" ? null : mode;
+  /** Recuperar es su propia acción: falla en otro sitio y se explica distinto. */
+  const action: AuthAction = recovering ? "resetRequest" : mode;
   /** Empty: sin nada escrito el CTA se ve inerte, pero no se deshabilita. */
   const empty =
     email.trim() === "" ||
-    password === "" ||
-    (action === "signUp" && confirm === "");
+    (!recovering &&
+      (password === "" || (mode === "signUp" && confirm === "")));
 
-  function switchTo(next: AuthAction) {
-    setAction(next);
+  function switchTo(next: Mode) {
+    setMode(next);
     setConfirm("");
     setFields({});
     setStatus({ kind: "idle" });
@@ -260,13 +189,17 @@ export function LoginForm({ destination }: { destination: string }) {
     event.preventDefault();
     if (busy) return;
 
-    // `confirm` solo viaja al crear cuenta; el puerto nunca lo ve, se queda en
-    // la validación local.
-    const credentials = {
-      email: email.trim(),
-      password,
-      ...(action === "signUp" ? { confirm } : {}),
-    };
+    // Cada modo manda SOLO los campos que tiene en pantalla: `validateCredentials`
+    // juzga lo que recibe según la acción, así que colar una contraseña que no
+    // se ha pedido sería inventarse un error que el usuario no puede ver.
+    const trimmed = email.trim();
+    const credentials: Credentials = recovering
+      ? { email: trimmed }
+      : {
+          email: trimmed,
+          password,
+          ...(mode === "signUp" ? { confirm } : {}),
+        };
     const invalid = validateCredentials(credentials, action);
     setFields(invalid);
     if (invalid.email || invalid.password || invalid.confirm) {
@@ -277,16 +210,28 @@ export function LoginForm({ destination }: { destination: string }) {
     setStatus({ kind: "submitting", via: "email" });
     try {
       const auth = getBackend().auth;
-      const forPort = {
-        email: credentials.email,
-        password: credentials.password,
-      };
-      if (action === "signUp") {
+      if (recovering) {
+        // Absoluta: el enlace del correo lo construye el proveedor desde su
+        // propio dominio, así que una ruta relativa no le sirve de vuelta.
+        const back = new URL(
+          ROUTES.resetPassword,
+          window.location.origin,
+        ).toString();
+        await auth.sendPasswordReset(trimmed, back);
+        // Se muestra lo mismo pase lo que pase ahí dentro: el puerto promete
+        // que esta llamada no distingue si la cuenta existe, y esta pantalla es
+        // la otra mitad de esa promesa.
+        setStatus({ kind: "resetSent", email: trimmed });
+        return;
+      }
+
+      const forPort = { email: trimmed, password };
+      if (mode === "signUp") {
         const { needsEmailVerification } = await auth.signUpWithEmail(forPort);
         // Si el proveedor NO exige confirmación, la cuenta ya está dentro y
         // mandarla a «revisa tu correo» sería mentir.
         if (needsEmailVerification) {
-          setStatus({ kind: "sent", email: credentials.email });
+          setStatus({ kind: "sent", email: trimmed });
           return;
         }
       } else {
@@ -322,13 +267,21 @@ export function LoginForm({ destination }: { destination: string }) {
     }
   }
 
-  if (status.kind === "sent") {
+  if (status.kind === "sent" || status.kind === "resetSent") {
     return (
-      <ConfirmEmail email={status.email} onBack={() => switchTo("signIn")} />
+      <MailSent
+        copy={
+          status.kind === "sent"
+            ? AUTH_COPY.mailSent.signUp
+            : AUTH_COPY.mailSent.recover
+        }
+        email={status.email}
+        onBack={() => switchTo("signIn")}
+      />
     );
   }
 
-  const copy = AUTH_COPY[action];
+  const copy = recovering ? AUTH_COPY.recover : AUTH_COPY[mode];
   const submitLabel = failure?.retryable ? AUTH_COPY.retry : copy.submit;
 
   return (
@@ -341,9 +294,9 @@ export function LoginForm({ destination }: { destination: string }) {
         <h1 className="text-4xl leading-none tracking-[0.02em] lg:text-[56px]">
           {copy.title}
         </h1>
-        {action === "signIn" ? (
+        {mode !== "signUp" ? (
           <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
-            {AUTH_COPY.lead}
+            {recovering ? AUTH_COPY.recover.lead : AUTH_COPY.lead}
           </p>
         ) : null}
       </div>
@@ -358,94 +311,90 @@ export function LoginForm({ destination }: { destination: string }) {
           />
         ) : null}
 
-        <div
-          role="tablist"
-          aria-label={AUTH_COPY.label}
-          className="flex gap-1 rounded-full border border-border p-1"
-        >
-          {(["signIn", "signUp"] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={action === tab}
-              onClick={() => switchTo(tab)}
-              className={action === tab ? TAB_ON_CLASS : TAB_OFF_CLASS}
+        {/* Ni pestañas ni Google mientras se recupera: son dos formas de entrar,
+            y aquí todavía no se puede. Dejarlas invitaría a intentarlo con la
+            contraseña que justamente no se recuerda. */}
+        {tab ? (
+          <>
+            <div
+              role="tablist"
+              aria-label={AUTH_COPY.label}
+              className="flex gap-1 rounded-full border border-border p-1"
             >
-              {AUTH_COPY[tab].tab}
+              {(["signIn", "signUp"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === option}
+                  onClick={() => switchTo(option)}
+                  className={mode === option ? TAB_ON_CLASS : TAB_OFF_CLASS}
+                >
+                  {AUTH_COPY[option].tab}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={withGoogle}
+              disabled={busy}
+              className={`${CTA_SECONDARY_CLASS} ${busy ? "opacity-45" : ""}`}
+            >
+              <GoogleIcon />
+              {AUTH_COPY.google}
             </button>
-          ))}
-        </div>
 
-        <button
-          type="button"
-          onClick={withGoogle}
-          disabled={busy}
-          className={`${CTA_SECONDARY_CLASS} ${busy ? "opacity-45" : ""}`}
-        >
-          <GoogleIcon />
-          {AUTH_COPY.google}
-        </button>
-
-        <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="h-px flex-1 bg-border" />
-          <span className={LABEL_CLASS}>{copy.divider}</span>
-          <span aria-hidden="true" className="h-px flex-1 bg-border" />
-        </div>
+            <div className="flex items-center gap-3">
+              <span aria-hidden="true" className="h-px flex-1 bg-border" />
+              <span className={LABEL_CLASS}>
+                {AUTH_COPY[tab].divider}
+              </span>
+              <span aria-hidden="true" className="h-px flex-1 bg-border" />
+            </div>
+          </>
+        ) : null}
 
         {failure ? <Notice failure={failure} /> : null}
 
         <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-          <div className={`flex flex-col gap-2 ${busy ? "opacity-45" : ""}`}>
-            <label htmlFor={emailId} className={LABEL_CLASS}>
-              {AUTH_COPY.emailLabel}
-            </label>
-            <input
-              id={emailId}
-              type="email"
-              name="email"
-              autoComplete="email"
-              inputMode="email"
-              placeholder={AUTH_COPY.emailPlaceholder}
-              value={email}
-              disabled={busy}
-              onChange={(event) => setEmail(event.target.value)}
-              aria-invalid={fields.email ? true : undefined}
-              aria-describedby={fields.email ? `${emailId}-error` : undefined}
-              className={fields.email ? FIELD_ERROR_CLASS : FIELD_CLASS}
-            />
-            {fields.email ? (
-              <span
-                id={`${emailId}-error`}
-                className="text-xs leading-relaxed text-primary"
-              >
-                {fields.email}
-              </span>
-            ) : null}
-          </div>
-
-          <PasswordField
-            id={passwordId}
-            label={copy.passwordLabel}
-            autoComplete={
-              action === "signUp" ? "new-password" : "current-password"
-            }
-            value={password}
-            onChange={setPassword}
-            error={fields.password}
-            hint={
-              action === "signUp"
-                ? AUTH_COPY.passwordHint(MIN_PASSWORD_LENGTH)
-                : undefined
-            }
-            visible={visible}
-            onToggleVisible={() => setVisible((shown) => !shown)}
+          <TextField
+            id={emailId}
+            label={AUTH_COPY.emailLabel}
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            placeholder={AUTH_COPY.emailPlaceholder}
+            value={email}
+            onChange={setEmail}
+            error={fields.email}
             disabled={busy}
           />
 
+          {tab ? (
+            <PasswordField
+              id={passwordId}
+              label={AUTH_COPY[tab].passwordLabel}
+              autoComplete={
+                tab === "signUp" ? "new-password" : "current-password"
+              }
+              value={password}
+              onChange={setPassword}
+              error={fields.password}
+              hint={
+                mode === "signUp"
+                  ? AUTH_COPY.passwordHint(MIN_PASSWORD_LENGTH)
+                  : undefined
+              }
+              visible={visible}
+              onToggleVisible={() => setVisible((shown) => !shown)}
+              disabled={busy}
+            />
+          ) : null}
+
           {/* El ojo es uno solo para los dos campos a propósito: al repetir una
               contraseña lo que quieres es compararlas, y eso pide verlas juntas. */}
-          {action === "signUp" ? (
+          {mode === "signUp" ? (
             <PasswordField
               id={confirmId}
               label={AUTH_COPY.confirmLabel}
@@ -457,6 +406,21 @@ export function LoginForm({ destination }: { destination: string }) {
               onToggleVisible={() => setVisible((shown) => !shown)}
               disabled={busy}
             />
+          ) : null}
+
+          {/* Solo en «Entrar». En «Crear cuenta» ese hueco lo ocupa el campo de
+              repetir, y ofrecerle recuperar la contraseña a quien todavía no
+              tiene cuenta no significa nada. */}
+          {mode === "signIn" ? (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => switchTo("recover")}
+                className={`text-[13px] ${LINK_CLASS}`}
+              >
+                {AUTH_COPY.forgotPassword}
+              </button>
+            </div>
           ) : null}
 
           <button
@@ -474,6 +438,17 @@ export function LoginForm({ destination }: { destination: string }) {
               submitLabel
             )}
           </button>
+
+          {recovering ? (
+            <button
+              type="button"
+              onClick={() => switchTo("signIn")}
+              disabled={busy}
+              className={`self-center text-[13px] ${LINK_CLASS} ${busy ? "opacity-45" : ""}`}
+            >
+              {AUTH_COPY.recover.back}
+            </button>
+          ) : null}
         </form>
       </div>
 
