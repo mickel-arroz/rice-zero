@@ -172,7 +172,7 @@ const CREATOR_LINKS = [
 ] as const;
 
 const SECTION_CLASS =
-  "flex flex-col gap-4 px-6 pt-10 lg:px-16 lg:pt-0 lg:pb-14";
+  "flex flex-col gap-4 pt-10 lg:pt-0 lg:pb-14";
 
 const ORDINAL_CLASS = "font-display text-[15px] text-primary";
 
@@ -185,11 +185,15 @@ const ROW_CLASS =
  * El marco lo pone quien lo monta: la cabecera pública para un visitante, el
  * shell del dashboard para quien ya entró. El texto es el mismo en los dos —
  * una sola copia, que es de lo que se trata.
+ *
+ * «Sin marco» incluye el RELLENO horizontal: dentro del shell lo pone el
+ * Contenedor, así que escrito aquí se sumaría al suyo. El visitante
+ * lo recibe del envoltorio público, que es quien tiene que darlo.
  */
-function AboutContent() {
+function AboutContent({ className = "" }: { className?: string }) {
   return (
-    <main className="flex flex-1 flex-col">
-        <section className="flex flex-col gap-5 px-6 pt-11 pb-10 lg:items-center lg:gap-6 lg:px-16 lg:pt-22 lg:pb-18 lg:text-center">
+    <main className={`flex flex-1 flex-col ${className}`}>
+        <section className="flex flex-col gap-5 pt-11 pb-10 lg:items-center lg:gap-6 lg:pt-22 lg:pb-18 lg:text-center">
           <p className="flex items-center gap-2">
             <span
               className="size-2 rounded-full bg-primary"
@@ -208,7 +212,7 @@ function AboutContent() {
           </p>
         </section>
 
-        <section className="flex flex-col gap-10 px-6 lg:flex-row lg:items-start lg:gap-8 lg:px-16 lg:pb-14">
+        <section className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-8 lg:pb-14">
           <div className={`${CARD_CLASS} flex flex-col gap-4 p-7 lg:flex-1`}>
             <span className={LABEL_CLASS}>El nombre</span>
             <p className="text-[19px] leading-normal text-pretty lg:text-xl">
@@ -296,7 +300,7 @@ function AboutContent() {
           </div>
         </section>
 
-        <section className="px-6 pt-10 lg:px-16 lg:pt-0 lg:pb-14">
+        <section className="pt-10 lg:pt-0 lg:pb-14">
           <div
             className={`${CARD_CLASS} flex flex-col gap-4 p-6 lg:flex-row lg:items-start lg:gap-8 lg:p-7`}
           >
@@ -375,7 +379,7 @@ export default async function About() {
   return (
     <div className={PAGE_CLASS}>
       <SiteHeader current="about" />
-      <AboutContent />
+      <AboutContent className="px-6 lg:px-16" />
       <SiteFooter current="about" />
     </div>
   );

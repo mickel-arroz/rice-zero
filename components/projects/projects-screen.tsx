@@ -87,7 +87,9 @@ export function ProjectsScreen() {
   const close = useCallback(() => setOverlay(null), []);
 
   return (
-    <main className="flex flex-1 flex-col gap-5 px-6 py-6 lg:mx-auto lg:w-full lg:max-w-5xl lg:px-16 lg:py-10">
+    // Ni relleno ni ancho: los pone el Contenedor, una vez para
+    // todas las pantallas. Ver `components/layout/app-frame.tsx`.
+    <main className="flex flex-1 flex-col gap-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex flex-col gap-3">
           <p className="flex items-center gap-2">

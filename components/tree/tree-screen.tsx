@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { AnalysisLayer } from "@/components/analysis/analysis-layer";
+import { AnalysisLayer, DOCKED_WIDTH } from "@/components/analysis/analysis-layer";
 import { useAnalysisOpen } from "@/components/analysis/analysis-provider";
 import { CanvasView } from "@/components/canvas/canvas-view";
 import { RegistroView } from "@/components/registro/registro-view";
@@ -14,6 +14,44 @@ import {
   cookieValue,
   treeViewCookieAssignment,
 } from "@/lib/shell/tree-view";
+
+/**
+ * Lo que esta pantalla se aparta cuando el panel de Análisis está acoplado.
+ *
+ * Acoplado, el panel es una columna `fixed` pegada al borde derecho de la
+ * VENTANA y por encima del Contenedor: no empuja nada, tapa. Sin esto el panel
+ * taparía el árbol en vez de ponerse a su lado, y en escritorio eso rompe lo
+ * único que hace falta ahí — leer el Análisis con el árbol delante para poder
+ * editarlo.
+ *
+ * Al ancho del panel se le suman 16 de aire y se le restan los 48 que el
+ * Contenedor YA aporta por ese lado (16 de margen y 32 de relleno de tarjeta).
+ * Ese 48 es constante: la columna de contenido solo se despega del borde
+ * derecho cuando la ventana da para más de 1024, y entonces sobra sitio, no
+ * falta. Así el número es exacto justo donde el solape es real —la ventana más
+ * estrecha en la que el panel se acopla, 1024— y generoso donde hay de sobra.
+ *
+ * Va por variable CSS y no por un literal en la clase para que `DOCKED_WIDTH`
+ * siga siendo la ÚNICA fuente del ancho del panel: Tailwind genera las
+ * utilidades leyendo el texto del fuente, así que `lg:pr-[var(--docked-room)]`
+ * —que sí es texto— es lo que permite que el valor lo ponga JavaScript.
+ *
+ * El aire es 16 y no más porque cada píxel cuenta: con el panel abierto al
+ * árbol le quedan ~615 en una ventana de 1440, y la barra de acciones pide 685
+ * para caber en una fila. Por debajo de eso la barra parte en dos filas, que es
+ * lo que ya hacía en ventanas estrechas —tiene `max-w-full` justo para eso— y
+ * ahora empieza a hacer antes. Recuperar esos píxeles exigiría que la columna
+ * dejara de centrarse mientras el panel está abierto, y eso solo lo puede
+ * decidir el Contenedor, que no sabe —ni debe saber— que el panel existe.
+ *
+ * Es relleno y no un desplazamiento a propósito: encoge el árbol en vez de
+ * moverlo, así que la barra de acciones —hija de este `main` y centrada en él—
+ * se recentra sobre el árbol que queda en vez de irse debajo del panel.
+ */
+const DOCKED_ROOM_CLASS = "lg:pr-[var(--docked-room)]";
+
+/** Ese cálculo, hecho. La clase de arriba lo aplica solo en `lg`. */
+const DOCKED_ROOM_VALUE = `${DOCKED_WIDTH + 16 - 48}px`;
 
 /**
  * La pantalla de un Proyecto: su árbol, visto de una de las dos maneras.
@@ -106,38 +144,27 @@ export function TreeScreen({
   }, [fullscreen]);
 
   return (
-    // El `max-w` NO va en el `main`: la barra de acciones es hija suya y en
-    // escritorio es una pastilla ancha que se centra en toda la columna. Con el
-    // límite aquí, la pastilla lo desbordaba y metía scroll horizontal en la
-    // página entera.
+    // Ni relleno ni ancho propios: los pone el Contenedor, una vez
+    // para todas las pantallas. Ver `components/layout/app-frame.tsx`. Lo único
+    // que esta pantalla sigue decidiendo es apartarse del panel de Análisis.
     //
     // A pantalla completa el `main` sale del flujo y tapa la app: es lo que
     // hace que el lienzo ocupe TODO, cabecera de la app incluida. Se hace aquí
     // y no dentro del lienzo porque «toda la pantalla» incluye lo que hay
-    // ALREDEDOR del lienzo — la sidebar y la cabecera de la app viven fuera de
-    // este componente y solo un `fixed` a nivel de `main` las tapa.
+    // ALREDEDOR del lienzo — la sidebar, la cabecera de la app y el propio
+    // contenedor viven fuera de este componente y solo un `fixed` a nivel de
+    // `main` los tapa.
     <main
       className={
         fullscreen
           ? "fixed inset-0 z-50 flex flex-col bg-background p-3"
-          : `flex flex-1 flex-col px-6 py-6 lg:py-10 ${
-              // Acoplado, el panel es una columna fija pegada al borde derecho
-              // de la ventana; esto es lo que le HACE SITIO. Sin este relleno el
-              // panel taparía el árbol en vez de ponerse a su lado, y en
-              // escritorio eso rompería lo único que hace falta ahí: leer el
-              // Análisis con el árbol delante para poder editarlo.
-              analysisOpen ? "lg:pr-[calc(440px+2rem)] lg:pl-8" : "lg:px-16"
-            }`
+          : `flex flex-1 flex-col ${analysisOpen ? DOCKED_ROOM_CLASS : ""}`
+      }
+      style={
+        analysisOpen ? { "--docked-room": DOCKED_ROOM_VALUE } as React.CSSProperties : undefined
       }
     >
-      {/* El Canvas se queda con TODO el ancho en escritorio: el ancho de
-          lectura de una columna de texto es lo que necesita una lista, y lo
-          que le sobra a un diagrama que ya se puede desplazar. */}
-      <div
-        className={`flex min-h-0 flex-1 flex-col ${
-          canvas || fullscreen ? "" : "lg:mx-auto lg:w-full lg:max-w-3xl"
-        }`}
-      >
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* A pantalla completa no hay cabecera: es lo que se pide al pedirla. */}
         {fullscreen ? null : (
           <TreeHeader projectId={projectId} view={view} onView={changeView} />

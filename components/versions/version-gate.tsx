@@ -48,8 +48,9 @@ export function VersionGate({
   if (current) return <>{children}</>;
 
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 lg:px-16 lg:py-10">
-      <div className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-3xl">
+    // Ni relleno ni ancho: los pone el Contenedor. Ver
+    // `components/layout/app-frame.tsx`.
+    <main className="flex min-h-0 flex-1 flex-col">
         {status === "loading" ? (
           <Skeleton />
         ) : status === "error" ? (
@@ -103,7 +104,6 @@ export function VersionGate({
             )}
           </ErrorCard>
         )}
-      </div>
     </main>
   );
 }

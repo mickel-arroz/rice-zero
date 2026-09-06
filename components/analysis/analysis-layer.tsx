@@ -53,10 +53,12 @@ import {
  * cuenta la puerta de la cabecera.
  */
 /**
- * Cuánto ocupa el panel acoplado. Un número y no dos literales sueltos porque
- * `TreeScreen` tiene que apartarse EXACTAMENTE lo mismo: escrito a mano en los
- * dos sitios, el día que cambie uno el panel se solapa con el árbol y nada
- * falla — solo se lee mal.
+ * Cuánto ocupa el panel acoplado, y la única fuente de ese ancho.
+ *
+ * `TreeScreen` se aparta en función de este número y lo IMPORTA: no puede
+ * meterlo en una clase de Tailwind —las utilidades se generan leyendo el texto
+ * del fuente—, así que lo pasa por una variable CSS. Ver `DOCKED_ROOM_CLASS`
+ * allí. Cambiarlo aquí basta; no hay segundo sitio que actualizar.
  */
 export const DOCKED_WIDTH = 440;
 

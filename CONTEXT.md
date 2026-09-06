@@ -41,6 +41,14 @@ _Avoid_: grafo, mapa
 Edición del árbol mediante inputs de texto relacionados visualmente por líneas, operada únicamente con botones (crear, mover, re-parentar, borrar). Es la vista de edición en móvil.
 _Avoid_: outliner, vista lista, vista simple
 
+**Contenedor**:
+El marco que rodea a toda pantalla posterior al inicio de sesión: una tarjeta flotante de esquinas redondeadas, con margen arriba, abajo y a la derecha, y dentro una columna de ancho máximo único. Lo decide un solo sitio (`components/layout/app-frame.tsx`) y lo monta el Shell envolviendo a la pantalla, así que ninguna pantalla pone su propio ancho ni su propio relleno. No incluye la navegación: eso es el Shell.
+_Avoid_: layout, wrapper, marco, contenedor post-login
+
+**Shell**:
+La navegación permanente de la aplicación autenticada —barra lateral en escritorio, cabecera con menú en móvil— más el Contenedor que enmarca lo que hay dentro. Sobrevive a las navegaciones: cambiar de pantalla no lo vuelve a montar.
+_Avoid_: chrome, layout, armazón
+
 ### Comportamiento
 
 **Autoguardado**:

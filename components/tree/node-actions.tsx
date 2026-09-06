@@ -10,6 +10,7 @@ import { SubnodeIcon } from "@/components/icons/subnode-icon";
 import { TrashIcon } from "@/components/icons/trash-icon";
 import type { IconComponent } from "@/components/icons/types";
 import { fire } from "@/components/tree/fire";
+import { APP_FRAME_BLEED } from "@/components/layout/app-frame";
 import { useTree } from "@/components/tree/tree-provider";
 import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 import type { TreeRow } from "@/lib/tree/rows";
@@ -63,7 +64,10 @@ type Action = {
  * robarle al lienzo la franja de abajo; solo la pastilla lo recoge.
  */
 const WRAPPER_CLASS = {
-  flow: "sticky bottom-0 z-30 -mx-6 mt-2 px-6 pt-3 pb-6 lg:mx-0 lg:px-0 lg:pb-8",
+  // El sangrado NO se escribe aquí: lo publica el Contenedor, que es
+  // quien pone el relleno que hay que cancelar. Escrito a mano valía `-mx-6
+  // px-6`, calibrado contra un `px-6` que ya no está donde estaba.
+  flow: `sticky bottom-0 z-30 mt-2 pt-3 pb-6 lg:pb-8 ${APP_FRAME_BLEED}`,
   floating:
     "pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 lg:p-4",
 } as const;

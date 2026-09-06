@@ -169,7 +169,15 @@ export function VersionPicker({ projectId }: { projectId: string }) {
         <div
           role="menu"
           aria-label={VERSIONS_COPY.label}
-          className="absolute top-10 left-0 z-30 flex w-[min(21.5rem,calc(100vw-3rem))] flex-col gap-0.5 rounded-[20px] border border-border bg-card p-1.5 shadow-popover"
+          // `100vw` no sabe nada de la tarjeta que hay alrededor, así que el
+          // tope resta a mano lo que el contenedor se come en móvil: 3.5rem,
+          // que son 12 de margen y 16 de relleno por cada lado. Eran `3rem`
+          // calibrados contra un `px-6` que se mudó al contenedor, y el
+          // desplegable se salía 8 px. El número no puede salir de una
+          // constante: Tailwind genera las utilidades leyendo el TEXTO del
+          // fuente, y una clase montada con una variable no llega a existir.
+          // Ver `APP_FRAME_MOBILE_GUTTER` en `components/layout/app-frame.tsx`.
+          className="absolute top-10 left-0 z-30 flex w-[min(21.5rem,calc(100vw-3.5rem))] flex-col gap-0.5 rounded-[20px] border border-border bg-card p-1.5 shadow-popover"
         >
           <p className="flex items-center gap-2 px-3.5 pt-2.5 pb-1.5">
             <VersionsIcon width={14} height={14} className="text-muted-foreground" />

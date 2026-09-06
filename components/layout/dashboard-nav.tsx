@@ -14,6 +14,7 @@ import { MenuIcon } from "@/components/icons/menu-icon";
 import { projectIconFor } from "@/components/icons/projects";
 import { useProjects } from "@/components/projects/projects-provider";
 import { AccountMenu } from "@/components/layout/account-menu";
+import { AppFrame } from "@/components/layout/app-frame";
 import { NavRow, ProjectRow, ProjectTree } from "@/components/layout/nav-row";
 import {
   BRAND_CLASS,
@@ -140,7 +141,11 @@ export function DashboardNav({
         // Por debajo de `lg` la navegación es el menú de la cabecera, no esta
         // columna. `transition-[width]` anima el plegado; `motion-reduce` lo
         // apaga para quien pidió menos movimiento en su sistema.
-        className="hidden shrink-0 flex-col border-r border-border bg-background transition-[width] duration-200 ease-out motion-reduce:transition-none lg:flex"
+        //
+        // Sin borde derecho: el contenedor flotante arranca justo donde acaba
+        // esta columna, así que los dos bordes juntos se leían como un trazo de
+        // 2 px. La separación la hace el margen del contenedor.
+        className="hidden shrink-0 flex-col bg-background transition-[width] duration-200 ease-out motion-reduce:transition-none lg:flex"
         style={{
           width: `${collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED}px`,
         }}
@@ -280,11 +285,9 @@ export function DashboardNav({
             existe menú, así que el contenido vuelve pase lo que pase con
             `menuOpen` — quien abre el menú y luego agranda la ventana no se
             queda con la pantalla en blanco. */}
-        <div
-          className={`flex flex-1 flex-col ${menuOpen ? "hidden lg:flex" : ""}`}
-        >
+        <AppFrame className={menuOpen ? "hidden lg:flex" : ""}>
           {children}
-        </div>
+        </AppFrame>
       </div>
     </div>
   );

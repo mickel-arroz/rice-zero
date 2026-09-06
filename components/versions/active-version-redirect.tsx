@@ -66,8 +66,9 @@ export function ActiveVersionRedirect({ projectId }: { projectId: string }) {
   }, []);
 
   return (
-    <main className="flex flex-1 flex-col px-6 py-6 lg:px-16 lg:py-10">
-      <div className="flex min-h-0 flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-3xl">
+    // Ni relleno ni ancho: los pone el Contenedor. Ver
+    // `components/layout/app-frame.tsx`.
+    <main className="flex min-h-0 flex-1 flex-col">
         {error ? (
           <ErrorCard title={VERSIONS_COPY.errorTitle} body={error}>
             <button
@@ -84,7 +85,6 @@ export function ActiveVersionRedirect({ projectId }: { projectId: string }) {
             {TREE_COPY.loading}
           </p>
         )}
-      </div>
     </main>
   );
 }
