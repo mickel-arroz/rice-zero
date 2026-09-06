@@ -1,0 +1,55 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Análisis"
+    },
+    {
+      "file": "BuscarVersion.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Búsqueda en la Versión"
+    },
+    {
+      "file": "BuscarGlobal.dc.html",
+      "x": 0,
+      "y": 1060,
+      "w": 1440,
+      "h": 900,
+      "title": "Búsqueda global"
+    },
+    {
+      "file": "BuscarGlobalVacio.dc.html",
+      "x": 1560,
+      "y": 1060,
+      "w": 1440,
+      "h": 900,
+      "title": "Búsqueda global · vacío"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "n-dos-busquedas",
+      "x": 1560,
+      "y": -190,
+      "w": 520,
+      "text": "Las dos Búsquedas se parecen y no son la misma función. Dentro de la Versión el árbol ya está en memoria: filtra al instante, sin red y sin esqueleto. La global cruza todos los Proyectos, necesita método nuevo en el puerto y sus tres adaptadores, y ahí el esqueleto sí dice algo verdadero."
+    },
+    {
+      "id": "n-analisis",
+      "x": 0,
+      "y": -190,
+      "w": 460,
+      "text": "El Análisis pasa de panel lateral de 440 px a ruta propia anidada bajo la Versión, con el historial dentro. La vuelta al Proyecto es navegación hacia arriba, no el botón de atrás."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

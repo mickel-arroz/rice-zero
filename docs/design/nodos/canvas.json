@@ -1,0 +1,62 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Vista Registro"
+    },
+    {
+      "file": "Canvas.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Vista Canvas"
+    },
+    {
+      "file": "Movil.dc.html",
+      "x": 0,
+      "y": 1060,
+      "w": 390,
+      "h": 844,
+      "title": "Registro móvil"
+    },
+    {
+      "file": "BottomSheet.dc.html",
+      "x": 510,
+      "y": 1060,
+      "w": 390,
+      "h": 844,
+      "title": "Borrar en móvil"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "n-plegar",
+      "x": 0,
+      "y": -170,
+      "w": 460,
+      "text": "El botón de plegar reutiliza el centro del punto, así que las líneas del árbol no se mueven cuando aparece. Plegado es preferencia de quien mira: no viaja entre dispositivos ni cambia lo que la IA recibe."
+    },
+    {
+      "id": "n-completado",
+      "x": 520,
+      "y": -170,
+      "w": 460,
+      "text": "Completado sí es estado del Nodo. Lo tachado en pantalla —el Nodo y todo su subárbol— es exactamente lo que se omite del texto que va a la IA."
+    },
+    {
+      "id": "n-canvas",
+      "x": 1560,
+      "y": -170,
+      "w": 460,
+      "text": "El Canvas conserva el ancho fijo de 208 px y crece en altura: el layout automático necesita una dimensión estable para colocar."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Escritorio"
+    },
+    {
+      "file": "RailPlegado.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Barra plegada"
+    },
+    {
+      "file": "MenuMovil.dc.html",
+      "x": 0,
+      "y": 1060,
+      "w": 390,
+      "h": 844,
+      "title": "Menú móvil"
+    },
+    {
+      "file": "MovilContenido.dc.html",
+      "x": 510,
+      "y": 1060,
+      "w": 390,
+      "h": 844,
+      "title": "Móvil"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "n-ancho",
+      "x": 1020,
+      "y": -150,
+      "w": 420,
+      "text": "Hoy no existe un layout post-login: Proyectos fija max-w-5xl (1024) y el árbol max-w-3xl (768). El boceto elige 1024 para todo y lo mueve a un solo sitio."
+    },
+    {
+      "id": "n-inicio",
+      "x": 0,
+      "y": -150,
+      "w": 460,
+      "text": "«Inicio» es la etiqueta de la lista de Proyectos, no una ruta nueva: /projects se queda donde está, y con él el punto de arranque de la PWA."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
