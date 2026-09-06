@@ -4,6 +4,12 @@ PWA mobile-first para volcar ideas de proyectos en un árbol de nodos de texto y
 
 ## Language
 
+### Marca
+
+**Marca corta**:
+La forma breve de RICE(0), escrita **R(0)**. Es lo que se dibuja en el favicon y en los iconos de la PWA, donde el nombre entero no cabe. El `(0)` no es decorativo: es lo que la distingue.
+_Avoid_: R0, R-0, RO
+
 ### Estructura
 
 **Proyecto**:
@@ -16,6 +22,14 @@ _Avoid_: branch, rama
 **Nodo**:
 Unidad de idea en texto dentro del árbol de una Versión. Tiene exactamente un padre (o es raíz) y 0..n subnodos; todo nodo puede tener hijos. Solo texto — no existen adjuntos.
 _Avoid_: elemento, tarjeta, adjunto
+
+**Nodo completado**:
+Nodo dado por terminado. Él y su subárbol se pintan tachados, y ninguno de los dos viaja a la IA al generar un Análisis. Es estado del Nodo y no de quien mira: la misma Versión produce el mismo Análisis en cualquier dispositivo.
+_Avoid_: hecho, done, cerrado, tachado
+
+**Nodo plegado**:
+Nodo con hijos cuyo subárbol está oculto en la vista. Es preferencia de quien mira, no del árbol: no viaja entre dispositivos ni cambia lo que la IA recibe. Por eso un Nodo plegado sigue contando, y un Nodo completado no.
+_Avoid_: colapsado, contraído, cerrado
 
 ### Vistas
 
@@ -31,6 +45,10 @@ _Avoid_: outliner, vista lista, vista simple
 
 **Autoguardado**:
 Todo cambio mínimo se persiste de inmediato; no existe botón "guardar". Editar requiere conexión: sin ella la edición se bloquea con aviso y reintento automático de reconexión, quedando la consulta de lo ya creado disponible offline. Lo tecleado justo antes del corte queda **Pendiente** —retenido en la pantalla, nunca dado por guardado— y se escribe solo al volver la red; no hay cola de sincronización, así que cerrar la pestaña sin conexión lo pierde.
+
+**Búsqueda**:
+Filtrado de Nodos por su texto. Tiene dos alcances y no son la misma función: dentro de una Versión, sobre el árbol que ya se está mirando; y a través de todos los Proyectos del usuario, sobre lo que no está a la vista.
+_Avoid_: filtro, buscador global
 
 ### IA
 
