@@ -183,17 +183,21 @@ const ROW_CLASS =
  * El manifiesto en sí, sin marco.
  *
  * El marco lo pone quien lo monta: la cabecera pública para un visitante, el
- * shell del dashboard para quien ya entró. El texto es el mismo en los dos —
- * una sola copia, que es de lo que se trata.
+ * Shell para quien ya entró. El texto es el mismo en los dos — una sola copia,
+ * que es de lo que se trata.
  *
- * «Sin marco» incluye el RELLENO horizontal: dentro del shell lo pone el
- * Contenedor, así que escrito aquí se sumaría al suyo. El visitante
- * lo recibe del envoltorio público, que es quien tiene que darlo.
+ * «Sin marco» incluye el RELLENO por los cuatro lados: dentro del Shell lo pone
+ * el Contenedor, así que escrito aquí se sumaría al suyo. El visitante lo recibe
+ * del envoltorio público, que es quien tiene que darlo.
+ *
+ * Lo que SÍ se queda dentro es el ritmo ENTRE secciones —el `pb` del héroe, el
+ * `pt` de cada bloque—, porque eso no es marco: es la respiración del texto, y
+ * es la misma se monte donde se monte.
  */
 function AboutContent({ className = "" }: { className?: string }) {
   return (
     <main className={`flex flex-1 flex-col ${className}`}>
-        <section className="flex flex-col gap-5 pt-11 pb-10 lg:items-center lg:gap-6 lg:pt-22 lg:pb-18 lg:text-center">
+        <section className="flex flex-col gap-5 pb-10 lg:items-center lg:gap-6 lg:pb-18 lg:text-center">
           <p className="flex items-center gap-2">
             <span
               className="size-2 rounded-full bg-primary"
@@ -379,7 +383,7 @@ export default async function About() {
   return (
     <div className={PAGE_CLASS}>
       <SiteHeader current="about" />
-      <AboutContent className="px-6 lg:px-16" />
+      <AboutContent className="px-6 pt-11 lg:px-16 lg:pt-22" />
       <SiteFooter current="about" />
     </div>
   );
