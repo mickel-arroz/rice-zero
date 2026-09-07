@@ -64,6 +64,12 @@ export function RegistroView() {
             onEdit={() => tree.startEditing(row.node.id)}
             onChange={(value) => tree.setText(row.node.id, value)}
             onStopEditing={tree.stopEditing}
+            // Contra `node.completed` y no contra `row.struck`: lo que se
+            // escribe es el estado del Nodo, y el tachado heredado ya llega
+            // apagado desde la casilla.
+            onToggleCompleted={() =>
+              void tree.setCompleted(row.node.id, !row.node.completed)
+            }
           />
         ))}
       </ul>

@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from "react";
 
+import { CheckIcon } from "@/components/icons/check-icon";
+import { STRUCK_CLASS } from "@/components/layout/site-chrome";
 import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
-import type { TreeRow } from "@/lib/tree/rows";
+import { inheritedStrike, type TreeRow } from "@/lib/tree/rows";
 
 /**
  * Una fila del árbol: sus líneas de conexión a la izquierda y su texto.
@@ -29,6 +31,22 @@ const ANCHOR = 29;
 
 /** El aire entre cajas. Va DENTRO de la fila para que las líneas no se corten. */
 const GUTTER = 4;
+
+/**
+ * La casilla de completado: 18 px, y 2 más de caída que el texto.
+ *
+ * Los 2 px no son un ajuste fino cualquiera: alinean la casilla con la ALTURA
+ * DE MAYÚSCULA de la primera línea y no con el borde de su caja de línea. Sin
+ * ellos la casilla se lee alta, porque `leading-relaxed` deja aire por encima
+ * del texto que la casilla no tiene.
+ */
+const CHECKBOX = 18;
+const CHECKBOX_DROP = 2;
+
+/** El relleno de la caja de texto. Lo comparten el campo, el botón y la casilla. */
+const BOX_PADDING = 14;
+
+
 
 /** El radio del punto: las raíces llevan uno mayor porque no tienen codo. */
 const DOT_ROOT = 4;
@@ -117,6 +135,75 @@ function Guides({ row, selected }: { row: TreeRow; selected: boolean }) {
   );
 }
 
+/**
+ * La casilla de un Nodo.
+ *
+ * Se pinta SIEMPRE, también en los pendientes: es lo que hace que completar
+ * sea un gesto de un toque y no algo escondido en la barra de acciones. Ver el
+ * boceto de la vista de Nodos.
+ *
+ * Marcada por herencia se apaga en vez de esconderse. Un Nodo bajo un padre
+ * terminado se ve tachado aunque él siga guardado como pendiente, así que una
+ * casilla pulsable ahí prometería un cambio que no se vería en ningún sitio.
+ */
+function Checkbox({
+  row,
+  blocked,
+  onToggle,
+}: {
+  row: TreeRow;
+  blocked: boolean;
+  onToggle: () => void;
+}) {
+  const { completed } = row.node;
+  const inherited = inheritedStrike(row);
+  const named = TREE_COPY.nodeLabel(row.node.content);
+
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      // `aria-checked` sale de lo PINTADO y la etiqueta de lo GUARDADO, y esa
+      // asimetría es la correcta. Marcada dice cómo se ve, que es lo que hay
+      // que anunciar; la etiqueta dice qué haría el botón, y un hijo bajo un
+      // padre terminado sigue guardado como pendiente — anunciarle «devolver a
+      // pendiente» sería justo lo contrario de lo que ocurriría. Cuando ni
+      // siquiera va a ocurrir nada, la etiqueta deja de prometer una acción y
+      // cuenta el motivo.
+      aria-checked={row.struck}
+      aria-label={
+        inherited
+          ? `${named} — ${TREE_COPY.completedByParent}`
+          : completed
+            ? TREE_COPY.uncomplete(named)
+            : TREE_COPY.complete(named)
+      }
+      disabled={inherited || blocked}
+      title={
+        inherited
+          ? TREE_COPY.completedByParent
+          : blocked
+            ? CONNECTION_COPY.blocked
+            : undefined
+      }
+      onClick={onToggle}
+      className={`flex shrink-0 items-center justify-center rounded-md border transition-colors ${
+        row.struck
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border hover:border-primary"
+      }`}
+      style={{
+        width: CHECKBOX,
+        height: CHECKBOX,
+        marginTop: BOX_PADDING + CHECKBOX_DROP,
+        marginLeft: BOX_PADDING,
+      }}
+    >
+      {row.struck ? <CheckIcon width={12} height={12} /> : null}
+    </button>
+  );
+}
+
 export function NodeRow({
   row,
   selected,
@@ -127,6 +214,7 @@ export function NodeRow({
   onEdit,
   onChange,
   onStopEditing,
+  onToggleCompleted,
 }: {
   row: TreeRow;
   selected: boolean;
@@ -147,6 +235,7 @@ export function NodeRow({
   onEdit: () => void;
   onChange: (value: string) => void;
   onStopEditing: () => void;
+  onToggleCompleted: () => void;
 }) {
   const area = useRef<HTMLTextAreaElement>(null);
 
@@ -184,6 +273,7 @@ export function NodeRow({
     <li className="flex items-stretch">
       <Guides row={row} selected={selected} />
       <div className={box} style={{ margin: `${GUTTER}px 0`, minHeight: BOX_HEIGHT }}>
+        <Checkbox row={row} blocked={blocked} onToggle={onToggleCompleted} />
         {editing ? (
           <textarea
             ref={area}
@@ -209,7 +299,7 @@ export function NodeRow({
             }}
             placeholder={TREE_COPY.nodePlaceholder}
             aria-label={TREE_COPY.edit(named)}
-            className="w-full resize-none overflow-hidden bg-transparent px-3.5 py-3.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
+            className="w-full resize-none overflow-hidden bg-transparent py-3.5 pr-3.5 pl-2.5 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
           />
         ) : (
           <button
@@ -228,9 +318,9 @@ export function NodeRow({
                 ? TREE_COPY.edit(named)
                 : TREE_COPY.select(named)
             }
-            className={`w-full px-3.5 py-3.5 text-left text-sm leading-relaxed break-words whitespace-pre-wrap ${
-              selected ? "text-primary" : ""
-            } ${empty ? "text-muted-foreground" : ""}`}
+            className={`w-full py-3.5 pr-3.5 pl-2.5 text-left text-sm leading-relaxed break-words whitespace-pre-wrap ${
+              row.struck ? STRUCK_CLASS : selected ? "text-primary" : ""
+            } ${empty && !row.struck ? "text-muted-foreground" : ""}`}
           >
             {empty ? TREE_COPY.nodePlaceholder : text}
           </button>

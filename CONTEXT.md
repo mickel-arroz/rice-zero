@@ -27,6 +27,10 @@ _Avoid_: elemento, tarjeta, adjunto
 Nodo dado por terminado. Él y su subárbol se pintan tachados, y ninguno de los dos viaja a la IA al generar un Análisis. Es estado del Nodo y no de quien mira: la misma Versión produce el mismo Análisis en cualquier dispositivo.
 _Avoid_: hecho, done, cerrado, tachado
 
+**Subárbol completado**:
+Un Nodo completado junto con todo lo que cuelga de él. Es el conjunto que se pinta tachado y el que se omite del texto que va a la IA — los dos son exactamente el mismo, y de ahí que tenga nombre propio: sin él, «lo tachado» y «lo omitido» parecen dos reglas que podrían divergir. Un subnodo pendiente bajo un padre completado pertenece al conjunto, y su propio `completed` sigue en falso: desmarcar al padre lo devuelve entero sin recordar nada.
+_Avoid_: rama cerrada, nodos tachados
+
 **Nodo plegado**:
 Nodo con hijos cuyo subárbol está oculto en la vista. Es preferencia de quien mira, no del árbol: no viaja entre dispositivos ni cambia lo que la IA recibe. Por eso un Nodo plegado sigue contando, y un Nodo completado no.
 _Avoid_: colapsado, contraído, cerrado

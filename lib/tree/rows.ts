@@ -40,6 +40,20 @@ export type TreeRow = {
   rails: boolean[];
   /** Si tiene subnodos: es lo que decide si de su punto sale una bajada. */
   hasChildren: boolean;
+  /**
+   * Si esta fila se pinta tachada: el Nodo está completado, o lo está alguno
+   * de sus antepasados.
+   *
+   * Va aquí y no se calcula al pintar porque es una propiedad del ÁRBOL y no
+   * de la fila: mirando un Nodo suelto no se puede saber, hace falta el camino
+   * hasta la raíz. Y sale gratis: el recorrido ya baja por ese camino.
+   *
+   * No es lo mismo que `node.completed`. Aquél es lo que hay guardado; éste es
+   * pertenecer a un **Subárbol completado** (ver `CONTEXT.md`), que es a la vez
+   * lo que se pinta tachado y lo que se omitirá del texto que va a la IA. Un
+   * hijo pendiente bajo un padre completado pertenece, y se ve tachado.
+   */
+  struck: boolean;
   /** Su posición entre sus hermanos. Es lo que apaga «Subir» en el primero. */
   index: number;
   siblingCount: number;
@@ -53,12 +67,15 @@ type Frame = {
   siblingCount: number;
   /** Los raíles de la fila del PADRE: las columnas `0..depth-2` de esta fila. */
   ancestorRails: boolean[];
+  /** Si algún antepasado está completado. Baja por el recorrido, no se busca. */
+  ancestorStruck: boolean;
 };
 
 function framesOf(
   subtrees: Subtree[],
   depth: number,
   ancestorRails: boolean[],
+  ancestorStruck: boolean,
 ): Frame[] {
   return subtrees.map((subtree, index) => ({
     subtree,
@@ -66,6 +83,7 @@ function framesOf(
     index,
     siblingCount: subtrees.length,
     ancestorRails,
+    ancestorStruck,
   }));
 }
 
@@ -82,7 +100,7 @@ export function treeRows(nodes: TreeNode[]): TreeRow[] {
   // Pila y no cola: una cola daría el árbol por niveles, y lo que se pinta es
   // cada Nodo con los suyos debajo. Se apila del revés para que el primer
   // hermano sea el primero en salir.
-  const pending = framesOf(buildTree(nodes), 0, []).reverse();
+  const pending = framesOf(buildTree(nodes), 0, [], false).reverse();
 
   while (pending.length > 0) {
     const frame = pending.pop() as Frame;
@@ -90,22 +108,40 @@ export function treeRows(nodes: TreeNode[]): TreeRow[] {
     // Una raíz no tiene columna del codo, así que tampoco tiene esa entrada.
     const rails = frame.depth === 0 ? [] : [...frame.ancestorRails, continues];
 
+    // Una vez tachado, tachado hacia abajo: los hijos lo heredan aunque
+    // ellos estén guardados como pendientes. Es lo que hace que lo tachado en
+    // pantalla y lo omitido en el Análisis sean el mismo conjunto.
+    const struck = frame.ancestorStruck || frame.subtree.node.completed;
+
     rows.push({
       node: frame.subtree.node,
       depth: frame.depth,
       rails,
       hasChildren: frame.subtree.children.length > 0,
+      struck,
       index: frame.index,
       siblingCount: frame.siblingCount,
     });
 
     // Los raíles de esta fila son los del antepasado de sus hijos: la columna
     // del codo de un hijo es justo la del padre.
-    const children = framesOf(frame.subtree.children, frame.depth + 1, rails);
+    const children = framesOf(frame.subtree.children, frame.depth + 1, rails, struck);
     for (let i = children.length - 1; i >= 0; i--) pending.push(children[i]);
   }
 
   return rows;
+}
+
+/**
+ * ¿Esta fila se ve tachada por un antepasado y no por sí misma?
+ *
+ * Es la pregunta que separa lo GUARDADO de lo PINTADO, y la hacen dos sitios:
+ * la casilla de la fila en la Vista Registro y el botón de la barra de
+ * acciones. Escrita en los dos, el día que cambiara una el otro seguiría
+ * ofreciendo pulsar algo que ya no cambia nada.
+ */
+export function inheritedStrike(row: TreeRow): boolean {
+  return row.struck && !row.node.completed;
 }
 
 /** Un destino posible para un re-parentado, valga o no. */

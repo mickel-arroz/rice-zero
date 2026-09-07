@@ -10,6 +10,7 @@ import type { DropMark } from "@/components/canvas/drop";
 import { CANVAS_NODE } from "@/components/canvas/geometry";
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
+import { STRUCK_CLASS } from "@/components/layout/site-chrome";
 import { CANVAS_COPY, CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 
 /**
@@ -56,6 +57,13 @@ export type CanvasNodeData = {
   lines: number;
   isRoot: boolean;
   hasChildren: boolean;
+  /**
+   * Se pinta tachado: está completado, o lo está alguno de sus antepasados.
+   *
+   * Llega HECHO desde el lienzo y no se deduce aquí: la regla es del árbol
+   * —hace falta el camino hasta la raíz— y ya la resolvió `treeRows`.
+   */
+  struck: boolean;
   /** Este Nodo es el destino bajo el puntero, y si vale. `null`: no lo es. */
   drop: DropMark | null;
   /** Este es el Nodo que va en el aire. */
@@ -220,7 +228,7 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
               su hermano de abajo. Ver `components/canvas/geometry.ts`. */}
           <span
             className={`overflow-hidden text-[13px] break-words ${
-              empty ? "text-muted-foreground" : ""
+              data.struck ? STRUCK_CLASS : empty ? "text-muted-foreground" : ""
             }`}
             style={{
               display: "-webkit-box",

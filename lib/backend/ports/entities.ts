@@ -103,6 +103,16 @@ export type TreeNode = {
   parentId: string | null;
   content: string;
   orderIndex: number;
+  /**
+   * Dado por terminado. Viaja con el Nodo y no con quien mira, porque de él
+   * depende lo que la IA recibe: ver la migración `0004`.
+   *
+   * Es del Nodo y SOLO del Nodo. Que el subárbol de un Nodo completado se vea
+   * tachado es cosa de quien pinta, no de este campo: el hijo de un Nodo
+   * completado sigue guardado como pendiente, y desmarcar al padre lo devuelve
+   * entero sin tener que recordar nada.
+   */
+  completed: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

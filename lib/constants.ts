@@ -615,6 +615,18 @@ export const TREE_COPY = {
    */
   deselectHint: "Quitar la selección",
 
+  /** La casilla de completado, que no lleva texto visible. */
+  complete: (text: string) => `Dar por terminado ${text}`,
+  uncomplete: (text: string) => `Devolver a pendiente ${text}`,
+  /**
+   * Por qué la casilla de un subnodo no se deja tocar.
+   *
+   * Un Nodo bajo un padre completado se ve tachado aunque él siga guardado
+   * como pendiente. Dejar la casilla pulsable ahí prometería un cambio que no
+   * se vería, así que se apaga y se dice el motivo.
+   */
+  completedByParent: "Su Nodo padre está terminado",
+
   /** La barra de acciones del Nodo seleccionado. */
   actions: {
     up: "Subir",
@@ -622,6 +634,8 @@ export const TREE_COPY = {
     child: "Subnodo",
     sibling: "Hermano",
     move: "Mover a…",
+    complete: "Terminar",
+    uncomplete: "Reabrir",
     remove: "Borrar",
     /**
      * Cierra la barra sin tocar el árbol.

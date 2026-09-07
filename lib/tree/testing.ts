@@ -40,6 +40,8 @@ export function treeNode(
     parentId,
     content,
     orderIndex,
+    // Pendiente por defecto: los tests que hablan de completado lo dicen.
+    completed: false,
     createdAt: FIXTURE_STAMP,
     updatedAt: FIXTURE_STAMP,
   };

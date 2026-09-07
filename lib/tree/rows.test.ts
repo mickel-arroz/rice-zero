@@ -33,9 +33,56 @@ function sample() {
   ];
 }
 
+/** El mismo árbol, con los Nodos de `ids` dados por completados. */
+function withCompleted(ids: string[]) {
+  return sample().map((node) =>
+    ids.includes(node.id) ? { ...node, completed: true } : node,
+  );
+}
+
+/** Qué filas se pintan tachadas, por id. */
+function struckIds(nodes: ReturnType<typeof sample>) {
+  return treeRows(nodes)
+    .filter((row) => row.struck)
+    .map((row) => row.node.id);
+}
+
 describe("treeRows", () => {
   it("no devuelve filas para una Versión sin Nodos", () => {
     expect(treeRows([])).toEqual([]);
+  });
+
+  it("no tacha nada mientras no haya ningún Nodo completado", () => {
+    expect(struckIds(sample())).toEqual([]);
+  });
+
+  it("tacha el Nodo completado y su subárbol entero", () => {
+    // `a` tiene dos hijos; completarlo se los lleva a los dos.
+    expect(struckIds(withCompleted(["a"]))).toEqual(["a", "a1", "a2"]);
+  });
+
+  it("no tacha a los hermanos del completado ni a su padre", () => {
+    // Es la otra mitad de la regla: hacia abajo sí, hacia los lados no.
+    expect(struckIds(withCompleted(["b"]))).toEqual(["b", "b1"]);
+  });
+
+  it("tacha un subárbol entero aunque el completado sea el único de su rama", () => {
+    expect(struckIds(withCompleted(["r2"]))).toEqual(["r2"]);
+  });
+
+  it("no cuenta dos veces cuando un completado cuelga de otro completado", () => {
+    // El de dentro ya estaba tachado por herencia; marcarlo no cambia nada, y
+    // desmarcarlo TAMPOCO tiene que destacharlo mientras su padre siga hecho.
+    expect(struckIds(withCompleted(["a", "a1"]))).toEqual(["a", "a1", "a2"]);
+  });
+
+  it("mantiene tachado al subárbol aunque el hijo esté explícitamente pendiente", () => {
+    // `completed` es del Nodo; lo que se ve es del Nodo Y de sus antepasados.
+    // Un hijo pendiente bajo un padre hecho se ve hecho, porque eso es
+    // exactamente lo que la IA va a dejar de recibir.
+    const nodes = withCompleted(["a"]);
+    expect(nodes.find((n) => n.id === "a1")?.completed).toBe(false);
+    expect(struckIds(nodes)).toContain("a1");
   });
 
   it("aplana el bosque en el orden en que se lee", () => {

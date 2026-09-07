@@ -65,6 +65,7 @@ export type NodeRow = {
   parent_id: string | null;
   content: string;
   order_index: number;
+  completed: boolean;
   created_at: string;
   updated_at: string;
 };

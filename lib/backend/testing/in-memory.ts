@@ -346,6 +346,7 @@ export function createInMemoryBackend(): InMemoryBackend {
             parent_id: values.parent_id ?? null,
             content: values.content ?? "",
             order_index: values.order_index ?? 0,
+            completed: values.completed ?? false,
             created_at: stamp,
             updated_at: stamp,
           };
@@ -471,6 +472,10 @@ export function createInMemoryBackend(): InMemoryBackend {
           parent_id: node.parent_id == null ? null : (remap.get(node.parent_id) ?? null),
           content: node.content,
           order_index: node.order_index,
+          // El completado viaja con el Nodo, igual que su texto: un snapshot
+          // de una Versión a medias tiene que verse a medias. Si no, clonar
+          // sería además una forma silenciosa de desmarcarlo todo.
+          completed: node.completed,
           created_at: stamp,
           updated_at: stamp,
         });

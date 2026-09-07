@@ -122,6 +122,7 @@ export type TreeNodePatch = {
   parentId?: string | null;
   content?: string;
   orderIndex?: number;
+  completed?: boolean;
 };
 
 export interface NodeRepository {

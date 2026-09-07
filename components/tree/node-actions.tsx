@@ -3,6 +3,8 @@
 import { useBlocked } from "@/components/connection/connection-provider";
 import { ArrowDownIcon } from "@/components/icons/arrow-down-icon";
 import { ArrowUpIcon } from "@/components/icons/arrow-up-icon";
+import { CheckIcon } from "@/components/icons/check-icon";
+import { CircleIcon } from "@/components/icons/circle-icon";
 import { CloseIcon } from "@/components/icons/close-icon";
 import { MoveIcon } from "@/components/icons/move-icon";
 import { SiblingIcon } from "@/components/icons/sibling-icon";
@@ -13,7 +15,7 @@ import { fire } from "@/components/tree/fire";
 import { APP_FRAME_BLEED } from "@/components/layout/app-frame";
 import { useTree } from "@/components/tree/tree-provider";
 import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
-import type { TreeRow } from "@/lib/tree/rows";
+import { inheritedStrike, type TreeRow } from "@/lib/tree/rows";
 
 /**
  * Todo lo que se le puede hacer al Nodo seleccionado, en una barra.
@@ -114,7 +116,7 @@ export function NodeActions({
   // siete callbacks de props, la pantalla tenía que reenviar una por una unas
   // operaciones que no son suyas.
   const tree = useTree();
-  // Sin red se apagan las SEIS que escriben. «Quitar» no: cerrar la barra no
+  // Sin red se apagan las SIETE que escriben. «Quitar» no: cerrar la barra no
   // toca el árbol, y dejar a la persona con una barra que no se puede quitar
   // encima de la pantalla sería castigarla por quedarse sin conexión.
   const blocked = useBlocked();
@@ -149,6 +151,22 @@ export function NodeActions({
     },
     { id: "move", icon: MoveIcon, label: TREE_COPY.actions.move, run: onMove },
     {
+      id: "completed",
+      // Enseña a DÓNDE lleva el botón, no dónde está el Nodo: el estado ya se
+      // ve en la casilla de su fila y en el tachado. Un botón que dibujara el
+      // estado actual se leería como «esto ya está hecho» justo cuando lo que
+      // ofrece es deshacerlo.
+      icon: row.node.completed ? CircleIcon : CheckIcon,
+      label: row.node.completed
+        ? TREE_COPY.actions.uncomplete
+        : TREE_COPY.actions.complete,
+      run: () => fire(tree.setCompleted(id, !row.node.completed)),
+      // Bajo un padre terminado no hay nada que cambiar aquí: el Nodo ya se ve
+      // tachado, y marcarlo o desmarcarlo no movería un píxel. Por la MISMA
+      // función que la casilla de la fila, para que no puedan discrepar.
+      disabled: inheritedStrike(row),
+    },
+    {
       id: "remove",
       icon: TrashIcon,
       label: TREE_COPY.actions.remove,
@@ -167,9 +185,15 @@ export function NodeActions({
           floating ? "rounded-3xl" : "rounded-t-3xl"
         }`}
       >
-        {/* Cuatro columnas y no tres: son seis acciones más «Quitar», y con
-            `col-span-2` en la última la rejilla queda exacta en dos filas de
-            cuatro en vez de dejar un hueco a la derecha. */}
+        {/* Cuatro columnas: son siete acciones más «Quitar», que son dos filas
+            de cuatro exactas.
+
+            El boceto de la vista de Nodos dibuja SIETE botones, con la X
+            ocupando dos celdas para que no quedara hueco. Al entrar «Terminar»
+            —el Canvas no tiene casilla, así que sin esto desde ahí se vería lo
+            tachado pero no se podría tachar— la cuenta sale redonda sola y ese
+            `col-span-2` sobra. Anotado en el Ticket #39, que es el que cierra
+            contra ese artboard, para que no se «arregle» de vuelta. */}
         <div className="grid grid-cols-4 gap-2 lg:flex lg:items-center lg:gap-1">
           {actions.map((action) => {
             const off = blocked || action.disabled;
@@ -181,7 +205,7 @@ export function NodeActions({
               disabled={off}
               // Solo cuando el motivo es la red. «No hay a dónde subir» ya se
               // entiende del sitio del Nodo, y repetirlo en un `title` sería
-              // ruido en las cinco veces de cada seis que no hace falta.
+              // ruido en las seis veces de cada siete que no hace falta.
               title={blocked ? CONNECTION_COPY.blocked : undefined}
               className={`${BUTTON_CLASS} ${action.danger ? "text-primary" : ""} ${
                 off ? "" : "hover:border-primary hover:text-primary"
@@ -202,13 +226,13 @@ export function NodeActions({
           />
 
           {/* «Quitar» cierra la barra sin tocar el árbol, así que va aparte de
-              las seis que sí escriben — y con la misma forma, porque desde el
+              las siete que sí escriben — y con la misma forma, porque desde el
               dedo es un botón más de la misma fila. */}
           <button
             type="button"
             onClick={() => tree.select(null)}
             aria-label={TREE_COPY.deselectHint}
-            className={`${BUTTON_CLASS} col-span-2 text-muted-foreground hover:border-primary hover:text-primary lg:col-span-1`}
+            className={`${BUTTON_CLASS} text-muted-foreground hover:border-primary hover:text-primary`}
           >
             <CloseIcon width={18} height={18} />
             <span className={BUTTON_LABEL_CLASS}>{TREE_COPY.actions.deselect}</span>

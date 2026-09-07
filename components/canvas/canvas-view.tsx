@@ -187,7 +187,7 @@ function pointerOf(
 
 function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
   const tree = useTree();
-  const { textOf, nodes: treeNodes, editingId, select, reparent } = tree;
+  const { textOf, nodes: treeNodes, rows, editingId, select, reparent } = tree;
   // `offline` y no `blocked`: en este archivo `blocked` ya es el motivo por el
   // que un destino de arrastre no vale, y dos cosas distintas con el mismo
   // nombre en la misma función es cómo se lee mal un `if`.
@@ -207,6 +207,15 @@ function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
   const { cards, boxes, edges, bounds } = useMemo(() => {
     const parents = new Set(
       treeNodes.map((node) => node.parentId).filter((id) => id !== null),
+    );
+
+    // La regla del tachado —el Nodo completado y todo su subárbol— se decide
+    // UNA vez, al construir las filas, y aquí solo se consulta. Recalcularla
+    // sobre el bosque sería la misma regla escrita dos veces, y el día que
+    // una de las dos cambiara, la Vista Canvas y la Vista Registro estarían
+    // tachando conjuntos distintos de la misma Versión.
+    const struck = new Set(
+      rows.filter((row) => row.struck).map((row) => row.node.id),
     );
 
     const layout = layoutForest(treeNodes, (node) => nodeSize(textOf(node)));
@@ -241,6 +250,7 @@ function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
           lines: nodeLines(text),
           isRoot: node.parentId === null,
           hasChildren: parents.has(box.id),
+          struck: struck.has(box.id),
         },
       };
     });
@@ -259,7 +269,7 @@ function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
       // nadie mida nada en el navegador.
       bounds: { width: layout.width, height: layout.height },
     };
-  }, [treeNodes, textOf]);
+  }, [treeNodes, rows, textOf]);
 
   /** Lo barato: lo que cambia mientras el dedo está abajo. */
   const nodes: CanvasNode[] = useMemo(

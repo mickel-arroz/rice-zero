@@ -75,6 +75,7 @@ export function toTreeNode(row: Row): TreeNode {
     parentId: r.parent_id,
     content: r.content,
     orderIndex: r.order_index,
+    completed: r.completed,
     createdAt: new Date(r.created_at),
     updatedAt: new Date(r.updated_at),
   };

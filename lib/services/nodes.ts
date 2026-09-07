@@ -77,6 +77,17 @@ export type NodeService = {
   /** El texto, tal cual se teclea. @throws NotFoundError */
   edit(id: string, content: string): Promise<TreeNode>;
   /**
+   * Da un Nodo por terminado, o lo devuelve a pendiente.
+   *
+   * Solo toca al Nodo. Que su subárbol se vea tachado —y se omita del
+   * Análisis— es una regla de lectura del árbol, no una escritura en cascada:
+   * ver `TreeRow.struck`. Guardarlo en los hijos obligaría a recordar cuáles
+   * estaban hechos por su cuenta para poder desmarcar al padre sin perderlo.
+   *
+   * @throws NotFoundError
+   */
+  setCompleted(id: string, completed: boolean): Promise<TreeNode>;
+  /**
    * Cuelga el Nodo de otro padre —o de ninguno, con `null`—, el último de sus
    * hermanos nuevos.
    *
@@ -237,6 +248,10 @@ export function createNodeService(backend: BackendProvider): NodeService {
       // autoguardado mientras el usuario teclea, y recortar aquí le borraría el
       // espacio que acaba de escribir entre dos palabras.
       return backend.nodes.update(id, { content });
+    },
+
+    setCompleted(id, completed) {
+      return backend.nodes.update(id, { completed });
     },
 
     async reparent(versionId, nodeId, parentId) {

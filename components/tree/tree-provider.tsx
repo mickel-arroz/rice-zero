@@ -133,6 +133,8 @@ type TreeContextValue = {
   /** Mueve un Nodo entre sus hermanos. El destino se recorta al rango. */
   moveTo(nodeId: string, toIndex: number): Promise<void>;
   reparent(nodeId: string, parentId: string | null): Promise<void>;
+  /** Da el Nodo por terminado, o lo devuelve a pendiente. */
+  setCompleted(nodeId: string, completed: boolean): Promise<void>;
   remove(nodeId: string): Promise<void>;
 };
 
@@ -445,6 +447,17 @@ export function TreeProvider({
     [run, versionId],
   );
 
+  const setCompleted = useCallback(
+    (nodeId: string, completed: boolean) =>
+      // Por `run` como cualquier otra escritura: se espera al Autoguardado
+      // pendiente antes, y el árbol se relee después. Sin eso, completar un
+      // Nodo recién escrito podría guardar el estado y perder el texto.
+      run(async () => {
+        await nodeService().setCompleted(nodeId, completed);
+      }),
+    [run],
+  );
+
   const remove = useCallback(
     async (nodeId: string) => {
       await run(async () => {
@@ -508,6 +521,7 @@ export function TreeProvider({
       createQuestion,
       createChild,
       createSibling,
+      setCompleted,
       moveTo,
       reparent,
       remove,
@@ -527,6 +541,7 @@ export function TreeProvider({
       createQuestion,
       createChild,
       createSibling,
+      setCompleted,
       moveTo,
       reparent,
       remove,

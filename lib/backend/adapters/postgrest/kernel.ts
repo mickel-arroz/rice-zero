@@ -222,6 +222,7 @@ export function createNodeRepository(store: RowStore): NodeRepository {
           parent_id: patch.parentId,
           content: patch.content,
           order_index: patch.orderIndex,
+          completed: patch.completed,
         }),
       );
       if (!row) throw new NotFoundError(RESOURCE.nodes, id);

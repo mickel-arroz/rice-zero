@@ -95,6 +95,7 @@ export type Database = {
           parent_id: string | null;
           content: string;
           order_index: number;
+          completed: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -104,6 +105,7 @@ export type Database = {
           parent_id?: string | null;
           content?: string;
           order_index?: number;
+          completed?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -113,6 +115,7 @@ export type Database = {
           parent_id?: string | null;
           content?: string;
           order_index?: number;
+          completed?: boolean;
           created_at?: string;
           updated_at?: string;
         };

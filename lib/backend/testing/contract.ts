@@ -418,6 +418,86 @@ export function describeBackendContract(harness: BackendContractHarness): void {
         expect(node.parentId).toBeNull();
         expect(node.content).toBe("");
         expect(node.orderIndex).toBe(0);
+        expect(node.completed).toBe(false);
+      });
+
+      it("marca y desmarca un Nodo como completado", async () => {
+        const { version } = await seedProject();
+        const node = await backend.nodes.create({ versionId: version.id });
+
+        expect((await backend.nodes.update(node.id, { completed: true })).completed).toBe(
+          true,
+        );
+        expect((await backend.nodes.update(node.id, { completed: false })).completed).toBe(
+          false,
+        );
+      });
+
+      it("el completado sobrevive a releer el árbol", async () => {
+        const { version } = await seedProject();
+        const pendingNode = await backend.nodes.create({
+          versionId: version.id,
+          content: "Pendiente",
+        });
+        const doneNode = await backend.nodes.create({
+          versionId: version.id,
+          content: "Hecho",
+          orderIndex: 1,
+        });
+        await backend.nodes.update(doneNode.id, { completed: true });
+
+        // Por `listByVersion` y no por lo que devolvió `update`: lo que
+        // importa del completado es que viaje con el Nodo, porque de eso
+        // depende que la misma Versión se vea igual en otro dispositivo.
+        const tree = await backend.nodes.listByVersion(version.id);
+
+        expect(tree.find((n) => n.id === pendingNode.id)?.completed).toBe(false);
+        expect(tree.find((n) => n.id === doneNode.id)?.completed).toBe(true);
+      });
+
+      it("clonar la Versión se lleva el completado", async () => {
+        const { version } = await seedProject();
+        const stillPending = await backend.nodes.create({
+          versionId: version.id,
+          content: "Pendiente",
+        });
+        const done = await backend.nodes.create({
+          versionId: version.id,
+          content: "Hecho",
+          orderIndex: 1,
+        });
+        await backend.nodes.update(done.id, { completed: true });
+
+        // Un snapshot de una Versión a medias tiene que verse a medias. Sin
+        // esto, clonar sería además una forma silenciosa de desmarcarlo todo —
+        // y como el clon es independiente, no habría forma de recuperarlo.
+        const clone = await backend.versions.clone(version.id);
+        const cloned = await backend.nodes.listByVersion(clone.id);
+
+        const byContent = new Map(cloned.map((n) => [n.content, n.completed]));
+        expect(byContent.get("Pendiente")).toBe(false);
+        expect(byContent.get("Hecho")).toBe(true);
+        // Y de verdad es otro Nodo, no el mismo: si esto fallara, lo de arriba
+        // estaría midiendo el árbol de origen.
+        expect(cloned.map((n) => n.id)).not.toContain(stillPending.id);
+      });
+
+      it("completar un Nodo no toca el de al lado", async () => {
+        const { version } = await seedProject();
+        const parent = await backend.nodes.create({ versionId: version.id, content: "Padre" });
+        const child = await backend.nodes.create({
+          versionId: version.id,
+          parentId: parent.id,
+          content: "Hijo",
+        });
+
+        await backend.nodes.update(parent.id, { completed: true });
+
+        // El tachado del subárbol lo decide la interfaz al pintar, no el
+        // motor al guardar: el hijo de un Nodo completado sigue guardado como
+        // pendiente, y desmarcar al padre lo devuelve entero sin recordar nada.
+        const tree = await backend.nodes.listByVersion(version.id);
+        expect(tree.find((n) => n.id === child.id)?.completed).toBe(false);
       });
 
       it("cuelga un Nodo de otro", async () => {

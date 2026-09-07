@@ -30,6 +30,21 @@ export const PAGE_CLASS = "relative z-10 flex flex-1 flex-col";
 export const BRAND_CLASS =
   "font-display text-[21px] tracking-[0.04em] lg:text-[22px]";
 
+/**
+ * Cómo se pinta un Nodo completado: gris y cruzado por una raya de UN píxel.
+ *
+ * `decoration-1` no es un capricho: por defecto el navegador saca el grosor de
+ * la raya del peso de la fuente, y en Iosevka sale lo bastante gordo como para
+ * tapar el texto en vez de cruzarlo.
+ *
+ * Vive aquí y no en una de las dos vistas porque lo pintan LAS DOS, y tiene
+ * que ser exactamente lo mismo: lo tachado es un solo conjunto se mire por
+ * donde se mire, porque es justo lo que el Análisis va a omitir. Dos copias se
+ * desincronizan en cuanto alguien toca una — el mismo criterio que el resto de
+ * este archivo.
+ */
+export const STRUCK_CLASS = "text-muted-foreground line-through decoration-1";
+
 /** Tarjeta con borde sutil que se enciende en rojo al pasar por encima. */
 export const CARD_CLASS =
   "rounded-[20px] border border-border bg-card transition-colors hover:border-primary";
