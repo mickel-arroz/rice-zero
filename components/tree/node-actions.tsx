@@ -189,7 +189,22 @@ export function NodeActions({
     // Nunca `fixed`: dentro de la columna de contenido la pastilla se centra
     // sola en escritorio, donde la sidebar se come 260 px por la izquierda. Un
     // `fixed` se centraría respecto a la ventana y quedaría descuadrado.
-    <div className={`${WRAPPER_CLASS[floating ? "floating" : "flow"]} ${className}`}>
+    <div
+      className={`${WRAPPER_CLASS[floating ? "floating" : "flow"]} ${className}`}
+      // La barra NO se lleva el foco del campo que está abierto.
+      //
+      // Desde #43 soltar el foco de un Nodo vacío lo borra, y el foco se suelta
+      // en el `mousedown` — antes del `click`. Sin esto, pulsar «Subnodo» sobre
+      // un Nodo recién creado lo borraba y acto seguido pedía colgarle un hijo,
+      // que fallaba porque el padre ya no existía. Cancelar el `mousedown` deja
+      // el foco donde está, así que la acción ocurre sobre el Nodo que se está
+      // mirando y el borrado del vacío queda para cuando de verdad se sale.
+      //
+      // Va en el envoltorio y no botón a botón porque vale para los ocho, y uno
+      // que se olvidara sería el que reintrodujera la carrera. Al teclado no le
+      // afecta: Enter y Espacio no pasan por `mousedown`.
+      onMouseDown={(event) => event.preventDefault()}
+    >
       <div
         className={`pointer-events-auto border border-border bg-card p-4 shadow-popover lg:mx-auto lg:w-fit lg:max-w-full lg:rounded-full lg:p-2.5 ${
           floating ? "rounded-3xl" : "rounded-t-3xl"

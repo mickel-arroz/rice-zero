@@ -14,6 +14,7 @@
 import { expect, test } from "@playwright/test";
 
 import {
+  campoAbierto,
   crearYAbrir,
   escribirNodo,
   esperarGuardado,
@@ -106,4 +107,40 @@ test("mover un Nodo lo re-parenta, y el destino inválido se enseña bloqueado",
   await expect(
     page.getByRole("dialog").getByText(TREE_COPY.deleteFalls(1)),
   ).toBeVisible();
+});
+
+test("un Nodo vacío no sobrevive al desenfoque, pero con hijos sí", async ({
+  page,
+}) => {
+  await crearYAbrir(page, nombreUnico("vacio"));
+
+  await primerNodo(page, "Uno");
+
+  // Un hermano nace vacío y con el campo abierto: es el diseño, no un descuido.
+  // Cerrar el campo sin escribir nada es el desenfoque que este Ticket define.
+  await page.getByRole("button", { name: TREE_COPY.actions.sibling }).click();
+  await expect(campoAbierto(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await esperarGuardado(page);
+  // Y de la base de datos, no solo de la pantalla: la recarga es lo que
+  // distingue «desapareció» de «se dejó de pintar».
+  await page.reload();
+  await expect(page.getByText(TREE_COPY.nodeCount(1))).toBeVisible();
+
+  // La otra mitad de la regla. Se le cuelga un hijo a «Uno» y se le vacía el
+  // título: borrar un Nodo arrastra su subárbol, así que aquí NO puede pasar.
+  await nodoPorTexto(page, "Uno").click();
+  await page.getByRole("button", { name: TREE_COPY.actions.child }).click();
+  await escribirNodo(page, "Dos");
+
+  await nodoPorTexto(page, "Uno").click();
+  await nodoPorTexto(page, "Uno").click();
+  await campoAbierto(page).fill("");
+  await esperarGuardado(page);
+  await page.keyboard.press("Escape");
+
+  await page.reload();
+  await expect(page.getByText(TREE_COPY.nodeCount(2))).toBeVisible();
+  await expect(nodoPorTexto(page, "Dos")).toBeVisible();
 });

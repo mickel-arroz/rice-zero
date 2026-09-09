@@ -49,3 +49,41 @@ export type NodeSavePlan =
 export function planNodeSave(draft: string, saved: string): NodeSavePlan {
   return draft === saved ? { kind: "idle" } : { kind: "save", content: draft };
 }
+
+/**
+ * Qué hacer con un Nodo cuando se cierra su campo.
+ *
+ * `keep` es lo normal: guardar lo tecleado y dejarlo donde está.
+ * `discard` borra el Nodo entero. Solo cabe cuando no queda nada que guardar.
+ */
+export type NodeBlurPlan = { kind: "keep" } | { kind: "discard" };
+
+/**
+ * ¿Sobrevive este Nodo al desenfoque?
+ *
+ * La regla es «un Nodo VACÍO no sobrevive al desenfoque», no «no se puede crear
+ * vacío»: los Nodos nacen vacíos por diseño —crear y escribir son dos gestos, y
+ * el segundo ocurre dentro— así que la limpieza tiene que ocurrir al salir y no
+ * al entrar.
+ *
+ * Y solo si no tiene hijos, que es la mitad importante y no un matiz: borrar un
+ * Nodo se lleva su subárbol por delante (`on delete cascade`), así que sin esta
+ * condición vaciar un título destruiría trabajo en silencio y sin el diálogo de
+ * confirmación que cualquier otro borrado exige.
+ *
+ * Vacío es sin texto VISIBLE: se compara con `trim`, al revés que `planNodeSave`
+ * —que guarda en crudo—, y las dos cosas son coherentes. Aquélla contesta «¿esto
+ * es un cambio?», donde un espacio lo es; ésta contesta «¿hay una idea aquí?»,
+ * donde un espacio no la hay. Un Nodo con una barra espaciadora dentro es un
+ * hueco en el árbol igual que uno sin nada.
+ *
+ * @param content lo que hay en el campo: el borrador si lo hay, si no lo guardado.
+ * @param hasChildren si algún Nodo cuelga de éste.
+ */
+export function planNodeBlur(
+  content: string,
+  hasChildren: boolean,
+): NodeBlurPlan {
+  if (hasChildren) return { kind: "keep" };
+  return content.trim().length === 0 ? { kind: "discard" } : { kind: "keep" };
+}

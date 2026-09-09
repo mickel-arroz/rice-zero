@@ -14,8 +14,10 @@ import { useDebouncedWrite } from "@/components/autosave/debounced-write";
 import { useBlocked } from "@/components/connection/connection-provider";
 import {
   NODE_TEXT_DEBOUNCE_MS,
+  planNodeBlur,
   planNodeSave,
 } from "@/components/tree/autosave";
+import { fire } from "@/components/tree/fire";
 import type { TreeNode } from "@/lib/backend/ports";
 import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
@@ -473,13 +475,71 @@ export function TreeProvider({
 
   /* ── Selección ──────────────────────────────────────────────────────── */
 
-  const select = useCallback((id: string | null) => {
-    setSelectedId(id);
-    // Cambiar de Nodo cierra el campo del anterior: el teclado del teléfono
-    // tapa la barra de acciones, así que abrirlo tiene que ser una decisión y
-    // no un efecto secundario de tocar otra fila.
-    setEditingId((current) => (current === id ? current : null));
-  }, []);
+  /**
+   * Lo que le pasa a un Nodo cuando su campo deja de estar abierto: se guarda
+   * lo tecleado, o desaparece si al salir no quedó nada dentro.
+   *
+   * Existe como función y no dentro de `stopEditing` porque el campo se cierra
+   * por DOS caminos —soltar el foco, y tocar otra fila— y la regla del Nodo
+   * vacío tiene que ser la misma por los dos. Escrita solo en uno, quitar la
+   * selección con la equis dejaría el hueco que el otro camino limpia.
+   *
+   * La DECISIÓN vive en `planNodeBlur` y no aquí: la condición de los hijos es
+   * lo que impide que vaciar un título arrastre un subárbol entero, y una regla
+   * así enterrada en un manejador de eventos no se puede comprobar. Esto es el
+   * cableado.
+   *
+   * El borrador se tira ANTES de borrar. Sin eso, `remove` —que pasa por `run`,
+   * que espera al Autoguardado pendiente— escribiría primero una cadena vacía
+   * en un Nodo que va a dejar de existir dos líneas más abajo.
+   *
+   * Sin red no se borra: `run` lanza y `fire` se traga el rechazo, así que el
+   * Nodo vacío se queda hasta que haya conexión. Es lo correcto — lo contrario
+   * sería quitarlo de la pantalla y dejarlo en la base de datos.
+   */
+  const settleEditing = useCallback(
+    (id: string | null) => {
+      if (id === null) {
+        void flushPending();
+        return;
+      }
+
+      // De los espejos y no del render: esto corre desde un `onBlur`, y el
+      // estado que ve el cierre de este callback puede ser el de antes de la
+      // última tecla — que es justo la que decide si el Nodo quedó vacío.
+      const content =
+        draftsRef.current[id] ??
+        nodesRef.current.find((node) => node.id === id)?.content ??
+        "";
+      const hasChildren = nodesRef.current.some((node) => node.parentId === id);
+
+      if (planNodeBlur(content, hasChildren).kind === "keep") {
+        void flushPending();
+        return;
+      }
+
+      const rest = { ...draftsRef.current };
+      delete rest[id];
+      draftsRef.current = rest;
+      setDrafts(rest);
+      fire(remove(id));
+    },
+    [flushPending, remove],
+  );
+
+  const select = useCallback(
+    (id: string | null) => {
+      setSelectedId(id);
+      // Cambiar de Nodo cierra el campo del anterior: el teclado del teléfono
+      // tapa la barra de acciones, así que abrirlo tiene que ser una decisión y
+      // no un efecto secundario de tocar otra fila.
+      if (editingId !== null && editingId !== id) {
+        setEditingId(null);
+        settleEditing(editingId);
+      }
+    },
+    [editingId, settleEditing],
+  );
 
   const startEditing = useCallback((id: string) => {
     setSelectedId(id);
@@ -487,7 +547,8 @@ export function TreeProvider({
   }, []);
 
   /**
-   * Cierra el campo y escribe sin esperar al rebote.
+   * Cierra el campo y escribe sin esperar al rebote. O borra el Nodo, si al
+   * salir no quedó nada dentro: ver `settleEditing`.
    *
    * Cerrar el campo es lo que hace una persona ANTES de tocar cualquier otra
    * cosa —otra fila, un botón de la barra, el navegador—, así que ahí el medio
@@ -496,8 +557,8 @@ export function TreeProvider({
    */
   const stopEditing = useCallback(() => {
     setEditingId(null);
-    void flushPending();
-  }, [flushPending]);
+    settleEditing(editingId);
+  }, [editingId, settleEditing]);
 
   const rows = useMemo(() => treeRows(state.nodes), [state.nodes]);
 
