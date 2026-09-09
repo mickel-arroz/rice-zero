@@ -5,20 +5,30 @@
  * lo dibuja esta vista: sus rellenos, su tipografía y cuántas líneas enseña
  * antes de recortar. `layoutForest` no sabe nada de esto — le llega ya medido.
  *
+ * ── Ancho fijo, alto variable ─────────────────────────────────────────────
+ *
+ * El ancho NO cambia y el alto sí. El layout automático necesita una dimensión
+ * estable para repartir el espacio, y además un árbol de cajas de anchos
+ * dispares se lee como un collage: la columna deja de existir. Creciendo hacia
+ * abajo, en cambio, el diagrama sigue siendo legible con textos largos, que es
+ * lo que #48 pide.
+ *
  * ── Por qué se estima en vez de medirse ───────────────────────────────────
  *
  * Colocar el árbol necesita saber lo que mide cada Nodo ANTES de pintarlo, y
  * medir de verdad querría decir pintar, medir y volver a colocar: dos pasadas
  * y un parpadeo en cada tecla. Aquí se estima con el número de caracteres
  * —Iosevka es de ancho fijo, así que la cuenta es honesta— y el Nodo se pinta
- * con EXACTAMENTE el alto estimado, recortando con puntos suspensivos si el
- * texto se pasa. Así la estimación no puede quedarse corta: es el dibujo el
- * que obedece a la cuenta, y no al revés.
+ * con EXACTAMENTE el alto estimado.
  *
- * `charsPerLine` va por debajo de lo que cabría —caben unos 27— porque el
- * texto rompe por PALABRAS: una palabra que no entra se lleva la línea entera.
- * Quedarse corto sobra un poco de aire; pasarse recortaría una idea a media
- * frase.
+ * Eso convierte a `charsPerLine` en lo único que sostiene el dibujo, y por eso
+ * va por DEBAJO de lo que de verdad cabe —caben unos 27—: el texto rompe por
+ * PALABRAS, así que una palabra que no entra se lleva la línea entera.
+ * Quedarse corto sobra un poco de aire al final de la caja; pasarse dejaría al
+ * Nodo desbordando por abajo sobre su hermano. Antes había una red de
+ * seguridad —el recorte con puntos suspensivos a `maxLines`— y era justamente
+ * lo que #48 quita: leer un Nodo en el Canvas ya no exige abrirlo. La cuenta
+ * tiene ahora que ser conservadora por sí sola.
  */
 
 import type { NodeSize } from "@/lib/tree/layout";
@@ -43,12 +53,14 @@ export const CANVAS_NODE = {
   /** Lo que suman los rellenos de arriba y abajo. */
   padding: 22,
   charsPerLine: 24,
-  /** A partir de aquí se recorta: el Nodo entero se lee en la Vista Registro. */
-  maxLines: 3,
 } as const;
 
 /**
- * Cuántas líneas ocupa un texto.
+ * Cuántas líneas ocupa un texto. Todas las que haga falta: no hay tope.
+ *
+ * Lo hubo —tres, y a partir de ahí puntos suspensivos— y era lo que obligaba a
+ * abrir un Nodo para saber qué decía. Sin tope, el Nodo crece hacia abajo y el
+ * texto se lee entero desde el diagrama.
  *
  * Un Nodo sin texto ocupa una: enseña el marcador «Escribe tu idea…», que
  * también hay que poder leer.
@@ -59,15 +71,13 @@ export function nodeLines(text: string): number {
 
   // Los saltos de línea cuentan: el campo del Registro es un `textarea` y una
   // idea escrita en tres renglones ocupa tres.
-  const wrapped = content
+  return content
     .split("\n")
     .reduce(
       (total, line) =>
         total + Math.max(1, Math.ceil(line.length / CANVAS_NODE.charsPerLine)),
       0,
     );
-
-  return Math.min(wrapped, CANVAS_NODE.maxLines);
 }
 
 /** Lo que mide un Nodo con ese texto. */

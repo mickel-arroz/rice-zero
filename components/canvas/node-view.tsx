@@ -58,7 +58,13 @@ export type CanvasNodeData = {
   nodeId: string;
   /** El texto que se enseña: el borrador si lo hay, si no lo guardado. */
   text: string;
-  /** Las líneas que ocupa. El texto se recorta justo ahí. */
+  /**
+   * Las líneas que ocupa, ya contadas por `nodeLines`.
+   *
+   * Desde #48 nadie las usa para RECORTAR —el texto se ve entero— pero siguen
+   * viajando porque son con las que se midió la caja: es el número que hay que
+   * mirar el día que un Nodo desborde por abajo.
+   */
   lines: number;
   isRoot: boolean;
   hasChildren: boolean;
@@ -143,8 +149,10 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
   // Al abrir el campo, el cursor va al final y no al principio: se entra a
   // seguir escribiendo mucho más a menudo que a corregir la primera palabra.
   // Mismo criterio que `NodeRow`; lo que aquí NO se hace es estirar la caja
-  // con el texto, porque el alto lo fija el layout y estirarla la sacaría de
-  // su sitio. Ver el recorte a `maxLines` de `geometry.ts`.
+  // con el texto, porque el alto lo fija el layout: la caja ya viene medida
+  // para TODAS las líneas del texto (`nodeSize`), y estirarla por su cuenta la
+  // sacaría de su sitio. Crece cuando el bosque se vuelve a colocar, que es en
+  // cuanto cambia el borrador.
   useEffect(() => {
     if (!editing) return;
     const el = area.current;
@@ -179,9 +187,10 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
       {editing ? (
         // `nodrag` y `nopan`: sin ellos, seleccionar texto con el ratón
         // arrastraría el Nodo o el lienzo entero. `nowheel` deja que la rueda
-        // recorra el campo en vez de acercar el diagrama — hace falta porque
-        // la caja está recortada a `maxLines` y un texto más largo se lee
-        // dentro, desplazándolo.
+        // recorra el campo en vez de acercar el diagrama — sigue haciendo
+        // falta aunque desde #48 la caja mida el texto entero: mientras se
+        // teclea, entre la tecla y el recolocado hay un instante en que el
+        // texto es más largo que la caja.
         <textarea
           ref={area}
           value={data.text}
@@ -230,19 +239,20 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
           )}`}
           style={{ paddingBlock: CANVAS_NODE.padding / 2 }}
         >
-          {/* El recorte usa EXACTAMENTE las líneas con las que se colocó el
-              Nodo: si dibujara una más, se saldría de su caja y se comería a
-              su hermano de abajo. Ver `components/canvas/geometry.ts`. */}
+          {/* Sin recorte: el texto se envuelve y se lee entero. La caja ya se
+              colocó con el alto de TODAS sus líneas, así que envolver no la
+              desborda — lo que la sostiene es que `charsPerLine` cuente por
+              debajo de lo que cabe. Ver `components/canvas/geometry.ts`.
+
+              `whitespace-pre-wrap` para que los saltos que alguien escribió
+              dentro del Nodo se vean donde los puso: el alto ya los contó, y
+              sin esto el texto se recolocaría en menos líneas de las que se
+              pagaron. */}
           <span
-            className={`overflow-hidden text-[13px] break-words ${
+            className={`block text-[13px] break-words whitespace-pre-wrap ${
               data.struck ? STRUCK_CLASS : empty ? "text-muted-foreground" : ""
             }`}
-            style={{
-              display: "-webkit-box",
-              WebkitBoxOrient: "vertical",
-              WebkitLineClamp: data.lines,
-              lineHeight: `${CANVAS_NODE.lineHeight}px`,
-            }}
+            style={{ lineHeight: `${CANVAS_NODE.lineHeight}px` }}
           >
             {empty ? TREE_COPY.nodePlaceholder : data.text}
           </span>

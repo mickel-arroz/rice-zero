@@ -25,12 +25,18 @@ describe("nodeLines", () => {
     expect(nodeLines("x".repeat(CANVAS_NODE.charsPerLine + 1))).toBe(2);
   });
 
-  it("nunca pasa del máximo: se recorta, no se crece sin fin", () => {
-    // El Nodo entero se lee en la Vista Registro. Aquí una caja que creciera
-    // con el texto convertiría un párrafo en un muro que tapa a sus hermanos.
-    expect(nodeLines("x".repeat(CANVAS_NODE.charsPerLine * 20))).toBe(
-      CANVAS_NODE.maxLines,
-    );
+  it("no hay tope: un texto largo ocupa todas las líneas que necesita", () => {
+    // Lo hubo —tres, y a partir de ahí puntos suspensivos— y era lo que
+    // obligaba a abrir un Nodo para saber qué decía (#48).
+    expect(nodeLines("x".repeat(CANVAS_NODE.charsPerLine * 20))).toBe(20);
+  });
+
+  it("la estimación se queda CORTA de caracteres, nunca larga", () => {
+    // Es lo único que sostiene el dibujo desde que no hay recorte: si la
+    // cuenta se pasara, el texto desbordaría la caja por abajo y taparía al
+    // hermano de al lado. Una línea de justo `charsPerLine` sigue siendo una.
+    expect(nodeLines("x".repeat(CANVAS_NODE.charsPerLine))).toBe(1);
+    expect(nodeLines("x".repeat(CANVAS_NODE.charsPerLine + 1))).toBe(2);
   });
 
   it("cada salto de línea cuenta como una línea", () => {
@@ -46,12 +52,12 @@ describe("nodeSize", () => {
     });
   });
 
-  it("el alto tiene tope, igual que las líneas", () => {
+  it("el alto crece con el texto, y el ancho no se mueve", () => {
     const tall = nodeSize("x".repeat(CANVAS_NODE.charsPerLine * 20));
 
-    expect(tall.height).toBe(
-      CANVAS_NODE.padding + CANVAS_NODE.maxLines * CANVAS_NODE.lineHeight,
-    );
+    expect(tall.height).toBe(CANVAS_NODE.padding + 20 * CANVAS_NODE.lineHeight);
+    // La dimensión estable que el layout automático necesita para colocar.
+    expect(tall.width).toBe(CANVAS_NODE.width);
   });
 });
 
