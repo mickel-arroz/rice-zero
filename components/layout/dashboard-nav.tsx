@@ -247,7 +247,19 @@ export function DashboardNav({
 
       {/* ── Columna de contenido, con la cabecera móvil encima ──────── */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center justify-between border-b border-border bg-background px-6 py-4 lg:hidden">
+        {/* `sticky` y no `fixed`, por lo mismo que la franja de conexión: en
+            flujo ocupa su alto y empuja al contenido, así que no puede tapar el
+            primer elemento. `fixed` habría exigido un relleno de compensación
+            calculado a mano, y ese número se desincroniza el día que la barra
+            cambie de alto.
+
+            `z-30`: por encima de la tarjeta y de lo que flote dentro de ella,
+            y por debajo del `z-50` de la franja de conexión — que cuando
+            aparece manda, porque dice que no hay red.
+
+            Solo en móvil: por encima de `lg` esta cabecera no existe, y la
+            navegación fija es la columna de la izquierda. */}
+        <header className="sticky top-0 z-30 flex shrink-0 items-center justify-between border-b border-border bg-background px-6 py-4 lg:hidden">
           <Link href={ROUTES.projects} className={BRAND_CLASS}>
             {APP_NAME}
           </Link>
