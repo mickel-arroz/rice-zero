@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 
 import { AnalysisHistory } from "@/components/analysis/analysis-history";
 import { AnalysisResult } from "@/components/analysis/analysis-result";
@@ -15,12 +16,10 @@ import { useWide } from "@/components/analysis/use-wide";
 import { useBlocked } from "@/components/connection/connection-provider";
 import { AnalysesIcon } from "@/components/icons/analyses-icon";
 import { ChevronLeftIcon } from "@/components/icons/chevron-left-icon";
-import { CloseIcon } from "@/components/icons/close-icon";
 import { HistoryIcon } from "@/components/icons/history-icon";
 import {
   CTA_PRIMARY_CLASS,
   CTA_SECONDARY_CLASS,
-  ICON_BUTTON_CLASS,
   LABEL_CLASS,
   PILL_CLASS,
   PILL_PRIMARY_CLASS,
@@ -60,96 +59,42 @@ import {
  * del fuente—, así que lo pasa por una variable CSS. Ver `DOCKED_ROOM_CLASS`
  * allí. Cambiarlo aquí basta; no hay segundo sitio que actualizar.
  */
-export const DOCKED_WIDTH = 440;
-
 export function AnalysisLayer() {
-  const { open, closePanel } = useAnalysis();
   const wide = useWide();
 
-  // El teclado del teléfono, la tecla de escape y el botón de atrás son las
-  // tres formas de «quitar esto de delante» en un móvil. La primera no aplica,
-  // la tercera es del navegador, y ésta es la que falta.
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-
-      // Con un diálogo delante, Escape es SUYO. Los dos escuchan en
-      // `document`, así que sin esto una sola pulsación disparaba los dos:
-      // cancelaba el borrado y además cerraba el Panel de IA entero, dejando a
-      // quien solo quería echarse atrás mirando el árbol.
-      //
-      // Se mira el DOM y no un estado compartido porque el diálogo puede
-      // nacer de cualquier sitio de dentro del panel —hoy el Historial, mañana
-      // otro— y un contador de diálogos abiertos obligaría a que todos se
-      // acordaran de apuntarse. `aria-modal` ya lo declara quien lo abre.
-      // Y no sirve `stopPropagation`: dos escuchas del mismo nodo no se
-      // detienen entre sí, las ordena quien se registró antes.
-      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-
-      closePanel();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, closePanel]);
-
-  // Acoplado: una columna fija pegada al borde derecho, a toda altura. La
-  // pantalla del árbol le hace sitio con su propio relleno — ver `TreeScreen`.
-  // El aviso va abajo a la izquierda, fuera de la columna del panel.
-  if (wide) {
-    return (
-      <>
-        {open ? (
-          <aside
-            aria-label={ANALYSIS_COPY.label}
-            style={{ width: DOCKED_WIDTH }}
-            className="fixed inset-y-0 right-0 z-40 flex flex-col border-l border-border bg-card"
-          >
-            <PanelBody />
-          </aside>
-        ) : null}
-        <AnalysisToast className="fixed bottom-6 left-6 z-50 max-w-[420px]" />
-      </>
-    );
-  }
-
-  // En móvil, aviso y hoja se APILAN por abajo, que es donde los pone el
-  // boceto: el aviso flota justo encima del borde superior de la hoja. Una pila
-  // y no dos capas fijas independientes porque la hoja crece con su contenido,
-  // así que «encima de la hoja» no es un número que se pueda escribir a mano.
+  // Es lo único que queda de la capa: el aviso de que una generación FALLÓ. El
+  // panel se fue a su propia pantalla en #52, y esto se quedó porque hace lo
+  // contrario que él — existe justo para cuando NO se está mirando el Análisis,
+  // que es lo que pasa mientras se sigue escribiendo el árbol.
   //
-  // La pila no intercepta el dedo (`pointer-events-none`); sus hijos sí. Sin
-  // eso, un contenedor a todo lo ancho del pie se comería los toques del árbol
-  // aunque estuviera vacío — y el árbol tiene que seguir siendo tocable, que es
-  // el criterio entero de este ticket.
-  return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex flex-col justify-end">
-      <AnalysisToast className="pointer-events-auto mx-4 mb-3" />
-      {open ? (
-        <aside
-          aria-label={ANALYSIS_COPY.label}
-          className="pointer-events-auto flex max-h-[85svh] flex-col rounded-t-[24px] border-t border-border bg-card shadow-popover"
-        >
-          <span
-            aria-hidden="true"
-            className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border"
-          />
-          <PanelBody />
-        </aside>
-      ) : null}
-    </div>
+  // Que TERMINÓ bien no lo cuenta esto: lo cuenta la puerta de la cabecera,
+  // encendida. Un cartel de éxito interrumpiría la edición que la generación no
+  // bloqueante promete no interrumpir; un fallo sí hay que decirlo, porque si
+  // no la puerta se queda en «Analizar» sin explicar por qué.
+  //
+  // Sigue en una capa fija y no en el flujo por el mismo motivo de siempre: no
+  // puede empujar al árbol ni robarle el dedo. En escritorio va abajo a la
+  // izquierda; en el teléfono, pegado al pie, que es donde lo pone el boceto.
+  return wide ? (
+    <AnalysisToast className="fixed bottom-6 left-6 z-50 max-w-[420px]" />
+  ) : (
+    <AnalysisToast className="fixed inset-x-4 bottom-3 z-40" />
   );
 }
 
 /**
- * Lo de dentro, igual en los dos formatos.
+ * Lo de dentro de la pantalla del Análisis: cabecera anclada, contenido que se
+ * desplaza y pie con las Directrices.
  *
- * Cabecera y pie anclados, y solo el medio se desplaza: el pie lleva las
- * Directrices, que es la palanca a la que apunta «Corregir con Directrices»
+ * Vivía dentro de la capa y se quedó aquí al mudarse el Análisis a su propia
+ * ruta (#52). Lo que sigue valiendo es por qué está partido así: el pie lleva
+ * las Directrices, que es la palanca a la que apunta «Corregir con Directrices»
  * desde arriba del Análisis. Si se fuera con el desplazamiento, esa corrección
  * quedaría a varias pantallas del sitio donde se descubre que hace falta.
+ *
+ * @param backHref a dónde sube el botón de la esquina: el Proyecto.
  */
-function PanelBody() {
+export function AnalysisPanelBody({ backHref }: { backHref: string }) {
   const { view, status } = useAnalysis();
   // El pie desaparece con la lista delante: «Regenerar» sobre un Historial es
   // una acción sobre la Versión y no sobre lo que se está mirando, y ofrecerla
@@ -164,7 +109,7 @@ function PanelBody() {
 
   return (
     <>
-      <PanelHeader />
+      <PanelHeader backHref={backHref} />
       <div className="flex-1 overflow-y-auto px-6 pb-6">
         <PanelContent />
       </div>
@@ -194,8 +139,8 @@ function PanelBody() {
  * que seguir siendo la Intención, y una barra de acciones por delante la
  * empujaría fuera de la vista.
  */
-function PanelHeader() {
-  const { analysis, closePanel, view, analyses, now, openHistory, closeHistory } =
+function PanelHeader({ backHref }: { backHref: string }) {
+  const { analysis, view, analyses, now, openHistory, closeHistory } =
     useAnalysis();
   const history = view === "history";
   const when = analysis ? analysisWhen(analysis, now) : null;
@@ -250,14 +195,18 @@ function PanelHeader() {
             </button>
           ) : null}
 
-          <button
-            type="button"
-            onClick={closePanel}
-            aria-label={ANALYSIS_COPY.closePanel}
-            className={ICON_BUTTON_CLASS}
+          {/* Esto no CIERRA nada: SUBE al Proyecto. Una equis prometería volver
+              a un sitio que ya no existe —el árbol con el panel encima— y
+              dependería del botón de atrás del navegador para acertar, que es
+              justo lo que este ticket quita de en medio. */}
+          <Link
+            href={backHref}
+            aria-label={ANALYSIS_COPY.backToTree}
+            className={`${PILL_CLASS} border-border text-muted-foreground`}
           >
-            <CloseIcon width={18} height={18} />
-          </button>
+            <ChevronLeftIcon width={14} height={14} />
+            {ANALYSIS_COPY.backToTreeLabel}
+          </Link>
         </div>
       </div>
 

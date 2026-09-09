@@ -1,15 +1,19 @@
 "use client";
 
+import Link from "next/link";
+import { useParams } from "next/navigation";
+
 import { useAnalysis } from "@/components/analysis/analysis-provider";
 import { AnalysesIcon } from "@/components/icons/analyses-icon";
-import { ANALYSIS_COPY } from "@/lib/constants";
+import { ANALYSIS_COPY, ROUTES } from "@/lib/constants";
 
 /**
- * La puerta del Panel de IA, en la cabecera del árbol.
+ * La puerta del Análisis, en la cabecera del árbol.
  *
- * Es el botón que abre la hoja Y el único indicador de la IA cuando la hoja no
- * está delante — que es lo que pasa siempre que alguien cierra el panel para
- * seguir escribiendo, o sea, el caso que este ticket existe para permitir. Sin
+ * Es el enlace que LLEVA a su pantalla —un enlace y no un botón desde #52: va a
+ * otra ruta, así que se puede abrir en otra pestaña y copiar— y a la vez el
+ * único indicador de la IA mientras se está en el árbol. Que es casi siempre:
+ * el caso entero de «editar mientras genera» es estar aquí y no allí. Sin
  * esto, una generación de cuarenta segundos sería invisible y su resultado
  * llegaría sin que nadie se entere.
  *
@@ -20,14 +24,17 @@ import { ANALYSIS_COPY } from "@/lib/constants";
  * cabecera ya cuenta el Autoguardado — un estado en su sitio, nunca encima.
  */
 export function AnalyzeButton() {
-  const { door, open, openPanel, closePanel } = useAnalysis();
+  const { door } = useAnalysis();
+  // De la URL y no de una prop: esto vive dentro de la cabecera del árbol, que
+  // ya recibe el Proyecto, pero la Versión no llega hasta aquí — y hacerla
+  // bajar tres componentes para construir un enlace es más frágil que leerla
+  // de donde ya está escrita.
+  const params = useParams<{ projectId: string; versionId: string }>();
 
   return (
-    <button
-      type="button"
-      onClick={open ? closePanel : openPanel}
-      aria-expanded={open}
-      aria-label={open ? ANALYSIS_COPY.closePanel : ANALYSIS_COPY.openPanel}
+    <Link
+      href={ROUTES.analysis(params.projectId, params.versionId)}
+      aria-label={ANALYSIS_COPY.openPanel}
       // Relleno siempre, en los tres estados. Es la acción principal de la
       // cabecera —lo que se ha venido a hacer después de escribir el árbol— y
       // de contorno competía en peso con el interruptor de vista, que solo
@@ -45,6 +52,6 @@ export function AnalyzeButton() {
         <AnalysesIcon width={16} height={16} />
       )}
       {ANALYSIS_COPY.door[door]}
-    </button>
+    </Link>
   );
 }

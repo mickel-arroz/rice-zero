@@ -53,6 +53,16 @@ export const ROUTES = {
   version: (projectId: string, versionId: string) =>
     `/projects/${projectId}/${versionId}`,
   /**
+   * El Análisis de una Versión, en su propia pantalla (#52).
+   *
+   * Anidada BAJO la Versión y no colgando del Proyecto: un Análisis pertenece a
+   * una Versión —es lo que la define en el glosario— y que eso se vea en la
+   * dirección es lo que convierte la vuelta en navegación hacia arriba en vez
+   * de un «atrás» del navegador.
+   */
+  analysis: (projectId: string, versionId: string) =>
+    `/projects/${projectId}/${versionId}/analisis`,
+  /**
    * Donde se monta el handler de auth del Proveedor de Backend activo. Lo nombra
    * el backend, no la app: la ruta existe porque el proveedor la necesita.
    */
@@ -821,6 +831,16 @@ export const ANALYSIS_COPY = {
     listo: "Análisis listo",
   },
   openPanel: "Abrir el Panel de IA",
+  /**
+   * La vuelta al Proyecto desde la pantalla del Análisis.
+   *
+   * Dice «Proyecto» y no «Atrás» a propósito: es navegación hacia ARRIBA, no
+   * deshacer un paso. Quien llegó aquí desde el Historial de otro sitio, o con
+   * un enlace pegado, sube igual — que es justo lo que el botón de atrás del
+   * navegador no garantiza.
+   */
+  backToTree: "Volver al Proyecto",
+  backToTreeLabel: "Proyecto",
   closePanel: "Cerrar el Panel de IA",
 
   /* ── Antes de generar ─────────────────────────────────────────────────── */

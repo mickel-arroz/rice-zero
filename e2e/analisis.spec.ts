@@ -58,7 +58,19 @@ async function arbolAnalizable(page: Page): Promise<void> {
   await escribirNodo(page, "Cambiar el idioma");
 }
 
-/** Abre el Panel de IA sobre el árbol que ya está en pantalla. */
+/**
+ * Va a la pantalla del Análisis desde el árbol.
+ *
+ * Un ENLACE y no un botón desde #52: el Análisis tiene ruta propia, así que la
+ * puerta de la cabecera navega. Se espera a la URL y no solo al clic — sin eso
+ * las aserciones de después correrían sobre la pantalla de la que se sale.
+ */
+async function abrirAnalisis(page: Page): Promise<void> {
+  await page.getByRole("link", { name: ANALYSIS_COPY.openPanel }).click();
+  await page.waitForURL(/\/analisis$/);
+}
+
+/** La pantalla del Análisis, por su nombre accesible. */
 function abrirPanel(page: Page): Locator {
   return page.getByLabel(ANALYSIS_COPY.label, { exact: true });
 }
@@ -88,7 +100,7 @@ async function generar(
 test("generar un Análisis, leerlo y exportar el Master Prompt", async ({ page }) => {
   await arbolAnalizable(page);
 
-  await page.getByRole("button", { name: ANALYSIS_COPY.openPanel }).click();
+  await abrirAnalisis(page);
   const panel = abrirPanel(page);
   await expect(panel).toBeVisible();
 
@@ -144,7 +156,7 @@ test("generar un Análisis, leerlo y exportar el Master Prompt", async ({ page }
 test("el Ticket Prompt se exporta suelto, con su propio contexto", async ({ page }) => {
   await arbolAnalizable(page);
 
-  await page.getByRole("button", { name: ANALYSIS_COPY.openPanel }).click();
+  await abrirAnalisis(page);
   const panel = abrirPanel(page);
   await generar(panel, ANALYSIS_COPY.generate, DIRECTRICES);
 
@@ -166,7 +178,7 @@ test("el Ticket Prompt se exporta suelto, con su propio contexto", async ({ page
 test("el Historial guarda los dos, y el vigente es el nuevo", async ({ page }) => {
   await arbolAnalizable(page);
 
-  await page.getByRole("button", { name: ANALYSIS_COPY.openPanel }).click();
+  await abrirAnalisis(page);
   const panel = abrirPanel(page);
 
   // Primero: sin Directrices. El falso deduce del ÁRBOL, y ahí la palabra
@@ -196,7 +208,7 @@ test("el Historial guarda los dos, y el vigente es el nuevo", async ({ page }) =
 
   // Y sobrevive a una recarga: el Historial vive en el motor, no en memoria.
   await page.reload();
-  await page.getByRole("button", { name: ANALYSIS_COPY.openPanel }).click();
+  await abrirAnalisis(page);
   await expect(
     page.getByRole("button", { name: ANALYSIS_COPY.historyOpen(2) }),
   ).toBeVisible();
