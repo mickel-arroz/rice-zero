@@ -35,6 +35,10 @@ import { inheritedStrike, type TreeRow } from "@/lib/tree/rows";
  * En escritorio la MISMA barra se vuelve una pastilla flotante centrada. Un
  * solo mecanismo en los dos formatos y en las dos vistas.
  *
+ * La barra es SOLO iconos. El texto de apoyo bajo cada uno competía con el
+ * contenido —ocho etiquetas en versalitas debajo del árbol— y se fue al nombre
+ * accesible, que es donde sigue haciendo falta. Ver `BUTTON_CLASS`.
+ *
  * Lo que la barra NO hace es decir sobre qué Nodo actúa. Enseñaba su texto y
  * cuántos subnodos caían con él, y se quitó a propósito: en el Canvas el Nodo
  * seleccionado ya se ve —lo marca su propio borde—, así que repetir su texto
@@ -74,12 +78,18 @@ const WRAPPER_CLASS = {
     "pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 lg:p-4",
 } as const;
 
-/** El botón de la barra: cuadrado con etiqueta debajo, pastilla en escritorio. */
+/**
+ * El botón de la barra: solo el icono. Cuadrado de 56 en el teléfono, pastilla
+ * de 40 en escritorio.
+ *
+ * Sin etiqueta VISIBLE, pero nunca sin nombre: cada botón lleva `aria-label`, y
+ * en escritorio también `title` para quien pasa el ratón. Quitar el texto sin
+ * dejar nombre accesible no limpia la barra —la rompe para quien navega con
+ * lector de pantalla, y una barra de ocho iconos sin nombre es ocho veces
+ * «botón»—. Por eso la etiqueta no se borró: se movió de la pantalla al nombre.
+ */
 const BUTTON_CLASS =
-  "flex h-14 flex-col items-center justify-center gap-1.5 rounded-2xl border border-border transition-colors disabled:opacity-35 lg:h-10 lg:flex-row lg:gap-2 lg:rounded-full lg:px-3";
-
-const BUTTON_LABEL_CLASS =
-  "text-[10px] tracking-[0.08em] uppercase lg:text-xs lg:tracking-normal lg:normal-case";
+  "flex h-14 items-center justify-center rounded-2xl border border-border transition-colors disabled:opacity-35 lg:h-10 lg:rounded-full lg:px-3";
 
 export function NodeActions({
   row,
@@ -206,13 +216,13 @@ export function NodeActions({
               // Solo cuando el motivo es la red. «No hay a dónde subir» ya se
               // entiende del sitio del Nodo, y repetirlo en un `title` sería
               // ruido en las seis veces de cada siete que no hace falta.
-              title={blocked ? CONNECTION_COPY.blocked : undefined}
+              title={blocked ? CONNECTION_COPY.blocked : action.label}
+              aria-label={action.label}
               className={`${BUTTON_CLASS} ${action.danger ? "text-primary" : ""} ${
                 off ? "" : "hover:border-primary hover:text-primary"
               }`}
             >
               <action.icon width={18} height={18} />
-              <span className={BUTTON_LABEL_CLASS}>{action.label}</span>
             </button>
             );
           })}
@@ -232,10 +242,10 @@ export function NodeActions({
             type="button"
             onClick={() => tree.select(null)}
             aria-label={TREE_COPY.deselectHint}
+            title={TREE_COPY.actions.deselect}
             className={`${BUTTON_CLASS} text-muted-foreground hover:border-primary hover:text-primary`}
           >
             <CloseIcon width={18} height={18} />
-            <span className={BUTTON_LABEL_CLASS}>{TREE_COPY.actions.deselect}</span>
           </button>
         </div>
       </div>
