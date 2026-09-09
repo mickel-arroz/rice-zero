@@ -668,6 +668,30 @@ export const TREE_COPY = {
     deselect: "Quitar",
   },
 
+  /**
+   * La Búsqueda dentro de la Versión.
+   *
+   * Su copia vive con la del árbol y no en un objeto propio porque no es otra
+   * pantalla: es el mismo árbol, filtrado. La Búsqueda GLOBAL sí tiene el suyo
+   * —`SEARCH_COPY`— porque es otra función, con otro precio y otra pantalla.
+   */
+  searchLabel: "Buscar en esta Versión",
+  searchPlaceholder: "Buscar un Nodo…",
+  searchClear: "Limpiar la Búsqueda",
+  /** Cuántos de cuántos, al final del campo. */
+  searchCount: (found: number, total: number) => `${found} de ${total}`,
+  searchEmpty: "Ningún Nodo de esta Versión dice eso.",
+  /**
+   * Por qué esto no tarda.
+   *
+   * Se dice en pantalla y no solo en el código: es la diferencia visible con la
+   * Búsqueda global, que sí espera. Sin la frase, que una no tenga indicador de
+   * carga y la otra sí se lee como un descuido.
+   */
+  searchLocal: "El árbol ya está cargado: esto filtra en memoria, sin ninguna petición.",
+  /** Un Nodo sin texto, en la lista de resultados. */
+  searchUntitled: "Sin texto",
+
   moveLabel: "Mover",
   moveLead: "Elige su nuevo padre. Se colocará el último de sus hermanos nuevos.",
   moveRoot: "Sin padre — dejarlo como raíz",

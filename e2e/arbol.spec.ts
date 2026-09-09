@@ -144,3 +144,38 @@ test("un Nodo vacío no sobrevive al desenfoque, pero con hijos sí", async ({
   await expect(page.getByText(TREE_COPY.nodeCount(2))).toBeVisible();
   await expect(nodoPorTexto(page, "Dos")).toBeVisible();
 });
+
+test("la Búsqueda dentro de la Versión filtra sin pedir nada a la red", async ({
+  page,
+}) => {
+  await crearYAbrir(page, nombreUnico("buscar"));
+
+  await primerNodo(page, "Mapa de teclado");
+  await page.getByRole("button", { name: TREE_COPY.actions.sibling }).click();
+  await escribirNodo(page, "Pasarela de pago");
+
+  // El contador de peticiones se instala DESPUÉS de que el árbol esté cargado y
+  // guardado: lo que se afirma es que TECLEAR no pide nada, no que la pantalla
+  // no haya pedido nunca nada.
+  const peticiones: string[] = [];
+  page.on("request", (request) => peticiones.push(request.url()));
+
+  const campo = page.getByLabel(TREE_COPY.searchLabel);
+  await campo.fill("teclado");
+
+  // El resultado aparece y el otro Nodo desaparece de la lista.
+  await expect(page.getByText("Mapa de teclado").first()).toBeVisible();
+  await expect(nodoPorTexto(page, "Pasarela de pago")).toBeHidden();
+
+  // La afirmación del Ticket: ni una petición. Se comprueba después de ver el
+  // resultado, así que no es una carrera — el filtro ya ocurrió.
+  expect(peticiones).toEqual([]);
+
+  // Y sin indicador de carga: no hay nada que esperar.
+  await expect(page.getByText(TREE_COPY.loading)).toBeHidden();
+
+  // Pulsar un resultado lleva al Nodo con la Búsqueda ya limpia.
+  await page.getByText("Mapa de teclado").first().click();
+  await expect(campo).toHaveValue("");
+  await expect(nodoPorTexto(page, "Pasarela de pago")).toBeVisible();
+});

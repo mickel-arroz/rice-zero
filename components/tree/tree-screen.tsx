@@ -7,6 +7,7 @@ import { useAnalysisOpen } from "@/components/analysis/analysis-provider";
 import { CanvasView } from "@/components/canvas/canvas-view";
 import { RegistroView } from "@/components/registro/registro-view";
 import { NodeDialogs } from "@/components/tree/node-dialogs";
+import { TreeSearch, TreeSearchResults } from "@/components/tree/tree-search";
 import { NodeToolbar } from "@/components/tree/node-toolbar";
 import { TreeHeader } from "@/components/tree/tree-header";
 import { TREE_VIEWS, type TreeView } from "@/lib/constants";
@@ -15,6 +16,7 @@ import {
   cookieValue,
   treeViewCookieAssignment,
 } from "@/lib/shell/tree-view";
+import { isSearching } from "@/lib/tree/search";
 
 /**
  * Lo que esta pantalla se aparta cuando el panel de Análisis está acoplado.
@@ -77,7 +79,20 @@ export function TreeScreen({
 }) {
   const [view, setView] = useState<TreeView>(initialView);
   const [fullscreen, setFullscreen] = useState(false);
+  /**
+   * Lo que hay escrito en la Búsqueda.
+   *
+   * Estado de la PANTALLA y no del provider: filtrar no cambia el árbol, solo
+   * qué parte de él se está mirando, y guardarlo con los datos habría hecho que
+   * el Canvas heredara un filtro que no pinta.
+   *
+   * No va en la URL. La Búsqueda dentro de la Versión es un gesto de un
+   * momento —se escribe, se pulsa el resultado y se limpia sola—, y ponerla en
+   * la dirección llenaría el historial del navegador de una entrada por letra.
+   */
+  const [query, setQuery] = useState("");
   const canvas = view === TREE_VIEWS.canvas;
+  const searching = isSearching(query);
   // Solo para hacerle sitio al panel acoplado. El panel se pinta ÉL solo, en
   // una capa fija; esta pantalla no lo posiciona, únicamente se aparta.
   //
@@ -176,8 +191,19 @@ export function TreeScreen({
             <TreeHeader projectId={projectId} view={view} onView={changeView} />
           )}
 
-          <div className={`flex min-h-0 flex-1 flex-col ${fullscreen ? "" : "mt-5"}`}>
-            {canvas ? (
+          <div className={`flex min-h-0 flex-1 flex-col gap-3.5 ${fullscreen ? "" : "mt-5"}`}>
+            {/* A pantalla completa no hay Búsqueda: ahí el lienzo ES la
+                pantalla, y el campo tendría que flotar sobre él. */}
+            {fullscreen ? null : <TreeSearch query={query} onQuery={setQuery} />}
+
+            {searching ? (
+              // Los resultados REEMPLAZAN a la vista, no se ponen al lado: en
+              // el teléfono no hay ancho para dos columnas, y en escritorio un
+              // panel obligaría a decidir cuál de los dos manda cuando se pulsa
+              // un resultado. Se pulsa, se limpia y se vuelve al árbol con el
+              // Nodo ya señalado.
+              <TreeSearchResults query={query} onQuery={setQuery} />
+            ) : canvas ? (
               <CanvasView fullscreen={fullscreen} onFullscreen={toggleFullscreen} />
             ) : (
               <RegistroView />
@@ -189,7 +215,7 @@ export function TreeScreen({
             lienzo para que flote encima en vez de encogerlo. Aquí queda la del
             Registro, que sí va en flujo: la lista se desplaza y su última fila
             tiene que poder subir por encima de la barra. */}
-        {canvas ? null : <NodeToolbar />}
+        {canvas || searching ? null : <NodeToolbar />}
       </NodeDialogs>
 
       {/* Va al final y fuera de la columna: es una capa, no contenido. Lleva
