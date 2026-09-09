@@ -12,6 +12,12 @@ import { nodeService } from "@/lib/services/nodes";
  * un agregado por Versión en cada despliegue del menú —o una vista nueva y su
  * migración— para enseñar un número que casi nunca se mira.
  *
+ * Lo que sí cambió (#49) es CÓMO se pide. Antes se leía el árbol entero y se le
+ * hacía `.length`: el contenido de cada Nodo viajaba por el cable para acabar
+ * en un número de una frase, y en la Versión de la que sale este Spec eso son
+ * ciento veintiséis Nodos por cada vez que alguien abre «Clonar». Ahora es un
+ * `HEAD` con la cuenta en una cabecera — ni una fila.
+ *
  * Lo que sí justifica la lectura es CUÁNDO ocurre: justo antes de una
  * operación que no se deshace. «Se copia el árbol entero» y «se lo lleva por
  * delante» dichos en abstracto dejan a la persona adivinando cuánto es «todo»,
@@ -27,9 +33,9 @@ export function useNodeCount(versionId: string): number | null {
   useEffect(() => {
     let alive = true;
     nodeService()
-      .list(versionId)
-      .then((nodes) => {
-        if (alive) setCount(nodes.length);
+      .count(versionId)
+      .then((total) => {
+        if (alive) setCount(total);
       })
       .catch(() => {
         // Se traga a propósito: quien abrió el diálogo va a ver el error de

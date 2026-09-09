@@ -128,6 +128,17 @@ export type TreeNodePatch = {
 export interface NodeRepository {
   /** El árbol entero de una Versión, ya ordenado por padre y `orderIndex`. */
   listByVersion(versionId: string): Promise<TreeNode[]>;
+  /**
+   * Cuántos Nodos tiene una Versión.
+   *
+   * Está en el puerto y no se resuelve con `listByVersion(...).length` porque
+   * la diferencia no es de estilo: aquélla se trae el árbol entero por el cable
+   * —el contenido de cada Nodo incluido— para que quien llama cuente un array y
+   * lo tire. Los dos diálogos que enseñan la cifra la piden justo antes de una
+   * operación que no se deshace, así que se pide a menudo y no se usa para nada
+   * más que para escribir un número en una frase.
+   */
+  countByVersion(versionId: string): Promise<number>;
   create(input: NewTreeNode): Promise<TreeNode>;
   /**
    * @throws NotFoundError

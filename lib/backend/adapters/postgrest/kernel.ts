@@ -204,6 +204,10 @@ export function createNodeRepository(store: RowStore): NodeRepository {
       return rows.map(toTreeNode);
     },
 
+    async countByVersion(versionId): Promise<number> {
+      return store.count("nodes", [{ column: "version_id", value: versionId }]);
+    },
+
     async create(input: NewTreeNode): Promise<TreeNode> {
       const row = await store.insert("nodes", {
         version_id: input.versionId,

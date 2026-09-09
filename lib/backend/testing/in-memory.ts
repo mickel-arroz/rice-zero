@@ -295,6 +295,15 @@ export function createInMemoryBackend(): InMemoryBackend {
       return sortRows(rows, options?.order ?? []).map((row) => ({ ...row }));
     },
 
+    async count(table, where) {
+      // Aquí sí se cuenta la lista, y no es una contradicción con lo que dice
+      // el puerto: lo que allí se evita es el VIAJE del árbol por el cable, y
+      // aquí no hay cable. Lo que este doble tiene que reproducir es que RLS se
+      // aplique igual —de ahí `visible`— y que el número sea el mismo que
+      // devolvería el motor.
+      return visible(table).filter((row) => matches(row, where ?? [])).length;
+    },
+
     async insert(table, values) {
       const stamp = nowIso();
       let row: Row;

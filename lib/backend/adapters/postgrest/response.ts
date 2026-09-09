@@ -19,7 +19,12 @@ import { RESOURCE, type SourceName } from "@/lib/backend/adapters/postgrest/rows
 import type { Row } from "@/lib/backend/adapters/postgrest/store";
 
 /** La respuesta de PostgREST, reducida a lo que se mira. */
-export type PostgrestResponse = { data: unknown; error: PostgrestFailure | null };
+export type PostgrestResponse = {
+  data: unknown;
+  error: PostgrestFailure | null;
+  /** Solo cuando la consulta pidió `count`. Ver `runCount`. */
+  count?: number | null;
+};
 
 export function asRows(data: unknown): Row[] {
   return Array.isArray(data) ? (data as Row[]) : [];
@@ -68,11 +73,11 @@ export type RecoverThrown = (error: unknown) => Error | null;
  * por aquí, así que nada sale sin traducir a la taxonomía del puerto.
  */
 export function createRunner(recover?: RecoverThrown) {
-  return async function run(
+  async function settle(
     query: PromiseLike<PostgrestResponse>,
     source: SourceName,
     id: string | null,
-  ): Promise<unknown> {
+  ): Promise<PostgrestResponse> {
     let response: PostgrestResponse;
     try {
       response = await query;
@@ -89,7 +94,38 @@ export function createRunner(recover?: RecoverThrown) {
         translatePostgrestFailure(response.error, RESOURCE[source], id)
       );
     }
-    return response.data;
+    return response;
+  }
+
+  return {
+    /** Lo normal: las filas. */
+    async run(
+      query: PromiseLike<PostgrestResponse>,
+      source: SourceName,
+      id: string | null,
+    ): Promise<unknown> {
+      return (await settle(query, source, id)).data;
+    },
+
+    /**
+     * La CUENTA que viene en la cabecera, sin filas.
+     *
+     * Existe aparte y no como un caso de `run` porque lo que devuelve está en
+     * otro sitio de la respuesta: PostgREST manda el total en `Content-Range` y
+     * los SDKs lo dejan en `count`, no en `data` —que con `head: true` viene
+     * vacío a propósito, que es justo de lo que se trata—.
+     *
+     * `?? 0`: sin `Prefer: count` la cabecera no viene. No debería pasar —quien
+     * llama siempre la pide— pero devolver cero es mejor que un `NaN` viajando
+     * hasta una frase de un diálogo de borrado.
+     */
+    async runCount(
+      query: PromiseLike<PostgrestResponse>,
+      source: SourceName,
+      id: string | null,
+    ): Promise<number> {
+      return (await settle(query, source, id)).count ?? 0;
+    },
   };
 }
 

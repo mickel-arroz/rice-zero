@@ -49,6 +49,17 @@ export interface RowStore {
     options?: { where?: Filter[]; order?: Order[] },
   ): Promise<Row[]>;
 
+  /**
+   * Cuántas filas hay, sin traérselas.
+   *
+   * Es un método aparte y no una opción de `select` porque devuelve otra cosa
+   * —un número, no filas— y porque su valor está justo en lo que NO hace: la
+   * petición sale como un `HEAD` y el motor contesta con la cuenta en una
+   * cabecera. Contar con `select(...).length` costaba el árbol entero por el
+   * cable para enseñar un número.
+   */
+  count(source: SourceName, where?: Filter[]): Promise<number>;
+
   /** Devuelve la fila insertada. */
   insert(table: TableName, values: Row): Promise<Row>;
 

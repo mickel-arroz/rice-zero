@@ -421,6 +421,60 @@ export function describeBackendContract(harness: BackendContractHarness): void {
         expect(node.completed).toBe(false);
       });
 
+      it("cuenta los Nodos de una Versión sin traérselos", async () => {
+        const { version } = await seedProject();
+        expect(await backend.nodes.countByVersion(version.id)).toBe(0);
+
+        const root = await backend.nodes.create({ versionId: version.id });
+        await backend.nodes.create({ versionId: version.id, parentId: root.id });
+
+        // La cuenta es del árbol ENTERO, no solo de las raíces: es lo que se
+        // enseña en «se lo lleva por delante» antes de borrar una Versión.
+        expect(await backend.nodes.countByVersion(version.id)).toBe(2);
+      });
+
+      it("la cuenta es de SU Versión y no del Proyecto", async () => {
+        const { project, version } = await seedProject();
+        const otra = await backend.versions.create({ projectId: project.id });
+
+        await backend.nodes.create({ versionId: version.id });
+        await backend.nodes.create({ versionId: otra.id });
+        await backend.nodes.create({ versionId: otra.id });
+
+        expect(await backend.nodes.countByVersion(version.id)).toBe(1);
+        expect(await backend.nodes.countByVersion(otra.id)).toBe(2);
+      });
+
+      it("la cuenta coincide con lo que devuelve leer el árbol", async () => {
+        // Es la afirmación que hace que cambiar el CÓMO sea seguro: la cifra
+        // salía de `listByVersion(...).length` y ahora sale de una cabecera,
+        // así que lo que hay que fijar es que las dos digan lo mismo.
+        const { version } = await seedProject();
+        const root = await backend.nodes.create({ versionId: version.id });
+        await backend.nodes.create({ versionId: version.id, parentId: root.id });
+        await backend.nodes.create({ versionId: version.id, orderIndex: 1 });
+
+        const tree = await backend.nodes.listByVersion(version.id);
+        expect(await backend.nodes.countByVersion(version.id)).toBe(tree.length);
+      });
+
+      it("borrar un Nodo descuenta su subárbol entero", async () => {
+        const { version } = await seedProject();
+        const root = await backend.nodes.create({ versionId: version.id });
+        const child = await backend.nodes.create({
+          versionId: version.id,
+          parentId: root.id,
+        });
+        await backend.nodes.create({ versionId: version.id, parentId: child.id });
+
+        await backend.nodes.delete(root.id);
+
+        // La cascada es del motor, así que contar por otra vía tiene que verla
+        // igual: una cuenta que no la viera dejaría el diálogo prometiendo
+        // bajas que ya no existen.
+        expect(await backend.nodes.countByVersion(version.id)).toBe(0);
+      });
+
       it("marca y desmarca un Nodo como completado", async () => {
         const { version } = await seedProject();
         const node = await backend.nodes.create({ versionId: version.id });

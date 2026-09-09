@@ -27,7 +27,7 @@ import { UnauthenticatedError } from "@/lib/backend/ports";
  * inyectar, lanza antes de salir a la red. Es una sesión que falta, no un fallo
  * de transporte.
  */
-const run = createRunner((error) =>
+const { run, runCount } = createRunner((error) =>
   error instanceof AuthRequiredError
     ? new UnauthenticatedError(error.message, { cause: error })
     : null,
@@ -92,6 +92,21 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
         });
       }
       return asRows(await run(query, source, filteredId(options?.where)));
+    },
+
+    async count(source, where) {
+      // `head: true` es lo que hace que esto valga la pena: la petición sale
+      // como un HEAD y el motor devuelve la cuenta en una cabecera SIN mandar
+      // una sola fila. Contar leyendo el árbol entero para hacerle `.length`
+      // costaba el árbol entero por el cable para enseñar un número.
+      let query = client.data.from(asRelation(source)).select("id", {
+        count: "exact",
+        head: true,
+      });
+      for (const filter of where ?? []) {
+        query = query.eq(filter.column, filter.value);
+      }
+      return runCount(query, source, filteredId(where));
     },
 
     async insert(table, values) {

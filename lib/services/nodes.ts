@@ -42,6 +42,16 @@ import { serializeTree } from "@/lib/tree/serialize";
 export type NodeService = {
   /** El árbol de una Versión, plano y ya ordenado. */
   list(versionId: string): Promise<TreeNode[]>;
+  /**
+   * Cuántos Nodos tiene, sin traerse ninguno.
+   *
+   * Existe aparte de `list` porque quien solo quiere la cifra no debería pagar
+   * el árbol: los dos diálogos que la enseñan la piden en cuanto se abren, y lo
+   * que necesitan cabe en un número. Pasa derecho al puerto —no añade ninguna
+   * regla— y está aquí de todas formas porque el ADR 0001 no admite
+   * excepciones: cero llamadas al backend desde componentes.
+   */
+  count(versionId: string): Promise<number>;
   /** Lo mismo, ya construido: las raíces con todo colgando. */
   tree(versionId: string): Promise<Subtree[]>;
   /**
@@ -177,6 +187,10 @@ export function createNodeService(backend: BackendProvider): NodeService {
   return {
     list(versionId) {
       return read(versionId);
+    },
+
+    count(versionId) {
+      return backend.nodes.countByVersion(versionId);
     },
 
     async tree(versionId) {

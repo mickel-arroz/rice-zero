@@ -21,7 +21,7 @@ import type { SupabaseBrowserClient } from "@/lib/backend/adapters/supabase/clie
 
 // Sin `recover`: el SDK de Supabase no lanza por falta de sesión, manda la
 // petición y el motor contesta con PGRST301.
-const run = createRunner();
+const { run, runCount } = createRunner();
 
 export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore {
   return {
@@ -37,6 +37,21 @@ export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore 
         });
       }
       return asRows(await run(query, source, filteredId(options?.where)));
+    },
+
+    async count(source, where) {
+      // `head: true` es lo que hace que esto valga la pena: la petición sale
+      // como un HEAD y el motor devuelve la cuenta en una cabecera SIN mandar
+      // una sola fila. Contar leyendo el árbol entero para hacerle `.length`
+      // costaba el árbol entero por el cable para enseñar un número.
+      let query = client.from(asRelation(source)).select("id", {
+        count: "exact",
+        head: true,
+      });
+      for (const filter of where ?? []) {
+        query = query.eq(filter.column, filter.value);
+      }
+      return runCount(query, source, filteredId(where));
     },
 
     async insert(table, values) {
