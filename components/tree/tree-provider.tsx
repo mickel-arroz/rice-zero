@@ -28,7 +28,19 @@ import {
   serializeCollapsed,
   toggleCollapsed as toggle,
 } from "@/lib/tree/collapsed";
+import { nextOrderIndex } from "@/lib/tree/model";
 import { treeRows, visibleRows, type TreeRow } from "@/lib/tree/rows";
+import {
+  applyCreated,
+  applyUpdated,
+  followUp,
+  isOptimistic,
+  optimisticId,
+  optimisticNode,
+  withOptimistic,
+  withoutSubtree,
+  type TreeWrite,
+} from "@/lib/tree/write-policy";
 
 /**
  * El árbol de la Versión abierta, y todo lo que se puede hacerle.
@@ -373,15 +385,49 @@ export function TreeProvider({
 
   /* ── Estructura ─────────────────────────────────────────────────────── */
 
+  /** Deja el árbol local en `nodes` y el pie en «Guardado». */
+  const commit = useCallback(
+    (nodes: TreeNode[]) => {
+      putNodes(nodes);
+      setState((prev) => ({ ...prev, nodes, save: "saved", saveError: null }));
+    },
+    [putNodes],
+  );
+
   /**
    * Ejecuta una escritura de estructura y deja el árbol como quedó de verdad.
    *
-   * @param write devuelve, si quiere, el Nodo que hay que dejar seleccionado
-   *   y en edición — que es siempre el recién creado: un Nodo nuevo nace
-   *   vacío, y lo siguiente que va a pasar es que alguien escriba en él.
+   * Qué es «de verdad» lo decide `followUp` y no este archivo: unas escrituras
+   * se pueden deducir aquí con lo que devolvió el motor y otras hay que
+   * volverlas a preguntar. Ver `lib/tree/write-policy.ts` y el ADR 0005.
+   *
+   * ── El Nodo optimista ─────────────────────────────────────────────────
+   *
+   * Crear pinta el Nodo ANTES de que la escritura salga, y por eso la política
+   * de relectura tuvo que cambiar: la relectura de después lo habría borrado
+   * para devolverlo medio segundo más tarde, y aparecer y desaparecer es peor
+   * que tardar.
+   *
+   * Va seleccionado y con el campo abierto desde el primer fotograma, así que
+   * se puede escribir en él mientras el alta viaja. Lo tecleado no se pierde:
+   * el borrador vive en `drafts`, con su id temporal, y `settleCreated` lo
+   * traslada al id real en cuanto llega.
+   *
+   * @param write qué clase de escritura es. Decide si se relee.
+   * @param perform la escritura. Devuelve la fila que el motor confirmó,
+   *   cuando la hay.
+   * @param options `optimistic` dice dónde nacería el Nodo si esta escritura
+   *   crea uno; `removes`, qué Nodo desaparece —con su subárbol— si lo borra.
    */
   const run = useCallback(
-    async (write: () => Promise<TreeNode | void>) => {
+    async (
+      write: TreeWrite,
+      perform: () => Promise<TreeNode | void>,
+      options?: {
+        optimistic?: { parentId: string | null };
+        removes?: string;
+      },
+    ) => {
       // El portazo, por si el clic ya iba de camino cuando se cayó la red. Va
       // ANTES del `try` y sin tocar `save` a propósito: no es un guardado que
       // falló, es uno que no se intentó, y la franja de arriba ya explica por
@@ -390,28 +436,89 @@ export function TreeProvider({
       if (blocked) throw new Error(CONNECTION_COPY.blocked);
 
       // Lo tecleado va ANTES que el cambio de estructura: las dos escrituras
-      // tocan la misma fila y la relectura de después tiene que traer las dos.
-      // Y si el texto NO se pudo guardar, aquí se para: seguir dejaría el pie
+      // tocan la misma fila y lo que venga después tiene que traer las dos. Y
+      // si el texto NO se pudo guardar, aquí se para: seguir dejaría el pie
       // diciendo «Guardado» sobre una idea que nunca llegó a persistirse, que
       // es exactamente la mentira que este ticket promete no contar.
       if (!(await flushPending())) throw new Error(TREE_COPY.blockedByText);
 
+      let temporaryId: string | null = null;
+      if (options?.optimistic) {
+        temporaryId = optimisticId();
+        const draft = optimisticNode({
+          id: temporaryId,
+          versionId,
+          parentId: options.optimistic.parentId,
+          // El mismo puesto que le va a dar el motor: el último de sus
+          // hermanos. Si no coincidiera, el Nodo daría un salto al llegar la
+          // respuesta.
+          orderIndex: nextOrderIndex(
+            nodesRef.current,
+            options.optimistic.parentId,
+          ),
+        });
+        commit(withOptimistic(nodesRef.current, draft));
+        setSelectedId(temporaryId);
+        setEditingId(temporaryId);
+      }
+
       setState((prev) => ({ ...prev, save: "saving", saveError: null }));
       try {
-        const created = await write();
-        const nodes = await nodeService().list(versionId);
-        putNodes(nodes);
-        setState((prev) => ({
-          ...prev,
-          nodes,
-          save: "saved",
-          saveError: null,
-        }));
+        const created = await perform();
+
+        // Lo tecleado dentro del Nodo optimista se muda a su id real ANTES de
+        // tocar el árbol. El borrador vive en un mapa por id, y sin esta mudanza
+        // el rebote de medio segundo despertaría buscando un Nodo que ya no
+        // existe y tiraría el texto en silencio — que es exactamente lo que
+        // escribir mientras el alta viaja no puede costar.
+        if (temporaryId && created) {
+          const typed = draftsRef.current[temporaryId];
+          if (typed !== undefined) {
+            const moved = { ...draftsRef.current, [created.id]: typed };
+            delete moved[temporaryId];
+            draftsRef.current = moved;
+            setDrafts(moved);
+            if (typed !== created.content) schedule(created.id);
+          }
+        }
+
+        if (followUp(write) === "reread") {
+          commit(await nodeService().list(versionId));
+        } else if (created) {
+          commit(
+            write === "create"
+              ? applyCreated(nodesRef.current, temporaryId, created)
+              : applyUpdated(nodesRef.current, created),
+          );
+        } else if (options?.removes) {
+          // La cascada del motor se lleva el subárbol, y aquí se reproduce sin
+          // volver a preguntar: `on delete cascade` sobre `parent_id` es
+          // exactamente «y todo lo que cuelgue».
+          commit(withoutSubtree(nodesRef.current, options.removes));
+        } else {
+          commit(nodesRef.current);
+        }
+
         if (created) {
+          // La selección se mueve del id temporal al real. También cuando se
+          // releyó: allí el temporal ya no está en el árbol, así que dejarla
+          // apuntándolo sería quedarse sin nada seleccionado justo después de
+          // crear.
           setSelectedId(created.id);
           setEditingId(created.id);
         }
       } catch (error) {
+        // El Nodo que se pintó no llegó a existir, así que se retira. Dejarlo
+        // sería lo contrario de lo que promete la interfaz optimista: se puede
+        // adelantar lo que va a pasar, no fingir lo que no pasó. El motivo lo
+        // enseña la cabecera, que es donde ya se cuentan los fallos de guardado.
+        if (temporaryId) {
+          commit(withoutSubtree(nodesRef.current, temporaryId));
+          setSelectedId((current) =>
+            current === temporaryId ? null : current,
+          );
+          setEditingId((current) => (current === temporaryId ? null : current));
+        }
         setState((prev) => ({
           ...prev,
           save: "error",
@@ -421,17 +528,21 @@ export function TreeProvider({
         throw error;
       }
     },
-    [blocked, flushPending, putNodes, versionId],
+    [blocked, commit, flushPending, schedule, versionId],
   );
 
   const createRoot = useCallback(
-    () => run(() => nodeService().createRoot(versionId)),
+    // Optimista: una raíz nace la última, y eso se sabe aquí sin preguntar.
+    () =>
+      run("create", () => nodeService().createRoot(versionId), {
+        optimistic: { parentId: null },
+      }),
     [run, versionId],
   );
 
   const createQuestion = useCallback(
     (question: string) =>
-      run(async () => {
+      run("createQuestion", async () => {
         const asked = await nodeService().createRoot(versionId, question);
         // Lo que devuelve el `run` es lo que queda seleccionado y abierto, y
         // aquí eso es el HIJO: la pregunta ya está escrita, lo que falta es la
@@ -442,19 +553,32 @@ export function TreeProvider({
   );
 
   const createChild = useCallback(
-    (parentId: string) => run(() => nodeService().createChild(versionId, parentId)),
+    (parentId: string) =>
+      run("create", () => nodeService().createChild(versionId, parentId), {
+        optimistic: { parentId },
+      }),
     [run, versionId],
   );
 
   const createSibling = useCallback(
     (siblingId: string) =>
-      run(() => nodeService().createSibling(versionId, siblingId)),
+      // También optimista, pero SÍ relee: crear un hermano son dos escrituras
+      // —nace el último y después se le trae a su sitio— y la segunda renumera
+      // a los demás. El Nodo aparece igual de rápido; lo que cambia es que la
+      // relectura de después es la que lo pone en su puesto definitivo.
+      run("createSibling", () => nodeService().createSibling(versionId, siblingId), {
+        optimistic: {
+          parentId:
+            nodesRef.current.find((node) => node.id === siblingId)?.parentId ??
+            null,
+        },
+      }),
     [run, versionId],
   );
 
   const moveTo = useCallback(
     (nodeId: string, toIndex: number) =>
-      run(async () => {
+      run("reorder", async () => {
         await nodeService().reorder(versionId, nodeId, toIndex);
       }),
     [run, versionId],
@@ -462,7 +586,7 @@ export function TreeProvider({
 
   const reparent = useCallback(
     (nodeId: string, parentId: string | null) =>
-      run(async () => {
+      run("reparent", async () => {
         await nodeService().reparent(versionId, nodeId, parentId);
       }),
     [run, versionId],
@@ -471,19 +595,22 @@ export function TreeProvider({
   const setCompleted = useCallback(
     (nodeId: string, completed: boolean) =>
       // Por `run` como cualquier otra escritura: se espera al Autoguardado
-      // pendiente antes, y el árbol se relee después. Sin eso, completar un
-      // Nodo recién escrito podría guardar el estado y perder el texto.
-      run(async () => {
-        await nodeService().setCompleted(nodeId, completed);
-      }),
+      // pendiente antes. Sin eso, completar un Nodo recién escrito podría
+      // guardar el estado y perder el texto. Ya no relee: cambia una fila y el
+      // motor la devuelve entera.
+      run("complete", () => nodeService().setCompleted(nodeId, completed)),
     [run],
   );
 
   const remove = useCallback(
     async (nodeId: string) => {
-      await run(async () => {
-        await nodeService().remove(nodeId);
-      });
+      await run(
+        "remove",
+        async () => {
+          await nodeService().remove(nodeId);
+        },
+        { removes: nodeId },
+      );
       // Después del borrado y no antes: si la escritura falla, el Nodo sigue
       // ahí y quitarle la selección solo habría escondido sus acciones.
       setSelectedId((current) => (current === nodeId ? null : current));
@@ -532,7 +659,11 @@ export function TreeProvider({
         "";
       const hasChildren = nodesRef.current.some((node) => node.parentId === id);
 
-      if (planNodeBlur(content, hasChildren).kind === "keep") {
+      // Un Nodo cuya alta todavía va por el aire no se puede borrar: el motor
+      // no lo conoce con este id. Se deja estar — sigue vacío, y el siguiente
+      // desenfoque, ya con su id real, lo limpiará. Adelantarse aquí solo
+      // conseguiría un «no se encontró» sobre algo que sí existe.
+      if (isOptimistic(id) || planNodeBlur(content, hasChildren).kind === "keep") {
         void flushPending();
         return;
       }
