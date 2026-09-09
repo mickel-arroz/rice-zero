@@ -75,17 +75,36 @@ export function RegistroView() {
       </ul>
 
       {/* Al final de la lista y no en la cabecera: una raíz nueva se pone la
-          última, así que el botón está donde va a aparecer. */}
+          última, así que el botón está donde va a aparecer.
+
+          Y en la COLUMNA de los puntos, no centrado en el ancho. El «+» cae
+          exactamente sobre la línea vertical decorativa —el mismo `railX(0)`
+          que usan los puntos de las raíces, que es por lo que su caja mide un
+          `INDENT` y el icono se centra dentro—, de modo que la columna se lee
+          como una columna hasta el final en vez de torcerse en el último
+          renglón. Centrado en el ancho el «+» caía en mitad de la fila, a una
+          distancia que además cambiaba con el ancho de la ventana: en el
+          teléfono a un sitio y en escritorio a otro.
+
+          Es la única pieza del Registro que se aparta del boceto a propósito.
+          Su Ticket —#40— no pide coincidir con él, y lo dibujado allí centraba
+          el par icono+texto. */}
       <button
         type="button"
         onClick={() => fire(tree.createRoot())}
         disabled={blocked}
         title={blocked ? CONNECTION_COPY.blocked : undefined}
-        className={`mt-1.5 flex h-12.5 items-center justify-center gap-2 rounded-2xl border border-dashed border-border text-[13px] text-muted-foreground transition-colors disabled:opacity-35 ${
+        className={`mt-1.5 flex h-12.5 items-center gap-2 rounded-2xl border border-dashed border-border text-[13px] text-muted-foreground transition-colors disabled:opacity-35 ${
           blocked ? "" : "hover:border-primary hover:text-primary"
         }`}
       >
-        <PlusIcon width={16} height={16} />
+        {/* `items-center` del botón lo centra en alto; esta caja, en ancho. */}
+        <span
+          className="flex shrink-0 items-center justify-center"
+          style={{ width: INDENT }}
+        >
+          <PlusIcon width={16} height={16} />
+        </span>
         {TREE_COPY.newRoot}
       </button>
     </>
