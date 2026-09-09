@@ -10,6 +10,7 @@
 import type {
   Analysis,
   AnalysisContent,
+  NodeSearchHit,
   Project,
   ProjectOverview,
   ProjectVersion,
@@ -113,4 +114,34 @@ export function toAnalysis(row: Row): Analysis {
  */
 function asAnalysisContent(value: unknown): AnalysisContent {
   return (isJsonObject(value) ? value : {}) as AnalysisContent;
+}
+
+/**
+ * La forma de una fila de la Búsqueda global: un Nodo con su Versión dentro, y
+ * el Proyecto dentro de ella.
+ *
+ * Se declara aquí y no en `rows.ts` porque no es una fila del esquema: es lo
+ * que devuelve UNA consulta concreta con relaciones embebidas. Poner en el
+ * contrato de columnas algo que no es una columna acabaría con el
+ * `schema-check` de cada adaptador buscándola en el esquema.
+ */
+type NodeSearchRow = NodeRow & {
+  project_versions: {
+    id: string;
+    version_number: number;
+    label: string | null;
+    projects: { id: string; title: string };
+  };
+};
+
+export function toNodeSearchHit(row: Row): NodeSearchHit {
+  const r = row as unknown as NodeSearchRow;
+  const version = r.project_versions;
+  return {
+    ...toTreeNode(row),
+    projectId: version.projects.id,
+    projectTitle: version.projects.title,
+    versionNumber: version.version_number,
+    versionLabel: version.label,
+  };
 }

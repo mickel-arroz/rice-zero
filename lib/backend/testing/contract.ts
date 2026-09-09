@@ -475,6 +475,93 @@ export function describeBackendContract(harness: BackendContractHarness): void {
         expect(await backend.nodes.countByVersion(version.id)).toBe(0);
       });
 
+      it("busca Nodos a través de los Proyectos, con su procedencia", async () => {
+        const { project, version } = await seedProject();
+        await backend.nodes.create({
+          versionId: version.id,
+          content: "Pasarela de pago",
+        });
+        await backend.nodes.create({ versionId: version.id, content: "Catálogo" });
+
+        const hits = await backend.nodes.search("pago", 10);
+
+        expect(hits).toHaveLength(1);
+        // Con NOMBRE y no solo con id: resolverlos después sería una petición
+        // por resultado, y sin ellos la lista no puede decir de dónde viene
+        // cada Nodo.
+        expect(hits[0].content).toBe("Pasarela de pago");
+        expect(hits[0].projectId).toBe(project.id);
+        expect(hits[0].projectTitle).toBe(project.title);
+        expect(hits[0].versionId).toBe(version.id);
+        expect(hits[0].versionNumber).toBe(version.versionNumber);
+      });
+
+      it("no distingue mayúsculas", async () => {
+        const { version } = await seedProject();
+        await backend.nodes.create({
+          versionId: version.id,
+          content: "Autenticación",
+        });
+
+        expect(await backend.nodes.search("AUTENTICACIÓN", 10)).toHaveLength(1);
+      });
+
+      it("encuentra en cualquier Proyecto de la cuenta, no solo en uno", async () => {
+        // Es la razón de existir del método: encontrar dónde se escribió algo
+        // sin recordar en qué Proyecto fue.
+        const uno = await seedProject();
+        const otro = await seedProject();
+        await backend.nodes.create({
+          versionId: uno.version.id,
+          content: "Cola de sincronización",
+        });
+        await backend.nodes.create({
+          versionId: otro.version.id,
+          content: "Sincronización sin conexión",
+        });
+
+        const hits = await backend.nodes.search("sincronización", 10);
+        expect(hits.map((hit) => hit.projectId).sort()).toEqual(
+          [uno.project.id, otro.project.id].sort(),
+        );
+      });
+
+      it("una Búsqueda en blanco no devuelve nada", async () => {
+        // No es una forma de pedir todos los Nodos de la cuenta: un patrón de
+        // solo comodines casa con todos.
+        const { version } = await seedProject();
+        await backend.nodes.create({ versionId: version.id, content: "Algo" });
+
+        expect(await backend.nodes.search("", 10)).toEqual([]);
+        expect(await backend.nodes.search("   ", 10)).toEqual([]);
+      });
+
+      it("los comodines de SQL se buscan como texto", async () => {
+        // Quien escribe «100%» busca eso, no «cualquier cosa». Sin escaparlos,
+        // el primero devolvería todos los Nodos de la cuenta.
+        const { version } = await seedProject();
+        await backend.nodes.create({
+          versionId: version.id,
+          content: "Cobertura del 100% en el dominio",
+        });
+        await backend.nodes.create({ versionId: version.id, content: "Otra cosa" });
+
+        expect(await backend.nodes.search("100%", 10)).toHaveLength(1);
+        expect(await backend.nodes.search("_", 10)).toEqual([]);
+      });
+
+      it("respeta el tope que se le pide", async () => {
+        const { version } = await seedProject();
+        for (const n of [1, 2, 3]) {
+          await backend.nodes.create({
+            versionId: version.id,
+            content: `Pago ${n}`,
+          });
+        }
+
+        expect(await backend.nodes.search("pago", 2)).toHaveLength(2);
+      });
+
       it("marca y desmarca un Nodo como completado", async () => {
         const { version } = await seedProject();
         const node = await backend.nodes.create({ versionId: version.id });

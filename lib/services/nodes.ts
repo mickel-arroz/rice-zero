@@ -24,6 +24,7 @@ import {
   ConflictError,
   NotFoundError,
   type BackendProvider,
+  type NodeSearchHit,
   type TreeNode,
 } from "@/lib/backend/ports";
 import {
@@ -39,6 +40,19 @@ import {
 } from "@/lib/tree/model";
 import { serializeTree } from "@/lib/tree/serialize";
 
+/**
+ * Cuántos resultados devuelve como mucho la Búsqueda global.
+ *
+ * Hay tope siempre, y no es una precaución: la Búsqueda existe para ENCONTRAR
+ * algo, y una lista de mil resultados no sirve para eso — quien busca «pago» en
+ * una cuenta llena necesita afinar la palabra, no desplazarse. El número vive
+ * junto al servicio que lo aplica, por el mismo criterio que `VERSION_LIMITS`.
+ *
+ * Cincuenta: bastante más de lo que nadie va a leer de una vez, y lo bastante
+ * poco como para que la respuesta siga siendo pequeña.
+ */
+export const SEARCH_LIMIT = 50;
+
 export type NodeService = {
   /** El árbol de una Versión, plano y ya ordenado. */
   list(versionId: string): Promise<TreeNode[]>;
@@ -52,6 +66,13 @@ export type NodeService = {
    * excepciones: cero llamadas al backend desde componentes.
    */
   count(versionId: string): Promise<number>;
+  /**
+   * La Búsqueda global: Nodos de todos los Proyectos.
+   *
+   * El tope lo pone este servicio y no quien llama, para que no haya dos
+   * respuestas a «¿cuántos resultados como mucho?». Ver `SEARCH_LIMIT`.
+   */
+  search(query: string): Promise<NodeSearchHit[]>;
   /** Lo mismo, ya construido: las raíces con todo colgando. */
   tree(versionId: string): Promise<Subtree[]>;
   /**
@@ -191,6 +212,10 @@ export function createNodeService(backend: BackendProvider): NodeService {
 
     count(versionId) {
       return backend.nodes.countByVersion(versionId);
+    },
+
+    search(query) {
+      return backend.nodes.search(query, SEARCH_LIMIT);
     },
 
     async tree(versionId) {

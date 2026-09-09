@@ -295,6 +295,41 @@ export function createInMemoryBackend(): InMemoryBackend {
       return sortRows(rows, options?.order ?? []).map((row) => ({ ...row }));
     },
 
+    async searchNodes(term, limit) {
+      // El `ilike` del motor, hecho a mano: sin mayúsculas, por subcadena, y
+      // con los comodines ya escapados por quien llama — así un `%` buscado se
+      // busca como `\%` y aquí también se compara como texto.
+      const needle = term.replace(/\\(.)/g, "$1").toLowerCase();
+
+      // La unión que allí hacen las relaciones embebidas. `visible` en las tres
+      // tablas y no solo en `nodes`: lo que este doble tiene que reproducir es
+      // que RLS se aplique en toda la consulta, y una unión que viera Proyectos
+      // ajenos dejaría pasar un fallo que en el motor no ocurre.
+      const versions = visible("project_versions");
+      const projects = visible("projects");
+
+      return visible("nodes")
+        .filter((row) => String(row.content ?? "").toLowerCase().includes(needle))
+        .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))
+        .flatMap((node) => {
+          const version = versions.find((row) => row.id === node.version_id);
+          const project = projects.find((row) => row.id === version?.project_id);
+          if (!version || !project) return [];
+          return [
+            {
+              ...node,
+              project_versions: {
+                id: version.id,
+                version_number: version.version_number,
+                label: version.label,
+                projects: { id: project.id, title: project.title },
+              },
+            },
+          ];
+        })
+        .slice(0, limit);
+    },
+
     async count(table, where) {
       // Aquí sí se cuenta la lista, y no es una contradicción con lo que dice
       // el puerto: lo que allí se evita es el VIAJE del árbol por el cable, y

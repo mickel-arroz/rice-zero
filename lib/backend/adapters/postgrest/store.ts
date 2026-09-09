@@ -69,6 +69,24 @@ export interface RowStore {
   /** `false` cuando no se borró ninguna fila. */
   delete(table: TableName, id: string): Promise<boolean>;
 
+  /**
+   * Los Nodos cuyo texto contiene `term`, con su Versión y su Proyecto dentro.
+   *
+   * Es específico del dominio, como `cloneVersion` y `createProjectWithVersion`,
+   * y por el mismo motivo: lo que lo hace especial no se puede expresar con
+   * `select` —hace falta una comparación por CONTENIDO, no por igualdad, y dos
+   * niveles de relación embebidos— y generalizar `select` para esto habría
+   * traído medio PostgREST al `RowStore` para un solo llamante.
+   *
+   * Las filas vienen anidadas: cada Nodo trae dentro su `project_versions`, y
+   * ésa su `projects`. En una petición y no en tres porque lo contrario sería
+   * pedir la Versión y el Proyecto de cada resultado por separado.
+   *
+   * Quien las traduce a dominio es el núcleo (`toNodeSearchHit`); aquí solo se
+   * arma la consulta, que es lo único que depende del SDK.
+   */
+  searchNodes(term: string, limit: number): Promise<Row[]>;
+
   /** Clona una Versión. @see `clone_project_version` */
   cloneVersion(versionId: string, label: string | null): Promise<Row | null>;
 

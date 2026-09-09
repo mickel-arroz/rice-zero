@@ -14,6 +14,7 @@ import {
   asRows,
   asWritePayload,
   createRunner,
+  escapeLike,
   filteredId,
 } from "@/lib/backend/adapters/postgrest/response";
 import type { Row, RowStore } from "@/lib/backend/adapters/postgrest/store";
@@ -52,6 +53,26 @@ export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore 
         query = query.eq(filter.column, filter.value);
       }
       return runCount(query, source, filteredId(where));
+    },
+
+    async searchNodes(term, limit) {
+      // `ilike` con los comodines puestos aquí, y el término escapado antes:
+      // un `%` o un `_` escritos por una persona son texto que quiere
+      // encontrar, no comodines que quiera usar. Sin escaparlos, buscar «100%»
+      // devolvería medio árbol.
+      const rows = await run(
+        client
+          .from("nodes")
+          .select("*, project_versions!inner(id, version_number, label, projects!inner(id, title))")
+          .ilike("content", `%${escapeLike(term)}%`)
+          // Los más recientes primero: entre dos Nodos que dicen lo mismo, el
+          // que se escribió hace un rato es casi siempre el que se busca.
+          .order("updated_at", { ascending: false })
+          .limit(limit),
+        "nodes",
+        null,
+      );
+      return asRows(rows);
     },
 
     async insert(table, values) {

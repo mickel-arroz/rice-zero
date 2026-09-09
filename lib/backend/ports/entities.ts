@@ -173,3 +173,24 @@ export type AuthUser = {
 export type AuthSession = {
   user: AuthUser;
 };
+
+/**
+ * Un Nodo encontrado por la Búsqueda global, con lo que hace falta para llegar
+ * hasta él.
+ *
+ * Es un Nodo MÁS su procedencia, no un Nodo: la lista de resultados rompe los
+ * árboles —los Nodos salen sueltos, de Proyectos distintos, sin sus líneas— y
+ * sin decir de dónde viene cada uno, «Autenticación» aparece tres veces y no
+ * hay forma de saber cuál es cuál. De ahí que traiga también los nombres y no
+ * solo los identificadores: pedirlos después sería una petición por resultado.
+ *
+ * Es la forma del RESULTADO y no una entidad nueva; por eso extiende `TreeNode`
+ * igual que `ProjectOverview` extiende `Project`.
+ */
+export type NodeSearchHit = TreeNode & {
+  projectId: string;
+  projectTitle: string;
+  versionNumber: number;
+  /** La etiqueta de la Versión, si la tiene. Si no, se la nombra por su número. */
+  versionLabel: string | null;
+};

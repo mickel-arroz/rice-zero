@@ -14,6 +14,7 @@
 
 import {
   toAnalysis,
+  toNodeSearchHit,
   toProject,
   toProjectOverview,
   toProjectVersion,
@@ -28,6 +29,7 @@ import {
   type Analysis,
   type AnalysisRepository,
   type NewAnalysis,
+  type NodeSearchHit,
   type NewProject,
   type NewProjectVersion,
   type NewTreeNode,
@@ -206,6 +208,16 @@ export function createNodeRepository(store: RowStore): NodeRepository {
 
     async countByVersion(versionId): Promise<number> {
       return store.count("nodes", [{ column: "version_id", value: versionId }]);
+    },
+
+    async search(query, limit): Promise<NodeSearchHit[]> {
+      // En blanco no se pregunta: un `ilike` con solo comodines casa con TODOS
+      // los Nodos de la cuenta, y una Búsqueda vacía no es una forma de
+      // pedirlos. Se ataja aquí y no en la pantalla porque es una propiedad del
+      // método, no de quien lo llame.
+      if (query.trim().length === 0) return [];
+      const rows = await store.searchNodes(query.trim(), limit);
+      return rows.map(toNodeSearchHit);
     },
 
     async create(input: NewTreeNode): Promise<TreeNode> {

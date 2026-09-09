@@ -15,6 +15,7 @@
 import type {
   Analysis,
   AnalysisContent,
+  NodeSearchHit,
   Project,
   ProjectOverview,
   ProjectVersion,
@@ -139,6 +140,26 @@ export interface NodeRepository {
    * más que para escribir un número en una frase.
    */
   countByVersion(versionId: string): Promise<number>;
+  /**
+   * Los Nodos de TODOS los Proyectos cuyo texto contiene lo buscado.
+   *
+   * Está en el puerto —y no se resuelve leyendo los árboles y filtrando— porque
+   * estos datos NO están cargados: la Búsqueda global se lanza desde la lista
+   * de Proyectos, donde no hay ni un árbol en memoria. Traérselos todos para
+   * filtrarlos aquí sería descargar la cuenta entera para enseñar cinco líneas.
+   *
+   * Es la diferencia exacta con la Búsqueda dentro de la Versión
+   * (`lib/tree/search.ts`), que sí filtra en memoria porque el árbol ya está.
+   *
+   * Cada resultado trae su Proyecto y su Versión con NOMBRE, no solo con id:
+   * resolverlos después sería una petición por resultado.
+   *
+   * @param query lo buscado. En blanco devuelve la lista vacía: no es una
+   *   forma de pedir todos los Nodos de la cuenta.
+   * @param limit cuántos como mucho. Hay tope siempre: la Búsqueda es para
+   *   encontrar algo, y una lista de mil resultados no sirve para eso.
+   */
+  search(query: string, limit: number): Promise<NodeSearchHit[]>;
   create(input: NewTreeNode): Promise<TreeNode>;
   /**
    * @throws NotFoundError

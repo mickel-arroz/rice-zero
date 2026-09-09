@@ -16,6 +16,7 @@ import { DeleteProjectDialog } from "@/components/projects/delete-project-dialog
 import { EditProjectDialog } from "@/components/projects/edit-project-dialog";
 import { ProjectCard } from "@/components/projects/project-card";
 import { useProjects } from "@/components/projects/projects-provider";
+import { GlobalSearch } from "@/components/search/global-search";
 import { CONNECTION_COPY, PROJECTS_COPY } from "@/lib/constants";
 
 /**
@@ -117,6 +118,18 @@ export function ProjectsScreen() {
           </button>
         ) : null}
       </div>
+
+      {/* La Búsqueda global vive AQUÍ y no en la barra lateral: se busca desde
+          la pantalla principal, que es donde se está cuando no se recuerda en
+          qué Proyecto se escribió algo. En la barra habría que decidir qué pasa
+          con ella dentro de un Proyecto, donde ya hay otra Búsqueda que hace
+          otra cosa.
+
+          Solo con Proyectos delante: sin ninguno no hay dónde buscar, y un
+          campo que solo puede contestar «nada» es peor que ningún campo. */}
+      {status === "ready" && projects.length > 0 ? (
+        <GlobalSearch projectCount={projects.length} />
+      ) : null}
 
       {status === "loading" ? (
         <div className={GRID_CLASS} aria-busy="true" aria-label={PROJECTS_COPY.loading}>

@@ -1343,3 +1343,32 @@ export const CONNECTION_COPY = {
    */
   blocked: "Sin conexión: no puedes editar hasta reconectar.",
 } as const;
+
+/**
+ * La Búsqueda global, en un objeto propio.
+ *
+ * Aparte de `TREE_COPY` —donde vive la Búsqueda dentro de la Versión— porque
+ * son dos funciones distintas y no dos vistas de una: aquélla filtra lo que ya
+ * está cargado, ésta pregunta al motor. Que su copia esté junta habría sido la
+ * primera forma de olvidar que una espera y la otra no.
+ */
+export const SEARCH_COPY = {
+  label: "Buscar en todos los Proyectos",
+  placeholder: "Buscar un Nodo en cualquier Proyecto…",
+  clear: "Limpiar la Búsqueda",
+  /** Mientras la petición viaja. Aquí SÍ hay algo que esperar. */
+  loading: "Buscando en todos tus Proyectos",
+  resultsLabel: "Resultados en todos los Proyectos",
+  /** El estado vacío dice DÓNDE se buscó: sin eso no se sabe qué descartar. */
+  emptyTitle: (query: string) => `Ningún Nodo dice «${query}»`,
+  emptyBody: (projects: number) =>
+    `Se buscó en ${projects === 1 ? "tu único Proyecto" : `los ${projects} Proyectos`}. Prueba con una palabra más corta, o revisa si lo escribiste en otro sitio.`,
+  /** Un Nodo sin texto. No debería salir nunca: se busca por contenido. */
+  untitled: "Sin texto",
+  errorTitle: "No se pudo buscar.",
+  errorBody:
+    "Parece que no hay conexión. La Búsqueda pregunta al servidor, así que hace falta red.",
+  /** Cuando el tope recorta: se dice, en vez de fingir que eso era todo. */
+  capped: (limit: number) =>
+    `Se enseñan los ${limit} más recientes. Afina la palabra para ver menos y mejores.`,
+} as const;

@@ -136,3 +136,17 @@ export function filteredId(
   const value = where?.find((filter) => filter.column === "id")?.value;
   return value === undefined ? null : String(value);
 }
+
+/**
+ * Lo que una persona escribió, listo para meter en un patrón `like`.
+ *
+ * `%` y `_` son comodines de SQL, y los dos se teclean: alguien que busca
+ * «100%» o «snake_case» está buscando ESO, no «cualquier cosa». Sin escaparlos,
+ * la primera devolvería medio árbol y la segunda encontraría «snakeXcase».
+ *
+ * Vive aquí, con el resto de lo que no depende del SDK, porque lo usan los dos
+ * adaptadores: es del protocolo, no del proveedor.
+ */
+export function escapeLike(term: string): string {
+  return term.replace(/[\\%_]/g, (match) => `\\${match}`);
+}
