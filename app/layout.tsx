@@ -38,20 +38,24 @@ export const metadata: Metadata = {
 };
 
 /**
- * El color de la barra de estado cuando la app corre instalada.
+ * El color de la barra de estado con el que ARRANCA la app instalada.
  *
- * Va aquí y no en el manifest porque el manifest solo admite UN `theme_color` y
- * la app tiene dos temas. `viewport.themeColor` sí acepta media queries, así que
- * es el único sitio donde la barra puede seguir al tema de verdad. Los dos
- * valores salen de `THEME_COLORS`, que es donde `--background` está escrito en
+ * Uno solo y oscuro, que es el tema por defecto desde #55. Antes eran dos, con
+ * media queries de `prefers-color-scheme`, y eso seguía al SISTEMA: con la app
+ * abriendo siempre en oscuro, un sistema en claro dejaba una barra clara sobre
+ * una app oscura. La media query contestaba a la pregunta equivocada — lo que
+ * manda es el tema elegido, no el del sistema operativo.
+ *
+ * Quien lo mantiene al día después de tocar el conmutador es `ThemeColor`, en
+ * el cliente: el servidor no puede saber qué tema eligió esta persona, porque
+ * la elección vive en `localStorage`.
+ *
+ * El valor sale de `THEME_COLORS`, que es donde `--background` está escrito en
  * hexadecimal para los dos que no entienden `oklch()`: esta etiqueta y el
- * manifest.
+ * manifest. `manifest.test.ts` afirma que sigue siendo el mismo color.
  */
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
-    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
-  ],
+  themeColor: THEME_COLORS.dark,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

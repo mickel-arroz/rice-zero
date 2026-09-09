@@ -3,7 +3,12 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { APPLE_TOUCH_ICON, APP_ICONS, appManifest } from "@/lib/pwa/manifest";
+import {
+  APPLE_TOUCH_ICON,
+  APP_ICONS,
+  THEME_COLORS,
+  appManifest,
+} from "@/lib/pwa/manifest";
 import { ROUTES } from "@/lib/constants";
 
 const icons = () => appManifest().icons ?? [];
@@ -69,5 +74,65 @@ describe("los archivos de los iconos", () => {
     for (const icon of [...APP_ICONS, APPLE_TOUCH_ICON]) {
       expect(pngSize(icon.src), icon.src).toBe(icon.sizes);
     }
+  });
+});
+
+/**
+ * `oklch(L C H)` en hexadecimal.
+ *
+ * Existe para que el test pueda comparar lo que dice `globals.css` con lo que
+ * dice el manifest, que es lo único que impide que se desincronicen: el CSS
+ * habla en `oklch()` porque es donde vive el tema, y el manifest no lo entiende
+ * —ni él ni una etiqueta `<meta>`— así que el color está escrito dos veces por
+ * fuerza. Lo que no puede pasar es que las dos escrituras dejen de decir lo
+ * mismo sin que nadie se entere.
+ *
+ * Los dos colores de la app son grises puros (`C = 0`), así que basta con la
+ * rama acromática: con croma cero, oklab deja los tres canales lineales
+ * iguales a `L³`, y lo único que queda es la curva de transferencia de sRGB.
+ * Un conversor completo sería más código del que este test necesita, y código
+ * que nadie ejercitaría.
+ */
+function achromaticOklchToHex(lightness: number): string {
+  const linear = lightness ** 3;
+  const channel =
+    linear <= 0.0031308 ? 12.92 * linear : 1.055 * linear ** (1 / 2.4) - 0.055;
+  const byte = Math.round(Math.min(Math.max(channel, 0), 1) * 255);
+  const pair = byte.toString(16).padStart(2, "0");
+  return `#${pair}${pair}${pair}`;
+}
+
+/** La `--background` declarada dentro de un selector de `globals.css`. */
+function backgroundLightness(selector: string): number {
+  const css = readFileSync(path.join(process.cwd(), "app", "globals.css"), "utf8");
+  const block = css.slice(css.indexOf(`${selector} {`));
+  const declared = /--background:\s*oklch\(([\d.]+)/.exec(block);
+  if (!declared) throw new Error(`No hay --background bajo «${selector}»`);
+  return Number(declared[1]);
+}
+
+describe("el arranque es oscuro desde el primer píxel", () => {
+  it("el splash de la PWA es el fondo del tema oscuro", () => {
+    // `background_color` es lo que el sistema pinta ANTES de que exista un
+    // píxel nuestro. Declarado claro, abrir la app instalada enseñaba una
+    // pantalla blanca que parecía la app cargando y era el splash.
+    const manifest = appManifest();
+
+    expect(manifest.background_color).toBe(
+      achromaticOklchToHex(backgroundLightness(".dark")),
+    );
+    expect(manifest.theme_color).toBe(manifest.background_color);
+  });
+
+  it("y los dos colores de `THEME_COLORS` siguen siendo los del CSS", () => {
+    // El manifest y `viewport.themeColor` leen de aquí; `globals.css` es la
+    // fuente. Esto es lo que hace que tocar el tema y no tocar el hexadecimal
+    // rompa un test en vez de dejar la app con un splash de otro color.
+    expect(THEME_COLORS.dark).toBe(
+      achromaticOklchToHex(backgroundLightness(".dark")),
+    );
+    expect(THEME_COLORS.light).toBe(
+      achromaticOklchToHex(backgroundLightness(":root")),
+    );
   });
 });

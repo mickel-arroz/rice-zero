@@ -95,12 +95,23 @@ export function appManifest(): MetadataRoute.Manifest {
     scope: ROUTES.home,
     display: "standalone" as const,
     /**
-     * El manifest solo admite UN color, y el tema por defecto es el claro. La
-     * barra de estado sí distingue los dos, y eso lo resuelve
-     * `viewport.themeColor`, que acepta media queries.
+     * El manifest solo admite UN color, y ese color es el OSCURO.
+     *
+     * `background_color` es lo que el sistema pinta en el splash mientras la
+     * app instalada arranca — antes de que exista un solo píxel nuestro. Con el
+     * claro declarado, abrir la PWA enseñaba una pantalla blanca que parecía la
+     * app cargando y era el splash: estaba escrito así aquí. Ahora es el mismo
+     * fondo con el que la app aparece, así que no hay transición que ver.
+     *
+     * `theme_color` va con él por coherencia; la barra de estado que de verdad
+     * sigue al tema la resuelve `viewport.themeColor` en `app/layout.tsx`, que
+     * acepta media queries y por tanto sí distingue los dos.
+     *
+     * Sale de `THEME_COLORS.dark`, el mismo sitio del que sale el fondo del
+     * tema oscuro, y `manifest.test.ts` afirma que no se pueden desincronizar.
      */
-    background_color: THEME_COLORS.light,
-    theme_color: THEME_COLORS.light,
+    background_color: THEME_COLORS.dark,
+    theme_color: THEME_COLORS.dark,
     categories: ["productivity", "developer"],
     // Sin `orientation` a propósito: la Vista Canvas es de escritorio y
     // apaisada, así que fijar «portrait» por ser mobile-first la rompería en
