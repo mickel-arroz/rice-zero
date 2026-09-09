@@ -207,8 +207,12 @@ test("el Historial guarda los dos, y el vigente es el nuevo", async ({ page }) =
   await expect(panel.getByRole("button", { name: ANALYSIS_COPY.pastGoToCurrent })).toBeVisible();
 
   // Y sobrevive a una recarga: el Historial vive en el motor, no en memoria.
+  //
+  // Sin volver a abrir nada: desde #52 el Análisis tiene ruta propia, así que
+  // recargar aterriza EN él. Que la dirección se pueda recargar y devuelva lo
+  // mismo es la mitad de lo que una ruta propia compra.
   await page.reload();
-  await abrirAnalisis(page);
+  await expect(page).toHaveURL(/\/analisis$/);
   await expect(
     page.getByRole("button", { name: ANALYSIS_COPY.historyOpen(2) }),
   ).toBeVisible();

@@ -286,6 +286,16 @@ export function TreeProvider({
       const draft = draftsRef.current[id];
       if (draft === undefined) return true;
 
+      // El Nodo todavía no existe en el motor: su alta va por el aire. Escribir
+      // contra un id temporal sería un «no se encontró» garantizado. Se
+      // devuelve «a salvo» y el borrador se queda donde está — cuando el Nodo
+      // sea real, quien escriba en él programará su propia escritura.
+      //
+      // Hoy el campo no se abre sobre un Nodo optimista (ver `run`), así que
+      // esto solo se alcanza pulsando dos veces una fila que todavía vuela. Es
+      // alcanzable, y por eso está.
+      if (isOptimistic(id)) return true;
+
       const saved = nodesRef.current.find((node) => node.id === id)?.content;
       // El Nodo se borró mientras el rebote esperaba. No hay a quién escribirle.
       if (saved === undefined) return true;
@@ -458,29 +468,23 @@ export function TreeProvider({
           ),
         });
         commit(withOptimistic(nodesRef.current, draft));
+        // Se SELECCIONA, pero no se abre para escribir. El campo se abre abajo,
+        // cuando el Nodo ya es real, y esa espera de un viaje es deliberada:
+        // el borrador se guarda POR ID, así que un campo abierto sobre un id
+        // temporal deja lo tecleado colgando de un nombre que está a punto de
+        // dejar de existir. Mudarlo después parece fácil y no lo es — entre la
+        // respuesta y la mudanza hay un repintado que sustituye la fila, y una
+        // tecla que caiga ahí se escribe en un `textarea` que React ya
+        // desmontó. Se perdía en silencio, que es la peor forma de perderse.
+        //
+        // Lo que el Ticket promete se sigue cumpliendo: el Nodo APARECE al
+        // instante. Lo que espera un viaje es poder escribir dentro.
         setSelectedId(temporaryId);
-        setEditingId(temporaryId);
       }
 
       setState((prev) => ({ ...prev, save: "saving", saveError: null }));
       try {
         const created = await perform();
-
-        // Lo tecleado dentro del Nodo optimista se muda a su id real ANTES de
-        // tocar el árbol. El borrador vive en un mapa por id, y sin esta mudanza
-        // el rebote de medio segundo despertaría buscando un Nodo que ya no
-        // existe y tiraría el texto en silencio — que es exactamente lo que
-        // escribir mientras el alta viaja no puede costar.
-        if (temporaryId && created) {
-          const typed = draftsRef.current[temporaryId];
-          if (typed !== undefined) {
-            const moved = { ...draftsRef.current, [created.id]: typed };
-            delete moved[temporaryId];
-            draftsRef.current = moved;
-            setDrafts(moved);
-            if (typed !== created.content) schedule(created.id);
-          }
-        }
 
         if (followUp(write) === "reread") {
           commit(await nodeService().list(versionId));
@@ -528,7 +532,7 @@ export function TreeProvider({
         throw error;
       }
     },
-    [blocked, commit, flushPending, schedule, versionId],
+    [blocked, commit, flushPending, versionId],
   );
 
   const createRoot = useCallback(

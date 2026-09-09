@@ -199,8 +199,18 @@ export async function crearYAbrir(page: Page, titulo: string): Promise<string> {
  * está. Las comillas son lo que evita que «Uno» encuentre también a «Uno más».
  */
 export function nodoPorTexto(page: Page, texto: string) {
+  // Anclado a los DOS prefijos de la fila, y no a una subcadena suelta: desde
+  // #45 el botón de plegar también se nombra por su Nodo («Plegar «Uno»»), así
+  // que buscar solo el texto entrecomillado encuentra dos botones de la misma
+  // fila y Playwright se planta. Los prefijos se piden a la propia copia
+  // —`select("")` y `edit("")`— para que renombrarlos no deje esto atrás.
+  const nombre = literal(TREE_COPY.nodeLabel(texto));
+  const prefijos = [TREE_COPY.select(""), TREE_COPY.edit("")]
+    .map(literal)
+    .join("|");
+
   return page.getByRole("button", {
-    name: new RegExp(literal(TREE_COPY.nodeLabel(texto))),
+    name: new RegExp(`^(?:${prefijos})${nombre}$`),
   });
 }
 

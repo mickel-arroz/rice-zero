@@ -104,3 +104,24 @@ body {
     cursor: pointer;
   }
 }
+
+/* ── Sitio para la cabecera fija del teléfono ───────────────────────────────
+   Desde #36 la cabecera del móvil es `sticky`, así que se queda pegada arriba.
+   Cualquier cosa que la página desplace hasta el borde superior —un `focus` en
+   un campo de más abajo, un ancla, o el `scrollIntoView` que hace el navegador
+   al tabular— aterrizaba DEBAJO de ella: visible para el DOM, tapada para
+   quien mira, y no pulsable.
+
+   `scroll-padding-top` es la respuesta del CSS a exactamente eso: le dice al
+   contenedor que se desplaza que reserve ese hueco. Un relleno en el contenido
+   no serviría —movería la página entera— y compensarlo a mano en cada sitio
+   que desplaza sería un número repetido que se desincroniza.
+
+   4.75rem es el alto de la cabecera: 16 de relleno arriba y abajo más la
+   línea de 34 de la marca, redondeado hacia arriba. Por encima de `lg` la
+   cabecera no existe y el hueco se quita. */
+@media (width < 64rem) {
+  html {
+    scroll-padding-top: 4.75rem;
+  }
+}

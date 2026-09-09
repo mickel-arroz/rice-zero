@@ -96,7 +96,17 @@ test("pulsar la tarjeta lleva al Proyecto, y su menú no", async ({ page }) => {
   // Y ahora la tarjeta, pulsada donde NO hay texto ni enlace: el pie de las
   // métricas. Es lo que distingue «la tarjeta entera lleva» de «el título es un
   // enlace», que es lo que ya se podía hacer antes.
-  await tarjeta.getByText(`1 ${PROJECTS_COPY.versions(1)}`).click();
+  //
+  // Por el RATÓN y con coordenadas, no con `.click()` sobre el localizador: el
+  // enlace está estirado sobre la tarjeta con un pseudoelemento, así que quien
+  // recibe el clic en ese punto es él y no las métricas — y eso es exactamente
+  // lo que se quiere afirmar. `.click()` lo comprueba y se niega («intercepts
+  // pointer events»), porque para Playwright pulsar algo que otro va a recoger
+  // es un error. Aquí es la prueba.
+  const pie = tarjeta.getByText(`1 ${PROJECTS_COPY.versions(1)}`);
+  const caja = await pie.boundingBox();
+  if (!caja) throw new Error("El pie de métricas no está en pantalla.");
+  await page.mouse.click(caja.x + caja.width / 2, caja.y + caja.height / 2);
 
   // `/projects/<id>` redirige a la Versión activa, así que se espera a la URL
   // con las dos partes: sin eso la prueba pasaría sobre la pantalla puente.
