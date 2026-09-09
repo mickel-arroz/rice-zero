@@ -33,6 +33,9 @@ import { errorMessage } from "@/lib/errors";
  *    diálogo ya delante. Ver `CreateProjectDialog`.
  * 4. El par de CTA en `sm:flex-row-reverse`, para que «Borrar» no caiga donde
  *    el pulgar espera «Cancelar».
+ * 5. En el teléfono emerge desde ABAJO y no desde el centro. Es una respuesta,
+ *    no una tarea: es corto, no se escribe dentro, y donde llega el pulgar es
+ *    abajo. Ver `DialogVariant` sobre por qué los otros tres diálogos no.
  *
  * Lo que NO trae es el texto. Cada dominio tiene el suyo en `lib/constants.ts`
  * —un Nodo pierde subnodos, un Análisis pierde Tickets— y un primitivo que
@@ -186,6 +189,11 @@ export function ConfirmDeleteDialog({
       title={title}
       onClose={onClose}
       closeLabel={closeLabel}
+      // La decisión 5 de la cabecera: en el teléfono emerge desde abajo. Es el
+      // único diálogo de la app que lo hace, y por eso lo pide AQUÍ y no lo
+      // decide `Dialog`: los otros tres traen campos, y un campo enfocado
+      // levanta el teclado del sistema. Ver `DialogVariant`.
+      variant="sheet"
     >
       {figure?.below ? consequence : box}
       {figure?.below ? box : consequence}

@@ -29,11 +29,30 @@ import { ICON_BUTTON_CLASS, LABEL_CLASS } from "@/components/layout/site-chrome"
  */
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Cómo se presenta en el TELÉFONO. En escritorio los dos son la misma tarjeta
+ * centrada, y por eso esto es una variante del mismo componente y no otro.
+ *
+ * `screen`  — ocupa la pantalla entera. Lo que se abre para HACER algo: crear
+ *             un Proyecto, editarlo, clonar una Versión. Traen campos, y un
+ *             campo enfocado levanta el teclado del sistema: media pantalla
+ *             menos, que en una hoja dejaría el formulario en una rendija.
+ * `sheet`   — emerge desde abajo, con su tirador. Lo que se abre para
+ *             RESPONDER a algo: confirmar un borrado. Es corto, no se escribe
+ *             dentro, y la respuesta va donde llega el pulgar.
+ *
+ * La diferencia es de intención, no de tamaño: el día que un diálogo de hoja
+ * gane un campo, lo que hay que revisar es la variante, no el relleno.
+ */
+export type DialogVariant = "screen" | "sheet";
+
 export function Dialog({
   label,
   title,
   onClose,
   closeLabel,
+  variant = "screen",
   children,
   footer,
 }: {
@@ -49,6 +68,8 @@ export function Dialog({
    * de servir para la siguiente.
    */
   closeLabel: string;
+  /** Ver `DialogVariant`. Por defecto, pantalla entera en el teléfono. */
+  variant?: DialogVariant;
   children: React.ReactNode;
   /** Anclado abajo: la acción principal, o el estado del Autoguardado. */
   footer?: React.ReactNode;
@@ -126,11 +147,19 @@ export function Dialog({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  const sheet = variant === "sheet";
+
   return (
     <div
       // `z-50`: por encima del shell, que ya vive en `z-10` para tapar el fondo
       // de puntos.
-      className="fixed inset-0 z-50 flex items-stretch justify-center bg-background/80 backdrop-blur-sm sm:items-center sm:p-6"
+      //
+      // La variante solo decide dónde se pega el panel en el teléfono. A partir
+      // de `sm` las dos vuelven a la misma tarjeta centrada, así que el `sm:`
+      // no lleva condición: es el suelo común.
+      className={`fixed inset-0 z-50 flex justify-center bg-background/80 backdrop-blur-sm sm:items-center sm:p-6 ${
+        sheet ? "items-end" : "items-stretch"
+      }`}
       onMouseDown={(event) => {
         // Solo el velo cierra, no un arrastre que empezó dentro del panel y
         // terminó fuera — eso es seleccionar texto, no cancelar.
@@ -143,8 +172,30 @@ export function Dialog({
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className="flex w-full flex-col gap-5 overflow-y-auto bg-card p-6 outline-none sm:max-h-full sm:w-[560px] sm:rounded-[24px] sm:border sm:border-border"
+        // La hoja se corta en el 85 % del alto para que el velo siga viéndose
+        // por arriba: sin esa franja, una hoja alta se lee como una pantalla
+        // entera con las esquinas redondeadas, y deja de decir «esto se cierra
+        // hacia abajo».
+        //
+        // `pb` con `env(safe-area-inset-bottom)`: pegada al borde inferior, el
+        // botón de «Cancelar» caía justo bajo la barra de gestos del teléfono.
+        // Solo lo necesita esta variante — la de pantalla entera ya tiene el
+        // borde de la ventana por debajo.
+        className={`flex w-full flex-col gap-5 overflow-y-auto bg-card p-6 outline-none sm:max-h-full sm:w-[560px] sm:rounded-[24px] sm:border sm:border-border sm:pb-6 ${
+          sheet
+            ? "max-h-[85dvh] rounded-t-[24px] border-t border-border pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-popover"
+            : ""
+        }`}
       >
+        {/* El tirador. Decorativo: no se arrastra —cerrar es el velo, la equis
+            o Escape— pero es lo que dice de un vistazo por dónde se va. */}
+        {sheet ? (
+          <div
+            aria-hidden="true"
+            className="mx-auto -mt-2 h-1 w-9 shrink-0 rounded-full bg-border sm:hidden"
+          />
+        ) : null}
+
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-2.5">
             <p className="flex items-center gap-2">
