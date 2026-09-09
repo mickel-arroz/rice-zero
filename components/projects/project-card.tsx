@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import { AnalysesIcon } from "@/components/icons/analyses-icon";
 import { MoreIcon } from "@/components/icons/more-icon";
@@ -9,8 +10,9 @@ import { PencilIcon } from "@/components/icons/pencil-icon";
 import { TrashIcon } from "@/components/icons/trash-icon";
 import { VersionsIcon } from "@/components/icons/versions-icon";
 import type { IconComponent } from "@/components/icons/types";
+import { CARD_CLASS } from "@/components/layout/site-chrome";
 import type { ProjectOverview } from "@/lib/backend/ports";
-import { CONNECTION_COPY, PROJECTS_COPY } from "@/lib/constants";
+import { CONNECTION_COPY, PROJECTS_COPY, ROUTES } from "@/lib/constants";
 import { relativeTime } from "@/lib/time";
 
 /**
@@ -48,6 +50,15 @@ function Metric({
  *   · **El pie va con `mt-auto`.** Así el hueco sobrante cae en medio de las
  *     tarjetas de descripción corta y nunca por debajo del pie, de modo que los
  *     pies de una fila quedan siempre a la misma altura.
+ *
+ * Y una de interacción: **la tarjeta entera lleva a su Proyecto**, pero el
+ * enlace es UNO y es el del título. Se estira sobre la tarjeta con un
+ * pseudoelemento (`after:absolute after:inset-0`), en vez de envolverla entera:
+ * dentro hay un menú con dos botones, y un enlace que los envolviera los
+ * dejaría anidados dentro de él —HTML inválido, y un lector de pantalla leyendo
+ * «Lanzamiento v2, Acciones de Lanzamiento v2, enlace»—. Con el enlace estirado
+ * el nombre accesible sigue siendo el título, el menú se pone por encima con
+ * `relative z-10`, y el área pulsable es toda la tarjeta.
  */
 export function ProjectCard({
   project,
@@ -123,7 +134,7 @@ export function ProjectCard({
   }
 
   return (
-    <article className="relative flex flex-col gap-3.5 rounded-[20px] border border-border bg-card p-5">
+    <article className={`relative flex flex-col gap-3.5 p-5 ${CARD_CLASS}`}>
       <div className="flex items-center gap-3">
         <Icon width={22} height={22} className="shrink-0 text-primary" />
         <span className="flex-1" />
@@ -134,7 +145,11 @@ export function ProjectCard({
           {relativeTime(project.lastActivityAt, now)}
         </time>
 
-        <div ref={menu} className="relative">
+        {/* `z-10`: por encima del enlace estirado del título, que cubre la
+            tarjeta entera. Sin esto el clic en los tres puntos —y en las dos
+            entradas del menú— lo recogería el enlace y se navegaría en vez de
+            abrir el menú. */}
+        <div ref={menu} className="relative z-10">
           <button
             type="button"
             onClick={() => setOpen((value) => !value)}
@@ -184,7 +199,17 @@ export function ProjectCard({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <h2 className="text-[17px] font-bold">{project.title}</h2>
+        <h2 className="text-[17px] font-bold">
+          <Link
+            href={ROUTES.project(project.id)}
+            // El anillo de foco se pinta sobre el pseudoelemento y no sobre el
+            // texto: quien llega con el tabulador ve encendida la misma caja
+            // que quien pulsa, que es el área que de verdad responde.
+            className="rounded-[20px] outline-none transition-colors after:absolute after:inset-0 after:rounded-[20px] hover:text-primary focus-visible:after:ring-2 focus-visible:after:ring-primary"
+          >
+            {project.title}
+          </Link>
+        </h2>
         {project.description ? (
           <p className="text-[13px] leading-relaxed text-pretty text-muted-foreground">
             {project.description}

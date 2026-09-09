@@ -140,12 +140,14 @@ export async function crearProyecto(page: Page, titulo: string): Promise<string>
 }
 
 /**
- * Abre el árbol de un Proyecto por su acceso directo.
+ * Abre el árbol de un Proyecto por su acceso directo de la navegación.
  *
- * Es el único camino que hay: la tarjeta de la lista NO es un enlace (ver
- * `project-card.tsx`), así que se entra por la sidebar en escritorio y por el
- * menú de la cabecera en el teléfono. Esta función se traga esa diferencia
- * porque la tienen las siete pruebas y no es lo que ninguna quiere afirmar.
+ * Por la NAVEGACIÓN y no por la tarjeta, aunque desde #38 la tarjeta también
+ * lleve: es el camino que tienen en común el escritorio y el teléfono, y el que
+ * funciona desde cualquier pantalla y no solo desde la lista. Entrar por la
+ * tarjeta es lo que afirma su propia prueba en `proyectos.spec.ts`; las demás
+ * solo quieren llegar al árbol, y esta función se traga la diferencia entre los
+ * dos formatos porque no es lo que ninguna de ellas viene a comprobar.
  */
 export async function abrirProyecto(page: Page, titulo: string): Promise<void> {
   const enlace = await conNavegacionAbierta(

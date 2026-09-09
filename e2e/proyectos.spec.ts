@@ -10,7 +10,11 @@
 
 import { expect, test } from "@playwright/test";
 
-import { crearProyecto, nombreUnico } from "@/e2e/apoyo/pantallas";
+import {
+  URL_DE_ARBOL,
+  crearProyecto,
+  nombreUnico,
+} from "@/e2e/apoyo/pantallas";
 import { PROJECTS_COPY, ROUTES } from "@/lib/constants";
 
 test("un Proyecto nuevo nace con su Versión inicial y sin Nodos", async ({ page }) => {
@@ -70,4 +74,32 @@ test("editar el título se guarda solo, sin botón de guardar", async ({ page })
   // Y sobrevive a una recarga: el acuse de arriba podría ser solo estado local.
   await page.goto(ROUTES.projects);
   await expect(page.getByRole("heading", { name: nuevo, level: 2 })).toBeVisible();
+});
+
+test("pulsar la tarjeta lleva al Proyecto, y su menú no", async ({ page }) => {
+  const titulo = nombreUnico("pulsable");
+  await crearProyecto(page, titulo);
+
+  const tarjeta = page
+    .locator("article")
+    .filter({ has: page.getByRole("heading", { name: titulo, level: 2 }) });
+
+  // Primero lo que NO tiene que navegar. Va antes a propósito: si el menú
+  // navegara, esta comprobación fallaría aquí y no dejaría pasar por buena la
+  // de abajo. Los tres puntos están dentro de la tarjeta y por tanto encima del
+  // enlace estirado, y abrir el menú es la prueba de que el clic fue suyo.
+  await page.getByRole("button", { name: PROJECTS_COPY.actions(titulo) }).click();
+  await expect(page.getByRole("menuitem", { name: PROJECTS_COPY.edit })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`${ROUTES.projects}$`));
+  await page.keyboard.press("Escape");
+
+  // Y ahora la tarjeta, pulsada donde NO hay texto ni enlace: el pie de las
+  // métricas. Es lo que distingue «la tarjeta entera lleva» de «el título es un
+  // enlace», que es lo que ya se podía hacer antes.
+  await tarjeta.getByText(`1 ${PROJECTS_COPY.versions(1)}`).click();
+
+  // `/projects/<id>` redirige a la Versión activa, así que se espera a la URL
+  // con las dos partes: sin eso la prueba pasaría sobre la pantalla puente.
+  await page.waitForURL(URL_DE_ARBOL);
+  await expect(page.getByRole("heading", { name: titulo, level: 1 })).toBeVisible();
 });
