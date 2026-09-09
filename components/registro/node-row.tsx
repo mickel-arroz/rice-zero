@@ -7,6 +7,7 @@ import { ChevronDownIcon } from "@/components/icons/chevron-down-icon";
 import { ChevronRightIcon } from "@/components/icons/chevron-right-icon";
 import { STRUCK_CLASS } from "@/components/layout/site-chrome";
 import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
+import { useTreeKeys } from "@/components/tree/use-tree-keys";
 import { inheritedStrike, type TreeRow } from "@/lib/tree/rows";
 
 /**
@@ -325,6 +326,25 @@ export function NodeRow({
   onToggleCollapsed: () => void;
 }) {
   const area = useRef<HTMLTextAreaElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const onKeyDown = useTreeKeys(row.node.id);
+
+  /**
+   * El foco del navegador sigue a la selección.
+   *
+   * Sin esto, mover el foco con el teclado movía la pastilla del seleccionado
+   * pero dejaba las teclas llegando a la fila de la que se salió, así que la
+   * segunda pulsación no avanzaba.
+   *
+   * `selected && !editing` es lo que impide que pise nada: mientras se escribe
+   * manda el campo, y al crear un Nodo el `run` lo deja en edición — este
+   * efecto no se lo quita.
+   */
+  useEffect(() => {
+    if (!selected || editing) return;
+    const el = button.current;
+    if (el && el !== document.activeElement) el.focus();
+  }, [selected, editing]);
 
   // El campo crece con el texto en vez de desplazarse por dentro: un Nodo es
   // una idea, y una idea que no cabe en su caja se lee peor que una lista más
@@ -398,7 +418,11 @@ export function NodeRow({
               if (event.key === "Escape") {
                 event.preventDefault();
                 onStopEditing();
+                return;
               }
+              // El resto se lo ofrece al mapa, que con el campo abierto solo se
+              // queda los dos atajos de crear y deja pasar todo lo demás.
+              onKeyDown(event);
             }}
             placeholder={TREE_COPY.nodePlaceholder}
             aria-label={TREE_COPY.edit(named)}
@@ -416,6 +440,13 @@ export function NodeRow({
             // a poder ocurrir. Seleccionar SÍ se puede, porque de eso vive el
             // borrado y el movimiento que se harán al volver la conexión.
             onClick={selected && !blocked ? onEdit : onSelect}
+            // El mapa de teclado del árbol. Va en el botón de la fila y no en
+            // un oyente global porque «el Nodo enfocado» es literalmente el que
+            // tiene el foco del navegador: así teclear escribe donde se está
+            // mirando, y ninguna tecla se dispara desde el campo de un diálogo
+            // ni desde el título de la Versión.
+            onKeyDown={onKeyDown}
+            ref={button}
             aria-label={
               selected && !blocked
                 ? TREE_COPY.edit(named)

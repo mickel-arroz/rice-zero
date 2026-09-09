@@ -6,6 +6,7 @@ import { AnalysisLayer, DOCKED_WIDTH } from "@/components/analysis/analysis-laye
 import { useAnalysisOpen } from "@/components/analysis/analysis-provider";
 import { CanvasView } from "@/components/canvas/canvas-view";
 import { RegistroView } from "@/components/registro/registro-view";
+import { NodeDialogs } from "@/components/tree/node-dialogs";
 import { NodeToolbar } from "@/components/tree/node-toolbar";
 import { TreeHeader } from "@/components/tree/tree-header";
 import { TREE_VIEWS, type TreeView } from "@/lib/constants";
@@ -164,26 +165,32 @@ export function TreeScreen({
         analysisOpen ? { "--docked-room": DOCKED_ROOM_VALUE } as React.CSSProperties : undefined
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col">
-        {/* A pantalla completa no hay cabecera: es lo que se pide al pedirla. */}
-        {fullscreen ? null : (
-          <TreeHeader projectId={projectId} view={view} onView={changeView} />
-        )}
-
-        <div className={`flex min-h-0 flex-1 flex-col ${fullscreen ? "" : "mt-5"}`}>
-          {canvas ? (
-            <CanvasView fullscreen={fullscreen} onFullscreen={toggleFullscreen} />
-          ) : (
-            <RegistroView />
+      {/* Envuelve a las DOS vistas y a la barra: los diálogos de un Nodo los
+          abren tres sitios —los botones de la barra, dos atajos de teclado
+          desde la fila, y el propio lienzo— y los tres tienen que abrir el
+          mismo. Ver `node-dialogs.tsx`. */}
+      <NodeDialogs>
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* A pantalla completa no hay cabecera: es lo que se pide al pedirla. */}
+          {fullscreen ? null : (
+            <TreeHeader projectId={projectId} view={view} onView={changeView} />
           )}
-        </div>
-      </div>
 
-      {/* La MISMA barra en las dos vistas, y en el Canvas la monta el propio
-          lienzo para que flote encima en vez de encogerlo. Aquí queda la del
-          Registro, que sí va en flujo: la lista se desplaza y su última fila
-          tiene que poder subir por encima de la barra. */}
-      {canvas ? null : <NodeToolbar />}
+          <div className={`flex min-h-0 flex-1 flex-col ${fullscreen ? "" : "mt-5"}`}>
+            {canvas ? (
+              <CanvasView fullscreen={fullscreen} onFullscreen={toggleFullscreen} />
+            ) : (
+              <RegistroView />
+            )}
+          </div>
+        </div>
+
+        {/* La MISMA barra en las dos vistas, y en el Canvas la monta el propio
+            lienzo para que flote encima en vez de encogerlo. Aquí queda la del
+            Registro, que sí va en flujo: la lista se desplaza y su última fila
+            tiene que poder subir por encima de la barra. */}
+        {canvas ? null : <NodeToolbar />}
+      </NodeDialogs>
 
       {/* Va al final y fuera de la columna: es una capa, no contenido. Lleva
           dentro la hoja Y el aviso, porque en móvil se apilan por el mismo

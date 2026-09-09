@@ -12,6 +12,7 @@ import type { DropMark } from "@/components/canvas/drop";
 import { CANVAS_NODE } from "@/components/canvas/geometry";
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
+import { useTreeKeys } from "@/components/tree/use-tree-keys";
 import { STRUCK_CLASS } from "@/components/layout/site-chrome";
 import { CANVAS_COPY, CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 
@@ -145,6 +146,7 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
   const named = TREE_COPY.nodeLabel(data.text);
 
   const area = useRef<HTMLTextAreaElement>(null);
+  const onKeyDown = useTreeKeys(data.nodeId);
 
   // Al abrir el campo, el cursor va al final y no al principio: se entra a
   // seguir escribiendo mucho más a menudo que a corregir la primera palabra.
@@ -204,7 +206,9 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
             if (event.key === "Escape") {
               event.preventDefault();
               tree.stopEditing();
+              return;
             }
+            onKeyDown(event);
           }}
           placeholder={TREE_COPY.nodePlaceholder}
           aria-label={TREE_COPY.edit(named)}
@@ -230,6 +234,9 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
           onDoubleClick={
             data.editable ? () => tree.startEditing(data.nodeId) : undefined
           }
+          // El mismo mapa de teclado que en la Vista Registro, del mismo hook:
+          // el árbol se opera igual se mire por donde se mire.
+          onKeyDown={onKeyDown}
           title={data.editable ? CANVAS_COPY.editHint : undefined}
           aria-label={TREE_COPY.select(named)}
           aria-pressed={selected}

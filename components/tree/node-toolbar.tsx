@@ -1,28 +1,22 @@
 "use client";
 
-import { useState } from "react";
-
-import { DeleteNodeDialog } from "@/components/tree/delete-node-dialog";
 import { NodeActions } from "@/components/tree/node-actions";
-import { ReparentDialog } from "@/components/tree/reparent-dialog";
+import { useNodeDialogs } from "@/components/tree/node-dialogs";
 import { useTree } from "@/components/tree/tree-provider";
 
 /**
- * La barra del Nodo seleccionado, con los dos diálogos que abre.
+ * La barra del Nodo seleccionado.
  *
- * Existe para que las dos vistas monten UNA cosa y no cuatro. Antes la
- * pantalla del Registro llevaba el estado de «qué diálogo está delante», la
- * barra y los dos diálogos sueltos; con dos vistas eso serían dos copias del
- * mismo estado, y la que se quedara atrás sería la que nadie mira.
+ * Existe para que las dos vistas monten UNA cosa y no dos. Antes la pantalla
+ * del Registro llevaba el estado de «qué diálogo está delante», la barra y los
+ * dos diálogos sueltos; con dos vistas eso serían dos copias del mismo estado,
+ * y la que se quedara atrás sería la que nadie mira.
  *
- * Los diálogos se pintan mientras haya uno abierto AUNQUE ya no haya Nodo
- * seleccionado: borrar quita la selección, y si dependieran de ella el diálogo
- * se desmontaría a media escritura y el fallo no llegaría a verse.
+ * Los diálogos salieron de aquí con el mapa de teclado (#42): las teclas los
+ * abren igual que los botones, y quien las recibe es la fila del árbol. Viven
+ * ahora en `NodeDialogs`, un escalón más arriba, para que las dos vías abran el
+ * mismo y no dos.
  */
-
-/** Qué diálogo hay delante, si hay alguno. */
-type Overlay = { kind: "move" | "delete"; id: string } | null;
-
 export function NodeToolbar({
   floating = false,
   className,
@@ -32,36 +26,19 @@ export function NodeToolbar({
   className?: string;
 }) {
   const tree = useTree();
-  const [overlay, setOverlay] = useState<Overlay>(null);
+  const { openMove, openDelete } = useNodeDialogs();
 
   const selected =
     tree.rows.find((row) => row.node.id === tree.selectedId) ?? null;
-
-  // El diálogo se busca en el árbol vivo, no se guarda una copia: así un Nodo
-  // que desaparece mientras está abierto lo cierra solo, en vez de dejarlo
-  // enseñando algo que ya no existe. Mismo criterio que en `ProjectsScreen`.
-  const target = overlay
-    ? (tree.nodes.find((node) => node.id === overlay.id) ?? null)
-    : null;
+  if (!selected) return null;
 
   return (
-    <>
-      {selected ? (
-        <NodeActions
-          row={selected}
-          floating={floating}
-          className={className}
-          onMove={() => setOverlay({ kind: "move", id: selected.node.id })}
-          onDelete={() => setOverlay({ kind: "delete", id: selected.node.id })}
-        />
-      ) : null}
-
-      {overlay?.kind === "move" && target ? (
-        <ReparentDialog node={target} onClose={() => setOverlay(null)} />
-      ) : null}
-      {overlay?.kind === "delete" && target ? (
-        <DeleteNodeDialog node={target} onClose={() => setOverlay(null)} />
-      ) : null}
-    </>
+    <NodeActions
+      row={selected}
+      floating={floating}
+      className={className}
+      onMove={() => openMove(selected.node.id)}
+      onDelete={() => openDelete(selected.node.id)}
+    />
   );
 }
