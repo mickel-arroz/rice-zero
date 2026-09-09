@@ -51,7 +51,20 @@ export function RegistroView() {
 
   return (
     <>
-      <ul className="flex flex-col">
+      {/* El scroll horizontal es de la LISTA, no de la página.
+
+          Una rama profunda con muchos hijos mide más que la pantalla: cada
+          nivel se lleva un `INDENT`, y a partir de cierta hondura la caja de
+          texto se quedaba en una tira ilegible porque era la única que podía
+          encoger. Ahora deja de encoger por debajo de `MIN_BOX` y es esta lista
+          la que se desplaza.
+
+          Aquí y no en un ancestro a propósito: puesto arriba, arrastrar una
+          rama ancha movería también la cabecera, el selector de vista y la
+          barra de acciones — que es exactamente el «arrastrar a toda la
+          pantalla» que el Ticket viene a quitar. `min-w-0` es lo que impide que
+          la lista empuje a su columna en vez de recortarse. */}
+      <ul className="flex min-w-0 flex-col overflow-x-auto">
         {tree.visibleRows.map((row) => (
           <NodeRow
             key={row.node.id}

@@ -48,6 +48,21 @@ const CHECKBOX_DROP = 2;
 /** El relleno de la caja de texto. Lo comparten el campo, el botón y la casilla. */
 const BOX_PADDING = 14;
 
+/**
+ * Lo mínimo que puede medir la caja de texto, en píxeles.
+ *
+ * La caja es lo único de la fila que encoge —las guías de la izquierda miden
+ * `INDENT` por nivel y no ceden—, así que sin un suelo una rama profunda la
+ * dejaba en una tira de dos caracteres por línea. Con éste, la fila deja de
+ * caber y la LISTA se desplaza (ver `registro-view.tsx`); el ancho de una idea
+ * ya no depende de a qué hondura se escribió.
+ *
+ * 240 es lo que ocupa la caja de un Nodo raíz en el teléfono más estrecho que
+ * la app soporta: por debajo de eso el texto ya se leía mal, así que es el
+ * ancho por el que el Registro ya había pasado la prueba.
+ */
+const MIN_BOX = 240;
+
 
 
 /** El radio del punto: las raíces llevan uno mayor porque no tienen codo. */
@@ -342,14 +357,25 @@ export function NodeRow({
   } ${selected && !editing ? "bg-accent" : "bg-card"}`;
 
   return (
-    <li className="flex items-stretch">
+    // `w-fit min-w-full`: la fila mide lo que mide su contenido, y al menos el
+    // ancho de la lista. Sin `w-fit` una fila más ancha que la pantalla
+    // desbordaría DENTRO de su `<li>` en vez de estirarlo, y la lista no
+    // tendría nada que desplazar.
+    <li className="flex w-fit min-w-full items-stretch">
       <Guides
         row={row}
         selected={selected}
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}
       />
-      <div className={box} style={{ margin: `${GUTTER}px 0`, minHeight: BOX_HEIGHT }}>
+      <div
+        className={box}
+        style={{
+          margin: `${GUTTER}px 0`,
+          minHeight: BOX_HEIGHT,
+          minWidth: MIN_BOX,
+        }}
+      >
         <Checkbox row={row} blocked={blocked} onToggle={onToggleCompleted} />
         {editing ? (
           <textarea
