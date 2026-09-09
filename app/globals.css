@@ -79,3 +79,28 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* ── El cursor de mano, decidido una vez ────────────────────────────────────
+   Tailwind v4 cambió su Preflight: los botones pasaron a `cursor: default`,
+   así que en toda la app nada pulsable avisaba de que lo era salvo los enlaces,
+   que lo heredan del navegador.
+
+   Va aquí y no como `cursor-pointer` repetido en cada componente por lo mismo
+   que el Contenedor vive en un solo sitio: una regla que hay que acordarse de
+   escribir es una regla que un día se olvida, y el síntoma —una tarjeta que no
+   parece pulsable— no lo detecta ningún test.
+
+   Solo lo que de verdad responde al clic: lo deshabilitado queda fuera, porque
+   ahí el cursor prometería algo que no va a ocurrir, y `cursor-not-allowed`
+   —que sí se escribe a mano donde toca— tiene que poder ganar. */
+@layer base {
+  a[href],
+  label[for],
+  summary,
+  button:not(:disabled),
+  select:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
