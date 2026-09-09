@@ -43,10 +43,43 @@ export type NodeMatch = {
  * texto».
  */
 function comparable(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/[̀-̂̄-ͯ]/g, "")
-    .toLowerCase();
+  return foldedWithMap(text).folded;
+}
+
+/**
+ * El texto comparable Y de qué carácter del original sale cada uno de los suyos.
+ *
+ * El mapa existe por el resaltado. `NFD` parte una letra acentuada en dos —«á»
+ * pasa a ser «a» más una marca— y quitar la marca deja una cadena de OTRA
+ * longitud, así que un índice encontrado sobre el texto comparable no señala el
+ * mismo sitio en el texto que la persona escribió. Con el mapa sí: cada
+ * posición de lo comparable sabe de dónde vino.
+ *
+ * Se recorre por PUNTO DE CÓDIGO (`for…of`) y no por unidad UTF-16: un emoji
+ * dentro de un Nodo ocupa dos unidades, y contar por unidades desplazaría el
+ * subrayado de todo lo que fuera detrás.
+ */
+function foldedWithMap(text: string): { folded: string; at: number[] } {
+  let folded = "";
+  const at: number[] = [];
+  let index = 0;
+
+  for (const character of text) {
+    const stripped = character
+      .normalize("NFD")
+      .replace(/[̀-̂̄-ͯ]/g, "")
+      .toLowerCase();
+
+    // Una entrada por carácter de lo comparable: quitar una tilde deja dos
+    // caracteres donde había uno, y los dos apuntan al mismo original.
+    for (let i = 0; i < stripped.length; i += 1) at.push(index);
+    folded += stripped;
+    index += character.length;
+  }
+
+  // Un cierre, para que el final de la última coincidencia tenga a dónde mirar.
+  at.push(text.length);
+  return { folded, at };
 }
 
 /**
@@ -103,4 +136,32 @@ export function searchRows(rows: TreeRow[], query: string): NodeMatch[] {
   }
 
   return found;
+}
+
+/**
+ * Dónde empieza y dónde acaba la coincidencia DENTRO del texto original.
+ *
+ * Existe para que el resaltado no tenga que comparar por su cuenta. Sin esto,
+ * la lista de resultados acababa haciendo su propio `indexOf` en minúsculas —
+ * una segunda regla, más débil que ésta, que no sabía de tildes: quien buscaba
+ * «analisis» encontraba «Análisis» y no se le subrayaba nada, porque las dos
+ * comparaciones no estaban de acuerdo. Una sola regla, y aquí, donde tiene test.
+ *
+ * Devuelve índices del texto CRUDO, listos para `slice`: lo que se pinta es lo
+ * que la persona escribió, con sus tildes y sus mayúsculas.
+ *
+ * `null` cuando no hay coincidencia, que es lo mismo que contesta `matches`.
+ */
+export function matchRange(
+  text: string,
+  query: string,
+): { start: number; end: number } | null {
+  const needle = comparable(query);
+  if (needle.length === 0) return null;
+
+  const { folded, at } = foldedWithMap(text);
+  const found = folded.indexOf(needle);
+  if (found === -1) return null;
+
+  return { start: at[found], end: at[found + needle.length] };
 }

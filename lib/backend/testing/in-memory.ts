@@ -296,10 +296,15 @@ export function createInMemoryBackend(): InMemoryBackend {
     },
 
     async searchNodes(term, limit) {
-      // El `ilike` del motor, hecho a mano: sin mayúsculas, por subcadena, y
-      // con los comodines ya escapados por quien llama — así un `%` buscado se
-      // busca como `\%` y aquí también se compara como texto.
-      const needle = term.replace(/\\(.)/g, "$1").toLowerCase();
+      // El `ilike` del motor, hecho a mano: sin mayúsculas y por subcadena.
+      //
+      // El término llega EN CRUDO, igual que a los otros dos adaptadores: quien
+      // escapa los comodines es cada store contra su SDK (`escapeLike`), porque
+      // escapar es del protocolo. Aquí no hay protocolo, así que un `%` es un
+      // `%` y se compara como el texto que es — que es exactamente el resultado
+      // que el escape consigue allí. Desescapar aquí algo que nadie escapó
+      // habría hecho pasar el test del contrato por el motivo equivocado.
+      const needle = term.toLowerCase();
 
       // La unión que allí hacen las relaciones embebidas. `visible` en las tres
       // tablas y no solo en `nodes`: lo que este doble tiene que reproducir es

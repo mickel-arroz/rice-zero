@@ -44,6 +44,16 @@ const FOCUSABLE =
  *
  * La diferencia es de intención, no de tamaño: el día que un diálogo de hoja
  * gane un campo, lo que hay que revisar es la variante, no el relleno.
+ *
+ * ── Y cada una cambia de forma en un ANCHO distinto ───────────────────────
+ *
+ * `screen` vuelve a ser tarjeta en `sm` (640 px), que es donde llevaba
+ * haciéndolo desde siempre. `sheet` aguanta hasta `md` (768 px), porque su
+ * Ticket lo pide con ese número: «en pantallas de menos de 768 px el diálogo de
+ * confirmar un borrado emerge desde abajo» (#37). Entre 640 y 768 son dos
+ * presentaciones distintas a propósito, y por eso el punto de corte va DENTRO de
+ * la variante y no en las clases comunes — compartido, uno de los dos tendría
+ * que estar equivocado.
  */
 export type DialogVariant = "screen" | "sheet";
 
@@ -152,13 +162,11 @@ export function Dialog({
   return (
     <div
       // `z-50`: por encima del shell, que ya vive en `z-10` para tapar el fondo
-      // de puntos.
-      //
-      // La variante solo decide dónde se pega el panel en el teléfono. A partir
-      // de `sm` las dos vuelven a la misma tarjeta centrada, así que el `sm:`
-      // no lleva condición: es el suelo común.
-      className={`fixed inset-0 z-50 flex justify-center bg-background/80 backdrop-blur-sm sm:items-center sm:p-6 ${
-        sheet ? "items-end" : "items-stretch"
+      // de puntos. El punto de corte lo pone cada variante: ver `DialogVariant`.
+      className={`fixed inset-0 z-50 flex justify-center bg-background/80 backdrop-blur-sm ${
+        sheet
+          ? "items-end md:items-center md:p-6"
+          : "items-stretch sm:items-center sm:p-6"
       }`}
       onMouseDown={(event) => {
         // Solo el velo cierra, no un arrastre que empezó dentro del panel y
@@ -181,10 +189,10 @@ export function Dialog({
         // botón de «Cancelar» caía justo bajo la barra de gestos del teléfono.
         // Solo lo necesita esta variante — la de pantalla entera ya tiene el
         // borde de la ventana por debajo.
-        className={`flex w-full flex-col gap-5 overflow-y-auto bg-card p-6 outline-none sm:max-h-full sm:w-[560px] sm:rounded-[24px] sm:border sm:border-border sm:pb-6 ${
+        className={`flex w-full flex-col gap-5 overflow-y-auto bg-card p-6 outline-none ${
           sheet
-            ? "max-h-[85dvh] rounded-t-[24px] border-t border-border pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-popover"
-            : ""
+            ? "max-h-[85dvh] rounded-t-[24px] border-t border-border pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-popover md:max-h-full md:w-[560px] md:rounded-[24px] md:border md:border-border md:pb-6"
+            : "sm:max-h-full sm:w-[560px] sm:rounded-[24px] sm:border sm:border-border"
         }`}
       >
         {/* El tirador. Decorativo: no se arrastra —cerrar es el velo, la equis
@@ -192,7 +200,7 @@ export function Dialog({
         {sheet ? (
           <div
             aria-hidden="true"
-            className="mx-auto -mt-2 h-1 w-9 shrink-0 rounded-full bg-border sm:hidden"
+            className="mx-auto -mt-2 h-1 w-9 shrink-0 rounded-full bg-border md:hidden"
           />
         ) : null}
 

@@ -54,11 +54,15 @@
  *
  * ── Lo que NO está aquí ───────────────────────────────────────────────────
  *
- * `Escape` cierra el campo abierto, y no aparece en este mapa aunque no lleve
- * modificador. No es una excepción a la regla 1: `Escape` no es un atajo del
- * árbol, es el «cancelar» que ya honran los diálogos y el selector de Versiones
- * de esta app. No se puede teclear dentro de un Nodo, así que no compite con
- * nada, y por eso lo sigue atendiendo cada campo por su cuenta.
+ * `Escape`, que hace las dos cosas que se esperan de él: con el campo abierto
+ * lo cierra, y con un Nodo solo seleccionado quita la selección — la octava
+ * acción de la barra, «Quitar».
+ *
+ * No es una excepción a la regla 1: `Escape` no es un atajo del árbol, es el
+ * «cancelar» que ya honran los diálogos y el selector de Versiones de esta app.
+ * No se puede teclear dentro de un Nodo, así que no compite con nada, y ponerle
+ * un modificador lo habría hecho distinto de sí mismo en el resto de la app.
+ * Por eso lo atienden la fila y `useTreeKeys`, y no este mapa.
  */
 
 /**

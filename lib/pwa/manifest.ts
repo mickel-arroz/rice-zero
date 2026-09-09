@@ -103,9 +103,11 @@ export function appManifest(): MetadataRoute.Manifest {
      * app cargando y era el splash: estaba escrito así aquí. Ahora es el mismo
      * fondo con el que la app aparece, así que no hay transición que ver.
      *
-     * `theme_color` va con él por coherencia; la barra de estado que de verdad
-     * sigue al tema la resuelve `viewport.themeColor` en `app/layout.tsx`, que
-     * acepta media queries y por tanto sí distingue los dos.
+     * `theme_color` va con él por coherencia. La barra de estado que de verdad
+     * sigue al tema la mantiene al día `ThemeColor` en el cliente: el servidor
+     * no sabe qué tema eligió esta persona —vive en `localStorage`— y una media
+     * query de `prefers-color-scheme` contestaría por el SISTEMA, que desde #55
+     * ya no es quien manda.
      *
      * Sale de `THEME_COLORS.dark`, el mismo sitio del que sale el fondo del
      * tema oscuro, y `manifest.test.ts` afirma que no se pueden desincronizar.

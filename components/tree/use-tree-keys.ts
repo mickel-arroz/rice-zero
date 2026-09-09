@@ -75,6 +75,24 @@ export function useTreeKeys(nodeId: string) {
       const selected = selectedId !== null;
       const editing = editingId !== null;
 
+      // ── Escape quita la selección ───────────────────────────────────────
+      //
+      // Es la octava acción de la barra —«Quitar»— y la única que no está en el
+      // mapa. No es una excepción a «todo atajo lleva modificador»: `Escape` no
+      // se puede teclear dentro de un Nodo, así que no compite con nada, y ya
+      // es el «cancelar» de los diálogos y del selector de Versiones. Ponerle
+      // un modificador lo habría hecho distinto de sí mismo en el resto de la
+      // app. Ver la cabecera de `lib/tree/keymap.ts`.
+      //
+      // Con el campo abierto NO llega aquí: allí Escape cierra el campo, y lo
+      // atiende la propia fila antes de ofrecernos la pulsación.
+      if (event.key === "Escape") {
+        if (!selected) return;
+        event.preventDefault();
+        select(null);
+        return;
+      }
+
       // ── Teclear escribe, sin gesto previo ───────────────────────────────
       //
       // Con el campo ya abierto no pasa por aquí: lo recoge el `textarea`. Esto

@@ -20,8 +20,7 @@ import { THEME_COLORS } from "@/lib/pwa/manifest";
  * app instalada, que es donde nadie la va a ir a buscar.
  *
  * Escribe la etiqueta que ya existe en vez de añadir otra: dos `theme-color`
- * sin media query dejan al navegador eligiendo, y cuál elige no está escrito en
- * ninguna parte.
+ * dejan al navegador eligiendo, y cuál elige no está escrito en ninguna parte.
  *
  * No pinta nada. Va montado dentro del proveedor de tema, que es de donde saca
  * el tema resuelto.
@@ -38,21 +37,14 @@ export function ThemeColor() {
     const color =
       resolvedTheme === THEMES.light ? THEME_COLORS.light : THEME_COLORS.dark;
 
-    // Las que publica `viewport.themeColor` llevan `media`, así que se les
-    // quita: una etiqueta con media query solo se aplica cuando su consulta
-    // acierta, y lo que manda ahora es la elección de la persona, no el sistema.
-    const tags = document.head.querySelectorAll<HTMLMetaElement>(
+    // La que publica `viewport.themeColor` es UNA y no lleva `media` desde #55,
+    // así que basta con reescribirla. Se busca en cada pase y no se guarda: el
+    // router de Next rehace la cabecera al navegar, y una referencia cacheada
+    // apuntaría a una etiqueta que ya no está en el documento.
+    const tag = document.head.querySelector<HTMLMetaElement>(
       'meta[name="theme-color"]',
     );
-    if (tags.length === 0) return;
-
-    for (const [index, tag] of tags.entries()) {
-      tag.removeAttribute("media");
-      // Solo la primera se queda: dos `theme-color` sin media dejan la decisión
-      // al navegador.
-      if (index === 0) tag.content = color;
-      else tag.remove();
-    }
+    if (tag) tag.content = color;
   }, [resolvedTheme]);
 
   return null;

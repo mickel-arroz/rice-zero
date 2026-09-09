@@ -6,7 +6,7 @@ import { SearchIcon } from "@/components/icons/search-icon";
 import { STRUCK_CLASS } from "@/components/layout/site-chrome";
 import { useTree } from "@/components/tree/tree-provider";
 import { TREE_COPY } from "@/lib/constants";
-import { matches, searchRows, type NodeMatch } from "@/lib/tree/search";
+import { matchRange, searchRows, type NodeMatch } from "@/lib/tree/search";
 
 /**
  * La Búsqueda dentro de la Versión: el campo y sus resultados.
@@ -106,25 +106,21 @@ function TreeSearchField({
  * abrir una puerta que no hace falta abrir.
  */
 function Highlighted({ text, query }: { text: string; query: string }) {
-  if (!matches(text, query)) return <>{text}</>;
+  // DÓNDE cae la coincidencia lo contesta `matchRange`, que es la misma regla
+  // que decidió que este resultado saliera en la lista. Aquí se comparaba por
+  // cuenta propia con un `indexOf` en minúsculas, y era una segunda regla más
+  // débil: no sabía de tildes, así que quien buscaba «analisis» encontraba
+  // «Análisis» y no se le subrayaba nada.
+  const range = matchRange(text, query);
+  if (!range) return <>{text}</>;
 
-  // Sobre el texto en crudo, no sobre el comparable: hay que devolver lo que la
-  // persona escribió, con sus tildes y sus mayúsculas. Se busca sin ellas
-  // —`matches` ya dijo que está— y se corta por índice.
-  const at = text.toLowerCase().indexOf(query.trim().toLowerCase());
-  if (at === -1) {
-    // Coincide por tilde, no por letra a letra. Resaltar el trozo exacto
-    // exigiría mapear índices entre las dos formas del texto; no se hace, y se
-    // devuelve entero: el resultado sigue siendo correcto, solo sin subrayar.
-    return <>{text}</>;
-  }
-
-  const end = at + query.trim().length;
   return (
     <>
-      {text.slice(0, at)}
-      <mark className="bg-accent px-0.5 text-primary">{text.slice(at, end)}</mark>
-      {text.slice(end)}
+      {text.slice(0, range.start)}
+      <mark className="bg-accent px-0.5 text-primary">
+        {text.slice(range.start, range.end)}
+      </mark>
+      {text.slice(range.end)}
     </>
   );
 }

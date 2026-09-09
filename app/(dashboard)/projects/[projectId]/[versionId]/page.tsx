@@ -56,8 +56,9 @@ export default async function VersionPage({
 }: PageProps<"/projects/[projectId]/[versionId]">) {
   const session = await requestSession();
 
-  // El layout ya comprobó la sesión, y aun así se comprueba otra vez: un layout
-  // no se re-evalúa en cada navegación y por tanto no puede ser la puerta.
+  // La puerta está AQUÍ y no en el layout: un layout no se re-evalúa en cada
+  // navegación, así que no puede serlo. Ver `layout.tsx`, que lo dice también
+  // desde el otro lado.
   if (!canAct(session)) redirect(ROUTES.login);
 
   const { projectId } = await params;

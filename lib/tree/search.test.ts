@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { treeRows } from "@/lib/tree/rows";
-import { isSearching, matches, searchRows } from "@/lib/tree/search";
+import {
+  isSearching,
+  matchRange,
+  matches,
+  searchRows,
+} from "@/lib/tree/search";
 import { treeNode } from "@/lib/tree/testing";
 
 /**
@@ -90,5 +95,61 @@ describe("isSearching", () => {
     expect(isSearching("")).toBe(false);
     expect(isSearching("  \n ")).toBe(false);
     expect(isSearching("a")).toBe(true);
+  });
+});
+
+describe("dónde cae la coincidencia", () => {
+  /** Lo que el resaltado va a subrayar, sacado del texto CRUDO. */
+  function subrayado(text: string, query: string): string | null {
+    const range = matchRange(text, query);
+    return range ? text.slice(range.start, range.end) : null;
+  }
+
+  it("devuelve el trozo tal y como se escribió, con sus mayúsculas", () => {
+    expect(subrayado("Mapa de Teclado", "teclado")).toBe("Teclado");
+  });
+
+  it("acierta el trozo aunque la tilde solo esté en el texto", () => {
+    // Es el caso que la lista de resultados resolvía por su cuenta y mal: con
+    // un `indexOf` en minúsculas no encontraba nada, así que enseñaba el
+    // resultado sin subrayar y sin decir por qué.
+    expect(subrayado("Análisis de la competencia", "analisis")).toBe("Análisis");
+  });
+
+  it("y aunque la tilde solo esté en lo buscado", () => {
+    expect(subrayado("Catalogo de tallas", "catálogo")).toBe("Catalogo");
+  });
+
+  it("los índices no se desplazan por lo que va delante", () => {
+    // La tilde de «Catálogo» ocupa un carácter en el original y dos en la forma
+    // comparable: sin el mapa, todo lo de detrás se subrayaría corrido.
+    expect(subrayado("Catálogo y carrito", "carrito")).toBe("carrito");
+  });
+
+  it("ni por un emoji, que ocupa dos unidades", () => {
+    expect(subrayado("🚀 lanzamiento", "lanzamiento")).toBe("lanzamiento");
+  });
+
+  it("sin coincidencia no hay trozo", () => {
+    expect(matchRange("Carrito", "pasarela")).toBeNull();
+  });
+
+  it("una Búsqueda en blanco tampoco: no hay nada que subrayar", () => {
+    expect(matchRange("Carrito", "")).toBeNull();
+    expect(matchRange("Carrito", "   ")).toBeNull();
+  });
+
+  it("coincide con `matches`: si dice que está, se puede señalar", () => {
+    // Las dos preguntas las contesta el mismo plegado, así que no pueden
+    // discrepar. Era exactamente lo que pasaba con dos comparaciones.
+    for (const [texto, buscado] of [
+      ["Análisis", "analisis"],
+      ["Catalogo", "catálogo"],
+      ["MAPA", "mapa"],
+      ["año", "ano"],
+      ["Carrito", "pasarela"],
+    ] as const) {
+      expect(matchRange(texto, buscado) !== null).toBe(matches(texto, buscado));
+    }
   });
 });
