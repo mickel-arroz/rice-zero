@@ -188,3 +188,70 @@ export function ProjectRow({
     </Link>
   );
 }
+
+/**
+ * Una de las dos pastillas del pie del menú del teléfono.
+ *
+ * No es una `NavRow` con otro relleno: son cosas distintas y por eso se ven
+ * distintas. Una fila es un destino de la navegación —ancho completo, alineada
+ * a la izquierda, con su pastilla de activo—; esto es una opción secundaria que
+ * comparte fila con otra, así que va centrada, con borde y a mitad de ancho.
+ * Que se vean distintas es el ticket: lo que las mezclaba con la navegación era
+ * precisamente que se veían igual.
+ *
+ * Sin estado activo: «Acerca de» sí es un destino y podría marcarse, pero
+ * «Tema» no lo es —es una acción—, y una de las dos encendida y la otra nunca
+ * dentro de la misma fila se lee como un fallo, no como información.
+ */
+export function MenuPill({
+  href,
+  label,
+  icon: Icon,
+  height,
+  onClick,
+  ariaLabel,
+}: {
+  /** Sin `href` es una acción, y entonces se pinta como `<button>`. */
+  href?: string;
+  label: string;
+  icon: IconComponent;
+  height: number;
+  onClick?: () => void;
+  ariaLabel?: string;
+}) {
+  const className =
+    "flex flex-1 items-center justify-center gap-2.5 rounded-full border border-border text-sm transition-colors hover:border-primary hover:text-primary hover:[&_svg]:text-primary [&_svg]:text-muted-foreground [&_svg]:transition-colors";
+  const style = { height: `${height}px` };
+  const content = (
+    <>
+      <Icon width={18} height={18} />
+      {label}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        aria-label={ariaLabel}
+        className={className}
+        style={style}
+        onClick={onClick}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      className={className}
+      style={style}
+      onClick={onClick}
+    >
+      {content}
+    </button>
+  );
+}

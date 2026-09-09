@@ -15,7 +15,7 @@ import { projectIconFor } from "@/components/icons/projects";
 import { useProjects } from "@/components/projects/projects-provider";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { AppFrame } from "@/components/layout/app-frame";
-import { NavRow, ProjectRow } from "@/components/layout/nav-row";
+import { MenuPill, NavRow, ProjectRow } from "@/components/layout/nav-row";
 import {
   BRAND_CLASS,
   ICON_BUTTON_CLASS,
@@ -267,32 +267,29 @@ export function DashboardNav({
         </header>
 
         {menuOpen ? (
-          <nav className="flex flex-1 flex-col gap-0.5 px-6 pt-5 pb-6 lg:hidden">
-            <NavRow
-              href={ROUTES.projects}
-              label={SHELL_COPY.home}
-              icon={HomeIcon}
-              active={homeActive}
-              height={MOBILE_ROW}
-              onClick={() => setMenuOpen(false)}
-            />
-            <div className="h-1.5 shrink-0" />
-            {shortcutList(() => setMenuOpen(false), MOBILE_ROW, 15)}
+          <nav className="flex flex-1 flex-col px-6 pt-5 pb-6 lg:hidden">
+            {/* La navegación crece y se desplaza; lo secundario se queda
+                abajo. Con la lista de Proyectos ya sin agrupador, dejarla en
+                flujo hacía que a partir de una docena el pie se saliera de la
+                pantalla — y el pie es justo lo que este ticket coloca. */}
+            <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
+              <NavRow
+                href={ROUTES.projects}
+                label={SHELL_COPY.home}
+                icon={HomeIcon}
+                active={homeActive}
+                height={MOBILE_ROW}
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="h-1.5 shrink-0" />
+              {shortcutList(() => setMenuOpen(false), MOBILE_ROW, 15)}
+            </div>
 
-            <div className="my-3.5 border-t border-border" />
-
-            <NavRow
-              href={ROUTES.about}
-              label={SHELL_COPY.about}
-              icon={InfoIcon}
-              active={aboutActive}
-              height={MOBILE_ROW}
-              onClick={() => setMenuOpen(false)}
-            />
-            {themeRow(MOBILE_ROW, false)}
-
-            <div className="flex-1" />
-            <div className="border-t border-border pt-1">
+            {/* El pie: la cuenta, y debajo las dos opciones secundarias en una
+                sola fila. Que compartan fila es lo que las saca de la lista de
+                destinos — mientras ocupaban un renglón cada una se leían como
+                dos sitios más a los que ir. */}
+            <div className="mt-3.5 shrink-0 border-t border-border pt-3">
               <AccountMenu
                 email={email}
                 name={name}
@@ -300,6 +297,22 @@ export function DashboardNav({
                 collapsed={false}
                 height={MOBILE_ROW}
               />
+              <div className="mt-2 flex gap-2">
+                <MenuPill
+                  href={ROUTES.about}
+                  label={SHELL_COPY.about}
+                  icon={InfoIcon}
+                  height={MOBILE_ROW}
+                  onClick={() => setMenuOpen(false)}
+                />
+                <MenuPill
+                  label={SHELL_COPY.theme}
+                  ariaLabel={THEME_TOGGLE_LABEL}
+                  icon={ContrastIcon}
+                  height={MOBILE_ROW}
+                  onClick={toggleTheme}
+                />
+              </div>
             </div>
           </nav>
         ) : null}
