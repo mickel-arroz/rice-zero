@@ -187,7 +187,29 @@ function pointerOf(
 
 function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
   const tree = useTree();
-  const { textOf, nodes: treeNodes, rows, editingId, select, reparent } = tree;
+  const {
+    textOf,
+    rows,
+    visibleRows,
+    collapsedIds,
+    editingId,
+    select,
+    reparent,
+  } = tree;
+
+  /**
+   * Los Nodos que se dibujan: el bosque SIN lo que cuelga de un plegado.
+   *
+   * Se filtran aquí, antes de colocar, y no se esconden después: `layoutForest`
+   * reparte el espacio entre lo que le llega, así que dibujar un Nodo invisible
+   * dejaría su hueco vacío y el diagrama lleno de aire. `treeEdges` se salta
+   * solo los enlaces cuyo padre no está en la lista, de modo que plegar no deja
+   * ninguna línea apuntando a la nada.
+   */
+  const treeNodes = useMemo(
+    () => visibleRows.map((row) => row.node),
+    [visibleRows],
+  );
   // `offline` y no `blocked`: en este archivo `blocked` ya es el motivo por el
   // que un destino de arrastre no vale, y dos cosas distintas con el mismo
   // nombre en la misma función es cómo se lee mal un `if`.
@@ -205,8 +227,12 @@ function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
    * cambiar un borde de color.
    */
   const { cards, boxes, edges, bounds } = useMemo(() => {
+    // Sobre el árbol ENTERO —`rows`— y no sobre lo que se dibuja: un Nodo
+    // plegado sigue teniendo hijos, y es justo el que tiene que enseñar el
+    // botón para recuperarlos. Calculado sobre el subconjunto visible, plegar
+    // habría hecho desaparecer el propio botón de desplegar.
     const parents = new Set(
-      treeNodes.map((node) => node.parentId).filter((id) => id !== null),
+      rows.filter((row) => row.hasChildren).map((row) => row.node.id),
     );
 
     // La regla del tachado —el Nodo completado y todo su subárbol— se decide
@@ -250,6 +276,7 @@ function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
           lines: nodeLines(text),
           isRoot: node.parentId === null,
           hasChildren: parents.has(box.id),
+          collapsed: collapsedIds.has(box.id),
           struck: struck.has(box.id),
         },
       };
@@ -269,7 +296,7 @@ function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
       // nadie mida nada en el navegador.
       bounds: { width: layout.width, height: layout.height },
     };
-  }, [treeNodes, rows, textOf]);
+  }, [treeNodes, rows, collapsedIds, textOf]);
 
   /** Lo barato: lo que cambia mientras el dedo está abajo. */
   const nodes: CanvasNode[] = useMemo(

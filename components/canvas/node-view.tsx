@@ -5,6 +5,8 @@ import { useEffect, useRef } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 
 import { BlockedIcon } from "@/components/icons/blocked-icon";
+import { ChevronDownIcon } from "@/components/icons/chevron-down-icon";
+import { ChevronRightIcon } from "@/components/icons/chevron-right-icon";
 import { PlusIcon } from "@/components/icons/plus-icon";
 import type { DropMark } from "@/components/canvas/drop";
 import { CANVAS_NODE } from "@/components/canvas/geometry";
@@ -29,8 +31,9 @@ import { CANVAS_COPY, CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
  *
  * ── Qué se puede hacer aquí y con qué gesto ───────────────────────────────
  *
- * Un clic selecciona. Un doble clic abre el campo. El «+» del borde derecho
- * cuelga un subnodo. Arrastrar el cuerpo lo re-parenta — eso lo lleva
+ * Un clic selecciona. Un doble clic abre el campo. El «+» de la esquina
+ * inferior derecha cuelga un subnodo, y el chevrón del borde derecho pliega el
+ * subárbol. Arrastrar el cuerpo lo re-parenta — eso lo lleva
  * `canvas-view.tsx`, que es quien conoce el bosque entero. Borrar NO está
  * aquí: lo hace la barra de acciones, que ya flota sobre el lienzo con su
  * confirmación, y un botón de borrar sobre la misma superficie que se arrastra
@@ -38,7 +41,9 @@ import { CANVAS_COPY, CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
  *
  * Todo eso solo en escritorio y con red (`data.editable`). En un teléfono el
  * Canvas es consulta y el cuerpo del Nodo solo selecciona; sin conexión, lo
- * mismo en los dos formatos.
+ * mismo en los dos formatos. El plegado es la excepción, y por eso está: no
+ * escribe nada —vive en el navegador de quien mira— así que sigue funcionando
+ * en el teléfono y sin red, que es justo cuando un árbol grande más estorba.
  */
 
 /**
@@ -57,6 +62,8 @@ export type CanvasNodeData = {
   lines: number;
   isRoot: boolean;
   hasChildren: boolean;
+  /** Su subárbol está doblado: aquí, además, no se dibuja. */
+  collapsed: boolean;
   /**
    * Se pinta tachado: está completado, o lo está alguno de sus antepasados.
    *
@@ -242,13 +249,46 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
         </button>
       )}
 
-      {data.hasChildren ? (
+      {/* El punto de salida solo existe si de él sale una línea. Plegado no
+          sale ninguna, así que el conector se retira y su sitio queda para el
+          botón de desplegar — igual que en la Vista Registro, donde el punto y
+          el botón comparten exactamente el mismo centro. */}
+      {data.hasChildren && !data.collapsed ? (
         <Handle
           type="source"
           position={Position.Right}
           isConnectable={false}
           style={pinStyle(selected)}
         />
+      ) : null}
+
+      {/* Plegar, en el mismo sitio del que salen los hijos.
+
+          SIEMPRE visible, al revés que el «+»: plegar es consulta, no
+          escritura, así que funciona también en el teléfono —donde el Canvas
+          es solo de lectura— y sin conexión. Por eso también se lleva el
+          ancla del borde derecho y el «+» se aparta abajo: lo permanente se
+          queda con el sitio bueno y lo que solo aparece al pasar el ratón cede.
+
+          `nodrag` porque vive sobre el asa del arrastre. */}
+      {data.hasChildren ? (
+        <button
+          type="button"
+          onClick={() => tree.toggleCollapsed(data.nodeId)}
+          aria-expanded={!data.collapsed}
+          aria-label={
+            data.collapsed ? TREE_COPY.expand(named) : TREE_COPY.collapse(named)
+          }
+          className={`nodrag absolute top-1/2 right-0 z-10 flex size-[18px] translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card transition-colors hover:border-primary hover:text-primary ${
+            selected ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          {data.collapsed ? (
+            <ChevronRightIcon width={12} height={12} />
+          ) : (
+            <ChevronDownIcon width={12} height={12} />
+          )}
+        </button>
       ) : null}
 
       {/* La marca de «aquí no», encima del propio destino. El PORQUÉ lo dice
@@ -263,10 +303,19 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
         </span>
       ) : null}
 
-      {/* El «+» nace donde arrancan las líneas de los subnodos: el punto de
-          salida crece de 6 a 24 px. Y solo con ratón — `lg:` y `hover` — que
-          es exactamente lo que hace que en el móvil el Canvas siga siendo solo
-          consulta, sin una bandera que alguien pueda poner al revés.
+      {/* El «+» va a la ESQUINA inferior derecha: hacia donde crecen los
+          subnodos, pero fuera del borde derecho, que desde #45 es del botón de
+          plegar. Nació sobre el punto de salida —«el punto crece de 6 a 24»— y
+          se movió cuando ese punto pasó a tener dueño permanente: dos botones
+          en la misma coordenada, uno visible siempre y otro solo al pasar por
+          encima, es un clic que hace lo que no se pidió.
+
+          Una esquina y no «a veces aquí, a veces allá» según tenga hijos: un
+          botón que cambia de sitio no se aprende.
+
+          Y solo con ratón — `lg:` y `hover` — que es exactamente lo que hace
+          que en el móvil el Canvas siga siendo solo consulta, sin una bandera
+          que alguien pueda poner al revés.
 
           Se apaga con `opacity` y NO con `invisible`, aunque un botón
           transparente se siga pulsando: lo invisible tampoco se puede ENFOCAR,
@@ -285,7 +334,7 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
         disabled={!data.editable}
         title={data.blocked ? CONNECTION_COPY.blocked : undefined}
         aria-label={CANVAS_COPY.addChild(named)}
-        className="nodrag absolute top-1/2 right-0 z-10 hidden size-6 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary bg-card text-primary opacity-0 shadow-popover transition-opacity lg:pointer-events-none lg:flex lg:group-hover:pointer-events-auto lg:group-hover:opacity-100 lg:focus-visible:pointer-events-auto lg:focus-visible:opacity-100"
+        className="nodrag absolute right-0 bottom-0 z-10 hidden size-6 translate-x-1/2 translate-y-1/2 items-center justify-center rounded-full border border-primary bg-card text-primary opacity-0 shadow-popover transition-opacity lg:pointer-events-none lg:flex lg:group-hover:pointer-events-auto lg:group-hover:opacity-100 lg:focus-visible:pointer-events-auto lg:focus-visible:opacity-100"
       >
         <PlusIcon width={14} height={14} />
       </button>

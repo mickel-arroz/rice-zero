@@ -201,3 +201,49 @@ export function subtreeRows(nodes: TreeNode[], nodeId: string): TreeRow[] {
   while (end < rows.length && rows[end].depth > root.depth) end += 1;
   return rows.slice(start, end);
 }
+
+/**
+ * Las filas que se ven, dados unos Nodos plegados.
+ *
+ * Plegar esconde el SUBÁRBOL, no el Nodo: el plegado sigue en la lista —es lo
+ * que se vuelve a pulsar para desplegarlo— y lo que desaparece es todo lo que
+ * cuelga de él, a cualquier profundidad.
+ *
+ * Se resuelve sobre la lista ya aplanada y con un solo recorrido, apoyándose en
+ * la misma propiedad que `subtreeRows`: en orden de lectura, el subárbol de un
+ * Nodo es el tramo que va detrás de él hasta el primero que no es más profundo.
+ * Así no hace falta ni volver a construir el árbol ni preguntar por cada fila
+ * si alguno de sus antepasados está plegado.
+ *
+ * Los `rails` NO se recalculan, y es correcto: son las líneas de los
+ * ANTEPASADOS, y esconder unos hijos no cambia si a un antepasado le quedan
+ * hermanos por debajo. Lo único que sí cambia es la bajada que sale del propio
+ * Nodo plegado, y eso lo decide quien pinta —que sabe que está plegado— y no
+ * esta función.
+ *
+ * Un id plegado que ya no existe en el árbol simplemente no encuentra fila y no
+ * hace nada: hace falta, porque lo plegado sobrevive en el navegador a que otro
+ * dispositivo borre el Nodo.
+ */
+export function visibleRows(
+  rows: TreeRow[],
+  collapsed: ReadonlySet<string>,
+): TreeRow[] {
+  if (collapsed.size === 0) return rows;
+
+  const visible: TreeRow[] = [];
+  /** La profundidad del plegado más superficial que estamos saltando. */
+  let hiddenUnder: number | null = null;
+
+  for (const row of rows) {
+    if (hiddenUnder !== null && row.depth > hiddenUnder) continue;
+    // Se salió del subárbol plegado: la fila vuelve a verse, y puede a su vez
+    // estar plegada.
+    hiddenUnder = null;
+
+    visible.push(row);
+    if (row.hasChildren && collapsed.has(row.node.id)) hiddenUnder = row.depth;
+  }
+
+  return visible;
+}

@@ -597,6 +597,16 @@ export const TREE_COPY = {
     content.trim() ? `«${content.trim()}»` : "este Nodo",
   /** Cuántas bajas quedan sin enumerar en la confirmación de borrado. */
   andMore: (n: number) => `y ${n} más`,
+
+  /**
+   * El botón de plegar, en las dos vistas.
+   *
+   * Nombra al Nodo porque en la Vista Registro hay uno por cada rama y son
+   * todos el mismo icono: sin el nombre, un lector de pantalla leería «plegar»
+   * una docena de veces seguidas sin decir el qué.
+   */
+  collapse: (named: string) => `Plegar ${named}`,
+  expand: (named: string) => `Desplegar ${named}`,
   /**
    * Cuando una operación se para porque lo tecleado no llegó a guardarse.
    *

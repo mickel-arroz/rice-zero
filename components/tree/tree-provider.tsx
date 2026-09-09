@@ -22,7 +22,13 @@ import type { TreeNode } from "@/lib/backend/ports";
 import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { nodeService } from "@/lib/services/nodes";
-import { treeRows, type TreeRow } from "@/lib/tree/rows";
+import {
+  collapsedKey,
+  parseCollapsed,
+  serializeCollapsed,
+  toggleCollapsed as toggle,
+} from "@/lib/tree/collapsed";
+import { treeRows, visibleRows, type TreeRow } from "@/lib/tree/rows";
 
 /**
  * El árbol de la Versión abierta, y todo lo que se puede hacerle.
@@ -94,9 +100,22 @@ type TreeContextValue = {
   error: string | null;
   save: SaveState;
   saveError: string | null;
-  /** El árbol aplanado, listo para pintar con sus líneas. */
+  /** El árbol aplanado ENTERO, plegados incluidos. */
   rows: TreeRow[];
+  /**
+   * Las filas que de verdad se pintan: sin lo que cuelga de un Nodo plegado.
+   *
+   * Aparte de `rows` y no en su lugar porque hay quien necesita el árbol
+   * completo aunque no se vea entero: la barra de acciones busca en él el Nodo
+   * seleccionado, y el selector de destino ofrece TODOS los Nodos —plegar es de
+   * quien mira, y no puede quitar sitios a los que mover algo.
+   */
+  visibleRows: TreeRow[];
   nodes: TreeNode[];
+  /** Los Nodos plegados. Preferencia del navegador: ver `lib/tree/collapsed.ts`. */
+  collapsedIds: ReadonlySet<string>;
+  /** Pliega el Nodo, o lo despliega. */
+  toggleCollapsed(id: string): void;
   selectedId: string | null;
   /** El Nodo cuyo texto está abierto para escribir. Nunca dos a la vez. */
   editingId: string | null;
@@ -560,7 +579,56 @@ export function TreeProvider({
     settleEditing(editingId);
   }, [editingId, settleEditing]);
 
+  /* ── Plegado ────────────────────────────────────────────────────────── */
+
+  /**
+   * Qué Nodos están doblados, según este navegador.
+   *
+   * Arranca vacío y se rellena en un efecto, no durante el render: en el
+   * servidor no hay `localStorage`, y leerlo durante el render daría un primer
+   * HTML distinto del primer repintado. El árbol no se pinta en servidor —llega
+   * por `fetch` después de hidratar— así que ese arranque vacío no se ve nunca.
+   */
+  const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
+
+  useEffect(() => {
+    // Cambiar de Versión trae OTRO plegado, no el de antes: cada Versión es un
+    // árbol completo e independiente.
+    try {
+      setCollapsedIds(
+        parseCollapsed(window.localStorage.getItem(collapsedKey(versionId))),
+      );
+    } catch {
+      // Un navegador con el almacenamiento denegado —modo privado de algunos, o
+      // una política de la empresa— no puede impedir mirar el árbol. Sin
+      // plegado guardado se abre entero, que es el estado por defecto.
+      setCollapsedIds(new Set<string>());
+    }
+  }, [versionId]);
+
+  const toggleCollapsed = useCallback(
+    (id: string) => {
+      setCollapsedIds((current) => {
+        const next = toggle(current, id);
+        try {
+          window.localStorage.setItem(
+            collapsedKey(versionId),
+            serializeCollapsed(next),
+          );
+        } catch {
+          // No poder guardarlo no puede impedir plegarlo: la pantalla obedece
+          // igual y lo que se pierde es que sobreviva a la recarga.
+        }
+        return next;
+      });
+    },
+    [versionId],
+  );
+
   const rows = useMemo(() => treeRows(state.nodes), [state.nodes]);
+  const visible = useMemo(() => visibleRows(rows, collapsedIds), [rows, collapsedIds]);
 
   const value = useMemo(
     () => ({
@@ -570,6 +638,9 @@ export function TreeProvider({
       saveError: state.saveError,
       nodes: state.nodes,
       rows,
+      visibleRows: visible,
+      collapsedIds,
+      toggleCollapsed,
       selectedId,
       editingId,
       textOf,
@@ -590,6 +661,9 @@ export function TreeProvider({
     [
       state,
       rows,
+      visible,
+      collapsedIds,
+      toggleCollapsed,
       selectedId,
       editingId,
       textOf,

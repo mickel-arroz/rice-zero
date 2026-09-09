@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 
 import { CheckIcon } from "@/components/icons/check-icon";
+import { ChevronDownIcon } from "@/components/icons/chevron-down-icon";
+import { ChevronRightIcon } from "@/components/icons/chevron-right-icon";
 import { STRUCK_CLASS } from "@/components/layout/site-chrome";
 import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 import { inheritedStrike, type TreeRow } from "@/lib/tree/rows";
@@ -52,6 +54,21 @@ const BOX_PADDING = 14;
 const DOT_ROOT = 4;
 const DOT_CHILD = 3;
 
+/**
+ * El botón de plegar: 18 px, centrado en el MISMO punto que el punto.
+ *
+ * Reutiliza el centro del punto —`railX(depth)` y `ANCHOR`— y no se pone al
+ * lado, y eso es lo que hace que las líneas del árbol no se muevan cuando
+ * aparece: el codo llega a la misma coordenada, la bajada sale de la misma
+ * coordenada, y lo único que cambia es qué se dibuja ahí. Un botón que ocupara
+ * su propio hueco desplazaría media columna cada vez que una rama gana o pierde
+ * su primer hijo.
+ *
+ * Que sea más ancho que el carril (18 contra 22 de `INDENT`) tampoco molesta:
+ * está posicionado en absoluto, así que no empuja a nada.
+ */
+const TOGGLE = 18;
+
 /** La caja de texto, para que la silueta de carga mida exactamente lo mismo. */
 export const BOX_HEIGHT = 50;
 export const ROW_HEIGHT = BOX_HEIGHT + GUTTER * 2;
@@ -69,15 +86,30 @@ function railX(column: number): number {
  * un sistema de coordenadas más, y lo que hay que dibujar son rectas de un
  * píxel entre dos puntos que ya se conocen.
  */
-function Guides({ row, selected }: { row: TreeRow; selected: boolean }) {
+function Guides({
+  row,
+  selected,
+  collapsed,
+  onToggleCollapsed,
+}: {
+  row: TreeRow;
+  selected: boolean;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}) {
   const { depth, rails, hasChildren } = row;
   const radius = depth === 0 ? DOT_ROOT : DOT_CHILD;
   const elbow = railX(depth - 1);
   const mine = railX(depth);
+  const named = TREE_COPY.nodeLabel(row.node.content);
 
   return (
+    // Sin `aria-hidden` cuando hay algo que pulsar: el botón de plegar vive
+    // dentro de esta columna, y escondérsela entera a un lector de pantalla lo
+    // escondería a él también. Las líneas siguen siendo decorativas y cada una
+    // lo dice por su cuenta.
     <span
-      aria-hidden="true"
+      aria-hidden={hasChildren ? undefined : "true"}
       className="relative shrink-0 self-stretch"
       style={{ width: (depth + 1) * INDENT }}
     >
@@ -112,25 +144,60 @@ function Guides({ row, selected }: { row: TreeRow; selected: boolean }) {
 
       {/* Del punto sale la bajada hacia sus subnodos, que enlaza con el codo
           de la fila siguiente: entre filas no hay hueco, así que la línea es
-          continua sin dibujar nada en medio. */}
-      {hasChildren ? (
+          continua sin dibujar nada en medio.
+
+          Plegado no la dibuja: debajo ya no hay nada a lo que bajar, y una
+          línea que sale hacia el vacío es exactamente la señal contraria a la
+          que este botón acaba de dar. */}
+      {hasChildren && !collapsed ? (
         <i
+          aria-hidden="true"
           className="absolute w-px bg-edge"
           style={{ left: mine, top: ANCHOR, bottom: 0 }}
         />
       ) : null}
 
-      <i
-        className={`absolute rounded-full ${
-          selected || depth === 0 ? "bg-primary" : "bg-edge"
-        }`}
-        style={{
-          left: mine - radius,
-          top: ANCHOR - radius,
-          width: radius * 2,
-          height: radius * 2,
-        }}
-      />
+      {/* El punto pasa a botón de plegar en cuanto hay algo que plegar, y en su
+          MISMO centro: ver `TOGGLE`. Sin hijos se queda como estaba, porque no
+          hay nada que ofrecer. */}
+      {hasChildren ? (
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-label={
+            collapsed ? TREE_COPY.expand(named) : TREE_COPY.collapse(named)
+          }
+          className={`absolute flex items-center justify-center rounded-full border border-border bg-card transition-colors hover:border-primary hover:text-primary ${
+            selected || depth === 0 ? "text-primary" : "text-muted-foreground"
+          }`}
+          style={{
+            left: mine - TOGGLE / 2,
+            top: ANCHOR - TOGGLE / 2,
+            width: TOGGLE,
+            height: TOGGLE,
+          }}
+        >
+          {collapsed ? (
+            <ChevronRightIcon width={12} height={12} />
+          ) : (
+            <ChevronDownIcon width={12} height={12} />
+          )}
+        </button>
+      ) : (
+        <i
+          aria-hidden="true"
+          className={`absolute rounded-full ${
+            selected || depth === 0 ? "bg-primary" : "bg-edge"
+          }`}
+          style={{
+            left: mine - radius,
+            top: ANCHOR - radius,
+            width: radius * 2,
+            height: radius * 2,
+          }}
+        />
+      )}
     </span>
   );
 }
@@ -215,10 +282,14 @@ export function NodeRow({
   onChange,
   onStopEditing,
   onToggleCompleted,
+  collapsed,
+  onToggleCollapsed,
 }: {
   row: TreeRow;
   selected: boolean;
   editing: boolean;
+  /** Su subárbol está doblado. Solo puede estarlo si tiene hijos. */
+  collapsed: boolean;
   /** Lo que va en el campo: el borrador si lo hay, si no lo guardado. */
   text: string;
   /**
@@ -236,6 +307,7 @@ export function NodeRow({
   onChange: (value: string) => void;
   onStopEditing: () => void;
   onToggleCompleted: () => void;
+  onToggleCollapsed: () => void;
 }) {
   const area = useRef<HTMLTextAreaElement>(null);
 
@@ -271,7 +343,12 @@ export function NodeRow({
 
   return (
     <li className="flex items-stretch">
-      <Guides row={row} selected={selected} />
+      <Guides
+        row={row}
+        selected={selected}
+        collapsed={collapsed}
+        onToggleCollapsed={onToggleCollapsed}
+      />
       <div className={box} style={{ margin: `${GUTTER}px 0`, minHeight: BOX_HEIGHT }}>
         <Checkbox row={row} blocked={blocked} onToggle={onToggleCompleted} />
         {editing ? (

@@ -52,7 +52,7 @@ export function RegistroView() {
   return (
     <>
       <ul className="flex flex-col">
-        {tree.rows.map((row) => (
+        {tree.visibleRows.map((row) => (
           <NodeRow
             key={row.node.id}
             row={row}
@@ -70,6 +70,8 @@ export function RegistroView() {
             onToggleCompleted={() =>
               void tree.setCompleted(row.node.id, !row.node.completed)
             }
+            collapsed={tree.collapsedIds.has(row.node.id)}
+            onToggleCollapsed={() => tree.toggleCollapsed(row.node.id)}
           />
         ))}
       </ul>

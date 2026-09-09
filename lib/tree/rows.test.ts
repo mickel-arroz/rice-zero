@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { REPARENT_RULES } from "@/lib/tree/model";
-import { treeRows, reparentTargets, subtreeRows } from "@/lib/tree/rows";
+import {
+  treeRows,
+  reparentTargets,
+  subtreeRows,
+  visibleRows,
+} from "@/lib/tree/rows";
 import { treeNode } from "@/lib/tree/testing";
 
 /**
@@ -254,5 +259,70 @@ describe("subtreeRows", () => {
 
   it("un Nodo que no está en la Versión no tiene subárbol", () => {
     expect(subtreeRows(sample(), "fantasma")).toEqual([]);
+  });
+});
+
+describe("visibleRows", () => {
+  /** Los ids que se ven, en orden de lectura. */
+  function idsWith(collapsed: string[]) {
+    return visibleRows(treeRows(sample()), new Set(collapsed)).map(
+      (row) => row.node.id,
+    );
+  }
+
+  it("sin nada plegado devuelve las mismas filas", () => {
+    const rows = treeRows(sample());
+    expect(visibleRows(rows, new Set())).toBe(rows);
+  });
+
+  it("plegar esconde el subárbol pero no al Nodo plegado", () => {
+    // `a` sigue: es lo que se vuelve a pulsar para desplegarlo. Lo que
+    // desaparece son sus hijos.
+    expect(idsWith(["a"])).toEqual(["r1", "a", "b", "b1", "c", "r2"]);
+  });
+
+  it("esconde a cualquier profundidad, no solo a los hijos directos", () => {
+    expect(idsWith(["r1"])).toEqual(["r1", "r2"]);
+  });
+
+  it("un plegado dentro de otro plegado no reaparece al salir del de fuera", () => {
+    // `b` está plegado, pero `r1` lo esconde a él y a todo lo suyo. Al llegar a
+    // `r2` —que ya no cuelga de `r1`— la lista tiene que volver a verse.
+    expect(idsWith(["r1", "b"])).toEqual(["r1", "r2"]);
+  });
+
+  it("dos ramas plegadas se esconden por separado", () => {
+    expect(idsWith(["a", "b"])).toEqual(["r1", "a", "b", "c", "r2"]);
+  });
+
+  it("plegar un Nodo sin hijos no esconde a sus hermanos de debajo", () => {
+    // `c` no tiene hijos, así que no hay nada que plegar — y lo que viene
+    // detrás en la lista es su hermana raíz, que no cuelga de él.
+    expect(idsWith(["c"])).toEqual(["r1", "a", "a1", "a2", "b", "b1", "c", "r2"]);
+  });
+
+  it("un id plegado que ya no está en el árbol no hace nada", () => {
+    // Pasa de verdad: lo plegado vive en el navegador y sobrevive a que otro
+    // dispositivo borre el Nodo.
+    expect(idsWith(["fantasma"])).toEqual([
+      "r1",
+      "a",
+      "a1",
+      "a2",
+      "b",
+      "b1",
+      "c",
+      "r2",
+    ]);
+  });
+
+  it("los raíles de las filas que quedan no cambian al plegar", () => {
+    // Plegar es de quien mira: esconder los hijos de `a` no cambia si a `a` le
+    // quedan hermanos por debajo, que es lo único que sus raíles dicen.
+    const antes = treeRows(sample()).find((row) => row.node.id === "b");
+    const despues = visibleRows(treeRows(sample()), new Set(["a"])).find(
+      (row) => row.node.id === "b",
+    );
+    expect(despues?.rails).toEqual(antes?.rails);
   });
 });
