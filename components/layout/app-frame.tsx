@@ -22,6 +22,16 @@
  * y por tanto ninguna puede olvidarse de él ni contradecirlo. El precio es que
  * las pantallas NO ponen su propio relleno ni su propio ancho — el que lo haga
  * se suma a este y se sale del boceto.
+ *
+ * Y decide una tercera: la tarjeta es TRANSPARENTE, para que el fondo de puntos
+ * del layout raíz se vea por debajo del contenido. Lo que la hace tarjeta es su
+ * geometría, no su relleno. Ver el comentario de la caja, más abajo.
+ *
+ * ⚠ De ahí se sigue una regla para lo que se monte dentro: lo que necesite
+ * fondo propio se lo pone ÉL. Una tarjeta de Proyecto, un diálogo o un menú
+ * flotante llevan el suyo —y lo llevaban ya— porque tienen que despegarse de lo
+ * que hay detrás; lo que no lo necesita se queda con los puntos detrás, que es
+ * el sitio donde se ven.
  */
 
 /**
@@ -93,8 +103,25 @@ export function AppFrame({
 
           Sin `overflow-hidden`: dentro viven menús, selectores y diálogos que
           se salen de su caja a propósito, y recortarlos en las esquinas es
-          exactamente lo que no tiene que pasar. */}
-      <div className="flex flex-1 flex-col rounded-t-[20px] border border-b-0 border-border bg-card px-4 py-5 lg:rounded-[20px] lg:border-b lg:px-8 lg:py-7">
+          exactamente lo que no tiene que pasar.
+
+          ── Y SIN FONDO ────────────────────────────────────────────────────
+
+          El fondo de puntos vive en el layout raíz como una capa `fixed` detrás
+          de todo, y esta tarjeta lo tapaba: `bg-card` es opaco, así que el único
+          sitio donde los puntos se veían era el margen de tres píxeles de
+          alrededor. Un fondo animado que solo asoma por el borde no es un fondo,
+          es un marco.
+
+          Lo que la sigue haciendo una tarjeta es la GEOMETRÍA —el borde, el
+          radio y el margen—, que es lo que la separa de la barra lateral. Lo que
+          se va es solo el relleno. Así el contenido tiene los puntos detrás y el
+          armazón sigue estando.
+
+          La barra lateral NO cambia: conserva su `bg-background` opaco, que es
+          lo que hace que la retícula empiece donde empieza el contenido en vez
+          de correr por debajo de la navegación. */}
+      <div className="flex flex-1 flex-col rounded-t-[20px] border border-b-0 border-border px-4 py-5 lg:rounded-[20px] lg:border-b lg:px-8 lg:py-7">
         <div
           className="mx-auto flex w-full flex-1 flex-col"
           style={{ maxWidth: `${APP_MEASURE}px` }}
