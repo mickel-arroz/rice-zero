@@ -53,14 +53,32 @@ function renderNode(content: string, depth: number): string[] {
 
 function walk(subtrees: Subtree[], depth: number, lines: string[]): void {
   for (const subtree of subtrees) {
+    // Un Nodo completado se salta ENTERO, con su subárbol dentro. No es una
+    // optimización: saltar solo al padre y seguir bajando dejaría a sus hijos
+    // pintados un nivel más arriba, colgando de su abuelo, y el texto que
+    // viaja describiría una estructura que no existe en ninguna parte. Ver el
+    // ADR 0004.
+    if (subtree.node.completed) continue;
+
     lines.push(...renderNode(subtree.node.content, depth));
     walk(subtree.children, depth + 1, lines);
   }
 }
 
 /**
- * El árbol entero como texto. Sin salto final: quien lo inserte en el prompt
- * decide qué va después.
+ * El árbol entero como texto, MENOS lo que ya está hecho. Sin salto final:
+ * quien lo inserte en el prompt decide qué va después.
+ *
+ * Lo omitido es exactamente el **Subárbol completado** del glosario, que es a
+ * su vez exactamente lo que la interfaz pinta tachado (`TreeRow.struck`). Que
+ * los dos conjuntos coincidan no es casualidad ni hay que mantenerlo a mano: es
+ * la misma regla —«completado hacia abajo»— aplicada por los dos recorridos que
+ * bajan por el árbol, y el ADR 0004 explica por qué tiene que ser así.
+ *
+ * Un árbol entero completado da la cadena vacía. Es correcto y no un caso raro
+ * que haya que blindar: no queda nada pendiente de lo que hablar, y el Análisis
+ * se generará sobre esa nada — cosa que la pantalla ya dice de otra forma, con
+ * todo tachado.
  */
 export function serializeTree(nodes: TreeNode[]): string {
   const lines: string[] = [];

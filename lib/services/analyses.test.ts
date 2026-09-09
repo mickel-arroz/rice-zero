@@ -174,6 +174,49 @@ describe("capa de servicios: Análisis", () => {
         expect(generate).not.toHaveBeenCalled();
       });
 
+      /**
+       * Desde el ADR 0004 un Nodo completado no viaja, así que una Versión
+       * escrita entera y terminada entera no tiene nada que mandar. Sin esta
+       * comprobación el botón se vería encendido y lo que saldría hacia el
+       * modelo sería una cadena en blanco.
+       */
+      it("y un árbol escrito pero todo completado también", async () => {
+        const done = await backend.versions.create({ projectId: version.projectId });
+        const written = await backend.nodes.create({
+          versionId: done.id,
+          content: "Ya está hecho",
+        });
+        await backend.nodes.update(written.id, { completed: true });
+        const generate = respondingWith();
+
+        await expect(
+          serviceWith(generate).generate({ versionId: done.id }),
+        ).rejects.toThrow(ANALYSIS_ERRORS.emptyVersion);
+        expect(generate).not.toHaveBeenCalled();
+      });
+
+      it("un hijo pendiente bajo un padre completado no salva la Versión", async () => {
+        // Lo tachado y lo omitido son el mismo conjunto: el hijo se ve tachado
+        // en pantalla, así que tampoco cuenta como algo que analizar.
+        const done = await backend.versions.create({ projectId: version.projectId });
+        const parent = await backend.nodes.create({
+          versionId: done.id,
+          content: "Catálogo",
+        });
+        await backend.nodes.create({
+          versionId: done.id,
+          parentId: parent.id,
+          content: "Filtros por talla",
+        });
+        await backend.nodes.update(parent.id, { completed: true });
+        const generate = respondingWith();
+
+        await expect(
+          serviceWith(generate).generate({ versionId: done.id }),
+        ).rejects.toThrow(ANALYSIS_ERRORS.emptyVersion);
+        expect(generate).not.toHaveBeenCalled();
+      });
+
       it("pero un solo Nodo con algo escrito sí se manda", async () => {
         const one = await backend.versions.create({ projectId: version.projectId });
         await backend.nodes.create({ versionId: one.id, content: "Una idea suelta" });

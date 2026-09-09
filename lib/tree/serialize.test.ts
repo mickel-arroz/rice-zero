@@ -97,3 +97,54 @@ describe("serialización del árbol", () => {
     `);
   });
 });
+
+describe("los Nodos completados no viajan", () => {
+  /** El mismo árbol, con esos Nodos dados por terminados. */
+  function completing(ids: string[]): TreeNode[] {
+    return tree().map((n) =>
+      ids.includes(n.id) ? { ...n, completed: true } : n,
+    );
+  }
+
+  it("un Nodo completado no aparece", () => {
+    const text = serializeTree(completing(["b"]));
+    expect(text).not.toContain("Fuera de alcance");
+    expect(text).toContain("Tienda online");
+  });
+
+  it("su subárbol tampoco, aunque los hijos sigan pendientes", () => {
+    // El caso que fuerza la decisión: «Catálogo» está hecho, «Filtros por
+    // talla» no. Omitir solo al padre dejaría al hijo colgando de «Tienda
+    // online», y el texto describiría una jerarquía que no existe.
+    const text = serializeTree(completing(["a1"]));
+
+    expect(text).not.toContain("Catálogo");
+    expect(text).not.toContain("Filtros por talla");
+    // Y lo que no cuelga de él sigue entero, en su sitio.
+    expect(text).toContain("Carrito");
+    expect(text).toContain("Tienda online");
+  });
+
+  it("lo que queda no cambia de nivel al desaparecer un hermano completado", () => {
+    // La sangría de «Carrito» es la misma con y sin «Catálogo» delante: lo que
+    // se omite es un subárbol entero, no un renglón de una lista.
+    const conTodo = serializeTree(tree());
+    const sinCatalogo = serializeTree(completing(["a1"]));
+
+    const linea = (text: string) =>
+      text.split("\n").find((l) => l.includes("Carrito"));
+
+    expect(linea(sinCatalogo)).toBe(linea(conTodo));
+  });
+
+  it("un árbol entero completado da la cadena vacía", () => {
+    // No queda nada pendiente de lo que hablar. La pantalla ya lo dice de otra
+    // forma: todo tachado.
+    expect(serializeTree(completing(["a", "b"]))).toBe("");
+  });
+
+  it("completar la raíz se lleva por delante a toda su descendencia", () => {
+    const text = serializeTree(completing(["a"]));
+    expect(text).toBe("- Fuera de alcance");
+  });
+});

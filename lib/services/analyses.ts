@@ -42,6 +42,7 @@ import type {
   BackendProvider,
   TreeNode,
 } from "@/lib/backend/ports";
+import { treeRows } from "@/lib/tree/rows";
 import { serializeTree } from "@/lib/tree/serialize";
 
 /**
@@ -191,13 +192,22 @@ export type AnalysisService = {
  * una Versión recién empezada. `serializeTree` la pinta como `- (sin texto)`,
  * así que mirar si el texto serializado está vacío tampoco valdría.
  *
+ * Y se pregunta solo por lo PENDIENTE. Desde el ADR 0004 un Nodo completado y
+ * su subárbol no viajan, así que una Versión escrita entera y terminada entera
+ * produce el texto vacío: sin esta mitad, el botón se vería encendido y lo que
+ * saldría hacia el modelo sería una cadena en blanco. La condición se lee del
+ * mismo `struck` que pinta el tachado —no de una segunda regla escrita aquí—
+ * porque lo enseñado y lo enviado tienen que ser el mismo conjunto.
+ *
  * Se exporta porque el panel la necesita para APAGAR el botón antes de que se
  * pulse. Sin eso, «Generar» sobre una Versión vacía se ve habilitado y el
  * rechazo llega después como un fallo — la regla es la misma, así que tiene que
  * salir de aquí y no reescribirse en la pantalla.
  */
 export function hasSomethingToAnalyze(nodes: TreeNode[]): boolean {
-  return nodes.some((node) => node.content.trim().length > 0);
+  return treeRows(nodes).some(
+    (row) => !row.struck && row.node.content.trim().length > 0,
+  );
 }
 
 export function createAnalysisService(
