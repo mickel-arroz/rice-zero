@@ -145,7 +145,17 @@ export function DashboardNav({
         // Sin borde derecho: el contenedor flotante arranca justo donde acaba
         // esta columna, así que los dos bordes juntos se leían como un trazo de
         // 2 px. La separación la hace el margen del contenedor.
-        className="hidden shrink-0 flex-col bg-background transition-[width] duration-200 ease-out motion-reduce:transition-none lg:flex"
+        //
+        // `sticky top-0 h-dvh`: la columna deja de estirarse con la página. Sin
+        // alto propio, una columna de flex crece hasta igualar al contenido, así
+        // que en una pantalla larga «Acerca de» y la cuenta acababan a miles de
+        // píxeles de scroll. Con un alto de ventana y `sticky`, plegar y el
+        // resto de las opciones siguen donde estaban mientras se lee.
+        //
+        // `h-dvh` y no `h-screen`: en el teléfono no se ve —esto es `lg:`— pero
+        // en una ventana de escritorio con la barra de la PWA `100vh` mide de
+        // más y la fila de abajo se sale por debajo del borde.
+        className="sticky top-0 hidden h-dvh shrink-0 flex-col bg-background transition-[width] duration-200 ease-out motion-reduce:transition-none lg:flex"
         style={{
           width: `${collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED}px`,
         }}
@@ -164,7 +174,13 @@ export function DashboardNav({
           </Link>
         </div>
 
-        <nav className="flex flex-col gap-0.5 px-3 py-2">
+        {/* `min-h-0` además de `flex-1`: un hijo de flex no baja de su tamaño
+            de contenido salvo que se le diga, así que sin esto la lista no se
+            recorta —empuja— y el scroll propio nunca llega a existir. Con él,
+            los Proyectos se desplazan dentro de su columna y el bloque de abajo
+            se queda donde está. Sustituye al `flex-1` vacío que antes empujaba:
+            quien crece es ahora quien puede desplazarse. */}
+        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
           <NavRow
             // Plegada la fila deja de desplegar y pasa a navegar: no hay sitio
             // para una lista, así que el clic tiene que llevar a algo.
@@ -187,9 +203,7 @@ export function DashboardNav({
           ) : null}
         </nav>
 
-        <div className="flex-1" />
-
-        <div className="flex flex-col gap-0.5 border-t border-border p-3">
+        <div className="flex shrink-0 flex-col gap-0.5 border-t border-border p-3">
           <NavRow
             label={collapsed ? SHELL_COPY.expandSidebar : SHELL_COPY.collapse}
             ariaLabel={
