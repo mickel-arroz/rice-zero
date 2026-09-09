@@ -8,25 +8,25 @@ import { ChevronsLeftIcon } from "@/components/icons/chevrons-left-icon";
 import { ChevronsRightIcon } from "@/components/icons/chevrons-right-icon";
 import { CloseIcon } from "@/components/icons/close-icon";
 import { ContrastIcon } from "@/components/icons/contrast-icon";
-import { FolderIcon } from "@/components/icons/folder-icon";
+import { HomeIcon } from "@/components/icons/home-icon";
 import { InfoIcon } from "@/components/icons/info-icon";
 import { MenuIcon } from "@/components/icons/menu-icon";
 import { projectIconFor } from "@/components/icons/projects";
 import { useProjects } from "@/components/projects/projects-provider";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { AppFrame } from "@/components/layout/app-frame";
-import { NavRow, ProjectRow, ProjectTree } from "@/components/layout/nav-row";
+import { NavRow, ProjectRow } from "@/components/layout/nav-row";
 import {
   BRAND_CLASS,
   ICON_BUTTON_CLASS,
   LABEL_CLASS,
 } from "@/components/layout/site-chrome";
 import { useThemeToggle } from "@/components/theme/theme-toggle";
+import { isSameOrUnder, normalizePath } from "@/lib/path";
 import { activeDestination } from "@/lib/shell/destinations";
 import { sidebarCookieAssignment } from "@/lib/shell/sidebar";
 import {
   APP_NAME,
-  PROJECTS_COPY,
   ROUTES,
   SHELL_COPY,
   THEME_TOGGLE_LABEL,
@@ -54,7 +54,17 @@ const SIDEBAR_COLLAPSED = 76;
 const BRAND_HEIGHT = 78;
 
 const DESKTOP_ROW = 44;
-const MOBILE_ROW = 52;
+
+/**
+ * El alto de fila del menú del teléfono, y también el de sus dos pastillas del
+ * pie: 46, del boceto. Sube de los 44 de escritorio para dar blanco de dedo sin
+ * llegar a los 52 que tenía antes, que con la lista de Proyectos ya sin
+ * agrupador dejaban el menú más largo que la pantalla.
+ */
+const MOBILE_ROW = 46;
+
+/** El acceso a un Proyecto, un escalón por debajo de un destino. */
+const PROJECT_ROW = 38;
 
 export function DashboardNav({
   initialCollapsed,
@@ -68,11 +78,6 @@ export function DashboardNav({
   // servidor. La cookie se reescribe en cada cambio para la próxima petición.
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [menuOpen, setMenuOpen] = useState(false);
-  // Uno por formato: son dos navegaciones que se ven en momentos distintos, y
-  // compartir el estado hacía que plegar la sección en escritorio abriera el
-  // menú del teléfono con los accesos escondidos.
-  const [sidebarProjectsOpen, setSidebarProjectsOpen] = useState(true);
-  const [menuProjectsOpen, setMenuProjectsOpen] = useState(true);
 
   // Los mismos Proyectos que pinta la pantalla, del mismo provider: crear uno
   // lo hace aparecer aquí sin recargar, y borrarlo lo quita.
@@ -88,7 +93,18 @@ export function DashboardNav({
     document.cookie = sidebarCookieAssignment(next);
   }
 
-  const projectsActive = active === "projects";
+  const path = normalizePath(pathname);
+
+  /**
+   * «Inicio» marca la LISTA, no todo lo que cuelga de ella.
+   *
+   * Con `activeDestination` —que compara por segmento— también se encendía
+   * dentro de un Proyecto, y entonces la pastilla aparecía dos veces en la
+   * misma columna: en Inicio y en el Proyecto abierto. El destino y el atajo
+   * son ahora dos alturas de la misma lista, así que solo una puede estar
+   * encendida.
+   */
+  const homeActive = path === ROUTES.projects;
   const aboutActive = active === "about";
 
   /** Los accesos directos, o el aviso de que todavía no hay ninguno. */
@@ -112,7 +128,10 @@ export function DashboardNav({
         name={project.title}
         // Nunca lanza: una clave que no reconoce cae al icono por defecto.
         icon={projectIconFor(project.icon)}
-        active={pathname === ROUTES.project(project.id)}
+        // Same-or-under y no igualdad exacta: dentro de una Versión la ruta
+        // lleva un segmento más, y con `===` no quedaba encendida ninguna fila
+        // — justo donde más falta hace saber dónde se está.
+        active={isSameOrUnder(path, ROUTES.project(project.id))}
         collapsed={isCollapsed}
         height={height}
         fontSize={fontSize}
@@ -182,25 +201,18 @@ export function DashboardNav({
             quien crece es ahora quien puede desplazarse. */}
         <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2">
           <NavRow
-            // Plegada la fila deja de desplegar y pasa a navegar: no hay sitio
-            // para una lista, así que el clic tiene que llevar a algo.
-            href={collapsed ? ROUTES.projects : undefined}
-            label={PROJECTS_COPY.title}
-            icon={FolderIcon}
-            active={projectsActive}
+            href={ROUTES.projects}
+            label={SHELL_COPY.home}
+            icon={HomeIcon}
+            active={homeActive}
             collapsed={collapsed}
-            expanded={collapsed ? undefined : sidebarProjectsOpen}
-            onClick={
-              collapsed ? undefined : () => setSidebarProjectsOpen((v) => !v)
-            }
+            height={DESKTOP_ROW}
           />
-          {collapsed ? (
-            <div className="flex flex-col gap-0.5">
-              {shortcutList(undefined, 36, 14, true)}
-            </div>
-          ) : sidebarProjectsOpen ? (
-            <ProjectTree>{shortcutList()}</ProjectTree>
-          ) : null}
+          {/* El respiro entre el punto de vuelta y lo que se alcanza desde él.
+              6 px, del boceto: menos y las dos alturas de fila se leían como
+              una sola lista; más y la de arriba parecía de otra sección. */}
+          <div className="h-1.5 shrink-0" />
+          {shortcutList(undefined, PROJECT_ROW, 14, collapsed)}
         </nav>
 
         <div className="flex shrink-0 flex-col gap-0.5 border-t border-border p-3">
@@ -257,18 +269,15 @@ export function DashboardNav({
         {menuOpen ? (
           <nav className="flex flex-1 flex-col gap-0.5 px-6 pt-5 pb-6 lg:hidden">
             <NavRow
-              label={PROJECTS_COPY.title}
-              icon={FolderIcon}
-              active={projectsActive}
+              href={ROUTES.projects}
+              label={SHELL_COPY.home}
+              icon={HomeIcon}
+              active={homeActive}
               height={MOBILE_ROW}
-              expanded={menuProjectsOpen}
-              onClick={() => setMenuProjectsOpen((v) => !v)}
+              onClick={() => setMenuOpen(false)}
             />
-            {menuProjectsOpen ? (
-              <ProjectTree>
-                {shortcutList(() => setMenuOpen(false), 46, 15)}
-              </ProjectTree>
-            ) : null}
+            <div className="h-1.5 shrink-0" />
+            {shortcutList(() => setMenuOpen(false), MOBILE_ROW, 15)}
 
             <div className="my-3.5 border-t border-border" />
 

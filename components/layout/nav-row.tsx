@@ -188,18 +188,3 @@ export function ProjectRow({
     </Link>
   );
 }
-
-/**
- * La lista de accesos directos.
- *
- * La línea vertical cae por el centro del icono de «Proyectos» (26 px dentro
- * del contenedor): el mismo recurso con el que la Vista Registro relaciona
- * nodos, reutilizado aquí para decir lo mismo — esto cuelga de aquello.
- */
-export function ProjectTree({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="my-0.5 ml-[26px] flex flex-col gap-0.5 border-l border-border pl-3">
-      {children}
-    </div>
-  );
-}

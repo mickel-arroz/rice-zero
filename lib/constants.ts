@@ -431,7 +431,18 @@ export const SHELL_COPY = {
   signOut: "Cerrar sesión",
   /** Lo que lee un lector de pantalla en la fila de cuenta plegada. */
   account: "Tu cuenta",
-  /** Bajo «Proyectos» en la sidebar, mientras no haya ninguno. */
+  /**
+   * La primera fila de la navegación: el punto de vuelta.
+   *
+   * Es una ETIQUETA, no una ruta. Lleva a `/projects`, que se queda donde está:
+   * renombrarla arrastraría la portada pública, el destino de vuelta tras
+   * iniciar sesión y el punto de arranque declarado en el manifiesto de la PWA
+   * —que además tiene test—. Se llama «Inicio» y no «Proyectos» porque la lista
+   * de Proyectos ya está debajo, uno a uno, y repetir la palabra en las dos
+   * alturas hacía leer la fila como un agrupador de lo que sigue.
+   */
+  home: "Inicio",
+  /** En la sidebar, mientras no haya ningún Proyecto. */
   noShortcuts: "Aún no hay Proyectos",
 } as const;
 
