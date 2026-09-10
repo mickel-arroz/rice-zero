@@ -107,10 +107,6 @@ export function AppFrame({
           franja de fondo bajo el contenido con la que el pulgar tropieza. De
           ahí que abajo no tenga ni borde ni esquinas.
 
-          Sin `overflow-hidden`: dentro viven menús, selectores y diálogos que
-          se salen de su caja a propósito, y recortarlos en las esquinas es
-          exactamente lo que no tiene que pasar.
-
           ── Y SIN FONDO ────────────────────────────────────────────────────
 
           El fondo de puntos vive en el layout raíz como una capa `fixed` detrás
@@ -128,36 +124,50 @@ export function AppFrame({
           lo que hace que la retícula empiece donde empieza el contenido en vez
           de correr por debajo de la navegación.
 
-          ── EL SCROLL DE ESCRITORIO VIVE AQUÍ ──────────────────────────────
+          ── ESTO ES SOLO EL MARCO ──────────────────────────────────────────
 
-          `lg:min-h-0 lg:overflow-y-auto`. La tarjeta mide lo que queda de
-          ventana y lo que sobra se desplaza POR DENTRO. Es lo que hace que el
-          envoltorio no se mueva: el borde, las esquinas y el margen contra la
-          barra lateral se quedan donde están, y lo único que corre es el
-          contenido. La barra de desplazamiento cae por dentro del borde
-          derecho, ya fina y del color del tema.
+          Borde, radio y RECORTE. Ni relleno ni desplazamiento: los dos viven
+          en el hijo de abajo, y están separados a propósito.
 
-          Y es la tarjeta y no la columna de medida de dentro: esa está
-          centrada y limitada a 1024, así que en una pantalla ancha su barra
-          aparecería en mitad del contenedor en vez de pegada a su borde.
+          El motivo es la barra de desplazamiento. Un navegador la pinta en la
+          caja de RELLENO y NO la recorta con el `border-radius` del propio
+          elemento, así que con el scroll aquí mismo la barra salía por encima
+          de la curva arriba y abajo — con un radio de 20 px eso son veinte
+          píxeles de barra fuera del envoltorio en cada punta. Poniendo el
+          `overflow-hidden` redondeado AQUÍ y el desplazamiento en el hijo, la
+          barra pasa a ser contenido de esta caja, y a un descendiente sí lo
+          recorta la curva. El borde vuelve a cortar la barra en vez de que la
+          barra le pase por encima.
 
-          ⚠ Esto crea un contexto de recorte, y arriba dice que aquí no puede
-          haber uno. Sigue siendo cierto para lo que importa: los diálogos son
-          `fixed` —no los recorta ningún `overflow` de un ancestro— y el menú de
-          la cuenta vive en la barra lateral, fuera de esta caja. Lo que sí
-          queda dentro es el menú de una tarjeta de Proyecto, que se abre hacia
-          abajo: con `auto` en vez de `hidden` no se corta, se alcanza
-          desplazándose.
+          Solo recorta en `lg`, que es donde hay algo que recortar: en móvil no
+          se desplaza esta caja sino la página, y no hay barra que sobresalga.
 
-          Solo en `lg`, como el alto de ventana del que cuelga: en móvil la
-          tarjeta se sale por abajo a propósito y la que se desplaza es la
-          página. */}
-      <div className="flex flex-1 flex-col rounded-t-[20px] border border-b-0 border-border px-4 py-5 lg:min-h-0 lg:overflow-y-auto lg:rounded-[20px] lg:border-b lg:px-8 lg:py-7">
-        <div
-          className="mx-auto flex w-full flex-1 flex-col"
-          style={{ maxWidth: `${APP_MEASURE}px` }}
-        >
-          {children}
+          ⚠ Recortar aquí sería inaceptable si el hijo no lo hiciera ya: dentro
+          viven menús que se salen de su sitio a propósito. Pero el hijo tiene
+          `overflow-y-auto` en el mismo borde, así que este recorte no quita
+          nada que no estuviera ya acotado — solo le redondea las esquinas. Y lo
+          que se sale sigue alcanzándose desplazándose, porque el que decide es
+          el `auto` del hijo. Los diálogos son `fixed` —no los recorta ningún
+          `overflow` de un ancestro— y el menú de la cuenta vive en la barra
+          lateral, fuera de esta caja. */}
+      <div className="flex flex-1 flex-col rounded-t-[20px] border border-b-0 border-border lg:min-h-0 lg:overflow-hidden lg:rounded-[20px] lg:border-b">
+        {/* El que se desplaza, con el relleno dentro.
+
+            El relleno viene con él y no se queda en el marco: así la barra cae
+            pegada al borde por dentro —que es donde se espera— en vez de a 32
+            px de él. `APP_FRAME_BLEED` sigue cuadrando, porque sigue
+            cancelando el mismo `px-4`.
+
+            Y es este y no la columna de medida de más abajo: esa está centrada
+            y limitada a 1024, así que en una pantalla ancha su barra aparecería
+            en mitad del contenedor en vez de pegada al borde. */}
+        <div className="flex flex-1 flex-col px-4 py-5 lg:min-h-0 lg:overflow-y-auto lg:px-8 lg:py-7">
+          <div
+            className="mx-auto flex w-full flex-1 flex-col"
+            style={{ maxWidth: `${APP_MEASURE}px` }}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </div>
