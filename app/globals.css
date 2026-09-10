@@ -45,6 +45,17 @@
 :root,
 .dark {
   --dot-vignette: color-mix(in oklab, var(--background) 85%, transparent);
+
+  /* La barra de scroll, derivada del texto por el mismo motivo que la viñeta:
+     en claro el texto es oscuro y en oscuro es claro, así que un pulgar sacado
+     de `--foreground` contrasta con su fondo en los dos temas sin que nadie
+     tenga que escribir dos colores y acordarse de cambiar los dos.
+
+     Translúcido, no gris: apoyado sobre el fondo de puntos, un tono opaco se
+     recortaría como una tira pegada encima. Mezclado, la retícula se ve por
+     debajo y la barra pasa desapercibida, que es lo que se le pide. */
+  --scrollbar: color-mix(in oklab, var(--foreground) 25%, transparent);
+  --scrollbar-hover: color-mix(in oklab, var(--foreground) 45%, transparent);
 }
 
 @theme inline {
@@ -104,7 +115,7 @@ body {
     cursor: pointer;
   }
 }
-
+
 /* ── Sitio para la cabecera fija del teléfono ───────────────────────────────
    Desde #36 la cabecera del móvil es `sticky`, así que se queda pegada arriba.
    Cualquier cosa que la página desplace hasta el borde superior —un `focus` en
@@ -123,5 +134,67 @@ body {
 @media (width < 64rem) {
   html {
     scroll-padding-top: 4.75rem;
+  }
+}
+
+/* ── La barra de scroll, en toda la app ─────────────────────────────────────
+   Fina, sin flechas y del color del tema, como la de Chrome en Android: la
+   referencia que se pidió. Se aplica a `*` y no a `html` porque los scrolls que
+   de verdad se usan aquí son de CONTENEDOR —la lista de Proyectos de la barra
+   lateral, el cuerpo del Análisis, la rama ancha del árbol, el panel de un
+   diálogo— y una regla por sitio se olvida en el siguiente que aparezca.
+
+   ── Por qué está escrito dos veces ───────────────────────────────────────
+
+   Porque los dos motores no se pueden servir con la misma regla, y no es
+   redundancia:
+
+   · `::-webkit-scrollbar` es lo único que deja fijar el GROSOR exacto, y 6 px
+     es lo que hace que la barra se lea como un detalle y no como un elemento.
+     Lo entienden Chromium y Safari.
+   · `scrollbar-width` / `scrollbar-color` son el estándar, y lo único que
+     entiende Firefox — pero su `thin` mide lo que decida el sistema (~11 px) y
+     no se puede ajustar.
+
+   Y NO se pueden poner los dos a la vez sin perder: desde Chromium 121, dar
+   `scrollbar-width` desactiva los `::-webkit-scrollbar` de ese elemento, así que
+   declararlo «por si acaso» engordaría la barra justo en el navegador donde sí
+   se podía adelgazar. De ahí el `@supports`: el estándar se aplica solo donde
+   los pseudoelementos NO existen, que es exactamente Firefox. */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  /* Sin carril: el fondo se ve por debajo, y una franja gris a lo largo de toda
+     la columna pesa más que la propia barra. */
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar);
+    border-radius: 999px;
+  }
+
+  /* Se enciende al acercarse, como el resto de lo que responde en esta app. */
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-hover);
+  }
+
+  /* Las flechas de los extremos. `display: none` y no un tamaño cero: con
+     `width: 0` algunos Chromium siguen reservando el cuadro y dejan la barra
+     empezando dos píxeles más abajo que el contenido. */
+  ::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  @supports (scrollbar-width: thin) and (not selector(::-webkit-scrollbar)) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar) transparent;
+    }
   }
 }
