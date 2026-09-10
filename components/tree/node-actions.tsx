@@ -16,6 +16,11 @@ import { APP_FRAME_BLEED } from "@/components/layout/app-frame";
 import { useTree } from "@/components/tree/tree-provider";
 import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 import { inheritedStrike, type TreeRow } from "@/lib/tree/rows";
+import {
+  DESELECT_SHORTCUT,
+  SHORTCUTS,
+  withShortcut,
+} from "@/lib/tree/shortcuts";
 
 /**
  * Todo lo que se le puede hacer al Nodo seleccionado, en una barra.
@@ -50,6 +55,12 @@ type Action = {
   id: string;
   icon: IconComponent;
   label: string;
+  /**
+   * Cómo se teclea, ya escrito. Sale de `SHORTCUTS`, indexado por la MISMA
+   * acción que entiende el mapa de teclado: así un botón no puede anunciar un
+   * atajo que el mapa no tiene.
+   */
+  shortcut: string;
   run: () => void;
   /** Apagada, con el motivo implícito: no hay a dónde subir, no hay qué bajar. */
   disabled?: boolean;
@@ -137,6 +148,7 @@ export function NodeActions({
       id: "up",
       icon: ArrowUpIcon,
       label: TREE_COPY.actions.up,
+      shortcut: SHORTCUTS.moveUp,
       run: () => fire(tree.moveTo(id, row.index - 1)),
       disabled: row.index === 0,
     },
@@ -144,6 +156,7 @@ export function NodeActions({
       id: "down",
       icon: ArrowDownIcon,
       label: TREE_COPY.actions.down,
+      shortcut: SHORTCUTS.moveDown,
       run: () => fire(tree.moveTo(id, row.index + 1)),
       disabled: row.index === row.siblingCount - 1,
     },
@@ -151,15 +164,23 @@ export function NodeActions({
       id: "child",
       icon: SubnodeIcon,
       label: TREE_COPY.actions.child,
+      shortcut: SHORTCUTS.createChild,
       run: () => fire(tree.createChild(id)),
     },
     {
       id: "sibling",
       icon: SiblingIcon,
       label: TREE_COPY.actions.sibling,
+      shortcut: SHORTCUTS.createSibling,
       run: () => fire(tree.createSibling(id)),
     },
-    { id: "move", icon: MoveIcon, label: TREE_COPY.actions.move, run: onMove },
+    {
+      id: "move",
+      icon: MoveIcon,
+      label: TREE_COPY.actions.move,
+      shortcut: SHORTCUTS.reparent,
+      run: onMove,
+    },
     {
       id: "completed",
       // Enseña a DÓNDE lleva el botón, no dónde está el Nodo: el estado ya se
@@ -170,6 +191,7 @@ export function NodeActions({
       label: row.node.completed
         ? TREE_COPY.actions.uncomplete
         : TREE_COPY.actions.complete,
+      shortcut: SHORTCUTS.toggleCompleted,
       run: () => fire(tree.setCompleted(id, !row.node.completed)),
       // Bajo un padre terminado no hay nada que cambiar aquí: el Nodo ya se ve
       // tachado, y marcarlo o desmarcarlo no movería un píxel. Por la MISMA
@@ -180,6 +202,7 @@ export function NodeActions({
       id: "remove",
       icon: TrashIcon,
       label: TREE_COPY.actions.remove,
+      shortcut: SHORTCUTS.remove,
       run: onDelete,
       danger: true,
     },
@@ -231,8 +254,17 @@ export function NodeActions({
               // Solo cuando el motivo es la red. «No hay a dónde subir» ya se
               // entiende del sitio del Nodo, y repetirlo en un `title` sería
               // ruido en las seis veces de cada siete que no hace falta.
-              title={blocked ? CONNECTION_COPY.blocked : action.label}
-              aria-label={action.label}
+              // El atajo va en los DOS. El `title` solo lo ve quien tiene
+              // ratón y espera encima; desde que la barra es solo iconos, el
+              // nombre accesible es lo único que anuncia un lector de pantalla,
+              // y dejar el atajo fuera lo escondería justo para quien más lo
+              // usa. Ver `withShortcut`.
+              title={
+                blocked
+                  ? CONNECTION_COPY.blocked
+                  : withShortcut(action.label, action.shortcut)
+              }
+              aria-label={withShortcut(action.label, action.shortcut)}
               className={`${BUTTON_CLASS} ${action.danger ? "text-primary" : ""} ${
                 off ? "" : "hover:border-primary hover:text-primary"
               }`}
@@ -256,8 +288,11 @@ export function NodeActions({
           <button
             type="button"
             onClick={() => tree.select(null)}
-            aria-label={TREE_COPY.deselectHint}
-            title={TREE_COPY.actions.deselect}
+            aria-label={withShortcut(
+              TREE_COPY.deselectHint,
+              DESELECT_SHORTCUT,
+            )}
+            title={withShortcut(TREE_COPY.actions.deselect, DESELECT_SHORTCUT)}
             className={`${BUTTON_CLASS} text-muted-foreground hover:border-primary hover:text-primary`}
           >
             <CloseIcon width={18} height={18} />
