@@ -15,9 +15,15 @@
  * primera parte desde el navegador, así que su `authRoute` es `null` y aquí se
  * contesta 404: la ruta existe, pero no para ese proveedor.
  *
+ * Reenvía CASI cualquier segmento: `isBlockedAuthPath` deja fuera `token`, que
+ * es el endpoint del plugin JWT. Mientras estuvo abierto, cualquier script del
+ * origen podía canjear la cookie httpOnly por un JWT portátil y llevárselo. Ver
+ * `docs/adr/0006-los-datos-pasan-por-la-api-propia.md`.
+ *
  * Ver `docs/adr/0002-sesion-de-primera-parte.md`.
  */
 
+import { isBlockedAuthPath } from "@/lib/auth/routes";
 import { getServerBackend } from "@/lib/backend/server";
 
 /** La sesión sale de las cookies de la petición: nada de esto se puede cachear. */
@@ -35,6 +41,15 @@ const notMounted = () =>
   );
 
 /**
+ * Una ruta del proveedor que este proxy no reenvía. Hoy solo `token`.
+ *
+ * 404 y no 403: «esta ruta no existe aquí» es la verdad y es lo que menos
+ * cuenta. Un 403 confirmaría que hay algo detrás que merece protegerse.
+ */
+const blocked = () =>
+  Response.json({ error: "No se encontró la ruta." }, { status: 404 });
+
+/**
  * El proveedor distingue sus operaciones por la RUTA, no por el método, así que
  * todos los verbos acaban en el mismo sitio.
  *
@@ -46,9 +61,14 @@ async function handler(
   request: Request,
   { params }: RouteContext<"/api/auth/[...path]">,
 ): Promise<Response> {
+  const path = (await params).path.join("/");
+  // Antes de resolver el backend: negarse no depende del proveedor, y así la
+  // negativa no puede fallar por configuración que falte.
+  if (isBlockedAuthPath(path)) return blocked();
+
   const route = getServerBackend().authRoute;
   if (!route) return notMounted();
-  return route.handle(request, (await params).path.join("/"));
+  return route.handle(request, path);
 }
 
 export const GET = handler;

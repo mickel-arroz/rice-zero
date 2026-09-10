@@ -1,22 +1,22 @@
 /**
- * El adaptador de Neon. El activo.
+ * El adaptador de Neon en el NAVEGADOR. El activo.
+ *
+ * Ya solo aporta la mitad de auth. Los repositorios los pone el adaptador HTTP
+ * desde `lib/backend/index.ts`, porque desde el ADR 0006 los datos no dependen
+ * del proveedor en este lado del cable: quien sabe que hay Neon detrás es el
+ * servidor (`adapters/neon/server.ts`).
  */
 
 import { createNeonAuthProvider } from "@/lib/backend/adapters/neon/auth";
 import { getNeonClient } from "@/lib/backend/adapters/neon/client";
-import { createNeonRowStore } from "@/lib/backend/adapters/neon/store";
-import { createRepositories } from "@/lib/backend/adapters/postgrest/kernel";
-import type { BackendProvider } from "@/lib/backend/ports";
+import type { AuthProvider } from "@/lib/backend/ports";
 
 // Solo por su efecto en el typecheck: prueba que los tipos generados siguen
-// describiendo el esquema que el núcleo compartido espera.
+// describiendo el esquema que el núcleo compartido espera. Se importa desde
+// aquí y no desde la mitad de servidor porque este módulo entra siempre en el
+// bundle, y es lo que garantiza que la comprobación no se caiga de la build.
 import "@/lib/backend/adapters/neon/schema-check";
 
-export function createNeonBackend(): BackendProvider {
-  const client = getNeonClient();
-  return {
-    name: "neon",
-    auth: createNeonAuthProvider(client),
-    ...createRepositories(createNeonRowStore(client)),
-  };
+export function createNeonAuth(): AuthProvider {
+  return createNeonAuthProvider(getNeonClient());
 }

@@ -29,12 +29,17 @@ import {
 } from "@neondatabase/auth/server";
 
 import { NEON_SETUP_HINT } from "@/lib/backend/adapters/neon/client";
+import { createNeonDataClient } from "@/lib/backend/adapters/neon/data";
+import { createNeonRowStore } from "@/lib/backend/adapters/neon/store";
+import { createTokenSource, neonTokenFetcher } from "@/lib/backend/adapters/neon/token";
+import { createRepositories } from "@/lib/backend/adapters/postgrest/kernel";
 import { mergeSetCookies } from "@/lib/backend/cookies";
 import { requireEnv } from "@/lib/backend/env";
-import { canAct } from "@/lib/backend/ports";
+import { canAct, UnauthenticatedError } from "@/lib/backend/ports";
 import type {
   AuthRoute,
   AuthSession,
+  ServerData,
   SessionGate,
   SessionGuard,
   ServerBackendProvider,
@@ -208,11 +213,50 @@ function createNeonAuthRoute(config: NeonServerConfig): AuthRoute {
   };
 }
 
+/**
+ * Los repositorios de Neon, atados a la sesión de cada petición.
+ *
+ * Aquí es donde el ADR 0006 se cumple o se incumple, así que conviene decirlo
+ * en voz alta: el cliente se construye con el JWT DEL USUARIO. No hay
+ * `DATABASE_URL` en este archivo y no puede haberla — ese rol tiene BYPASSRLS,
+ * y con él la autorización dejaría de estar en las políticas del motor para
+ * pasar a depender de que ninguna de las veintitrés operaciones se olvide de un
+ * `where`. Las políticas del ADR 0001 quedarían de adorno.
+ *
+ * El `TokenSource` se crea UNA vez por adaptador y los repositorios UNA vez por
+ * petición. Es el reparto correcto: lo que se comparte es la caché —cuya clave
+ * es la cookie, así que un token solo vuelve a quien lo consiguió— y lo que
+ * nunca se comparte es el cliente, que lleva dentro la identidad de quien
+ * pregunta.
+ */
+function createNeonServerData(config: NeonServerConfig): ServerData {
+  const tokens = createTokenSource(neonTokenFetcher(config));
+
+  return {
+    async repositoriesFor(request) {
+      // Se pide el token AQUÍ y no perezosamente dentro de la consulta: sin
+      // sesión, esto es un `UnauthenticatedError` inmediato en vez de un viaje
+      // al motor que vuelve con un 401 traducido. Es la misma respuesta, un
+      // salto antes.
+      if ((await tokens.tokenFor(request)) === null) {
+        throw new UnauthenticatedError();
+      }
+
+      const client = createNeonDataClient(
+        () => tokens.tokenFor(request),
+        () => tokens.forget(request),
+      );
+      return createRepositories(createNeonRowStore(client));
+    },
+  };
+}
+
 export function createNeonServerBackend(): ServerBackendProvider {
   const config = readConfig();
   return {
     name: "neon",
     session: createNeonSessionGuard(config),
     authRoute: createNeonAuthRoute(config),
+    data: createNeonServerData(config),
   };
 }

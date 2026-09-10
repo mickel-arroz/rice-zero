@@ -129,11 +129,13 @@ test("sin red, crear un Proyecto está apagado", async ({ page, context }) => {
  *
  * ── Lo que esta prueba NO afirma, y por qué ──────────────────────────────
  *
- * No afirma que el ÁRBOL se vea. Por el ADR 0001 el navegador pide los Nodos
- * directamente al Data API del Proveedor de Backend, que es otro origen, y esa
- * respuesta no la guarda el service worker a propósito: `lib/pwa/cache.ts` deja
- * fuera del logout —y por tanto fuera de lo que sobrevive— todo lo que pueda
- * llevar datos de alguien dentro. Sin red, el árbol no se puede traer.
+ * No afirma que el ÁRBOL se vea. Desde el ADR 0006 el navegador pide los Nodos a
+ * `/api/nodes`, que es nuestro propio origen, así que ya no basta con decir «es
+ * otro dominio»: esa respuesta no la guarda el service worker **a propósito**.
+ * `lib/pwa/cache.ts` deja toda la API fuera de la caché, porque la regla `apis`
+ * de Serwist serviría una copia de hasta 24 horas a los diez segundos de espera
+ * y la pantalla enseñaría un árbol que el motor no tiene, con el editor abierto
+ * y `useOffline()` sin enterarse. Sin red, el árbol no se trae.
  *
  * Lo que sí se afirma es la diferencia que de verdad importa al usuario: que
  * una recarga sin conexión devuelve LA APP —su cascarón, su franja, su

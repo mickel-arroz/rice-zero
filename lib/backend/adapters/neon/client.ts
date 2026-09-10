@@ -1,5 +1,5 @@
 /**
- * El cliente de Neon, uno por pestaña. Dos mitades, y no una.
+ * El cliente de Neon en el navegador, uno por pestaña. Ya solo auth.
  *
  * **Auth** va contra `/api/auth`, una ruta de ESTA aplicación que proxea a
  * Managed Better Auth (`app/api/auth/[...path]/route.ts`). Ese salto no es
@@ -8,10 +8,15 @@
  * Hablando directo con el origen de Neon, la cookie era de otro dominio y el
  * servidor no podía ver la sesión de nadie.
  *
- * **Data API** sigue siendo directo, como decide el ADR 0001: el navegador habla
- * con PostgREST y la autorización vive en las políticas RLS, que el motor evalúa
- * contra el JWT. Lo que cambia es de dónde sale el JWT — de `getToken`, que lo
- * pide a la sesión que ahora vive en nuestra cookie.
+ * **Aquí vivía la mitad de datos**: un cliente PostgREST contra
+ * `NEXT_PUBLIC_NEON_DATA_API_URL`, con el JWT inyectado en cada consulta y
+ * cacheado hasta su `exp`. Se la llevó el ADR 0006. Ahora quien habla con el
+ * Data API es el servidor (`adapters/neon/data.ts` y `token.ts`), y el navegador
+ * solo ve `/api/*`.
+ *
+ * Con ella se fueron `accessToken` y `forgetToken`, y esa desaparición ES la
+ * ganancia principal del ADR: en el navegador ya no hay ningún token que un XSS
+ * pueda llevarse ni del que nadie tenga que acordarse de olvidar.
  *
  * Es perezoso y memoizado: se construye la primera vez que alguien lo pide, no
  * al importar el módulo, para que la app siga renderizando aunque falte
@@ -22,14 +27,11 @@ import {
   createAuthClient,
   type VanillaBetterAuthClient,
 } from "@neondatabase/auth";
-import { createClient, type NeonPostgrestClient } from "@neondatabase/neon-js";
 
 import { requireEnv } from "@/lib/backend/env";
-import type { Database } from "@/lib/backend/adapters/neon/database.types";
 import { AUTH_ROUTE_MOUNT } from "@/lib/backend/ports";
 
 export const NEON_ENV_KEYS = {
-  dataApiUrl: "NEXT_PUBLIC_NEON_DATA_API_URL",
   /**
    * El origen de Managed Better Auth. Ya NO es `NEXT_PUBLIC_`: desde que el
    * navegador habla con `/api/auth`, quien necesita esta URL es el servidor.
@@ -43,30 +45,6 @@ const SETUP_HINT =
 export type NeonBrowserClient = {
   /** El cliente Better Auth, apuntado a nuestra ruta. */
   readonly auth: VanillaBetterAuthClient;
-  /** El Data API, con el JWT de la sesión inyectado en cada petición. */
-  readonly data: NeonPostgrestClient<Database>;
-  /**
-   * El JWT que el Data API verifica contra el JWKS, o `null` sin sesión.
-   *
-   * Se expone —en vez de quedarse dentro de `getToken`— para que una corrida en
-   * vivo pueda comprobar que lo que sale de aquí es un JWT de verdad. Es la
-   * única forma de probarlo: el fallo que lo motivó no se veía ni en el
-   * typecheck ni contra el adaptador en memoria.
-   */
-  accessToken(): Promise<string | null>;
-  /**
-   * Olvida el JWT cacheado. Lo llama el proveedor al entrar y al salir.
-   *
-   * Aquí vivieron un `tokenIsFresh()` y un `markTokenWarm()`, que intentaban
-   * marcar la ventana del tropiezo del #41 para reintentar solo las lecturas
-   * que cayeran dentro. No funcionaban, y el motivo está justo debajo, en
-   * `accessToken`: el JWT se pide PEREZOSAMENTE, dentro de la propia petición,
-   * así que en la primerísima lectura de la sesión —la que tropieza— no había
-   * token del que preguntar si estaba fresco. La respuesta era «no» por no
-   * haber nada, y el reintento no salía. Lo que reintenta ahora es
-   * `retryColdRead`, que no necesita saber nada del token.
-   */
-  forgetToken(): void;
 };
 
 /**
@@ -94,127 +72,19 @@ function resolveAuthUrl(): string {
   );
 }
 
-/**
- * El endpoint del plugin JWT de Better Auth, bajo el punto de montaje de auth.
- *
- * ES OTRO token que el de la sesión, y confundirlos costó una tarde: el Data
- * API rechazaba TODA lectura con «Provided authentication token is not a valid
- * JWT encoding» mientras el login funcionaba perfectamente.
- *
- * `getJWTToken()` del propio SDK lee `session.token`, y eso funciona cuando el
- * navegador habla DIRECTO con Managed Better Auth. Detrás de nuestro proxy de
- * primera parte (ADR 0002) no: por ahí `get-session` devuelve el token OPACO de
- * 32 caracteres —con caché o sin ella, da igual `disableCookieCache`—, que no
- * es un JWT y que el motor no puede verificar. El JWT solo sale de `/token`.
+/*
+ * Aquí vivían `TOKEN_ENDPOINT`, el margen de caducidad y `expiryOf`, que el
+ * navegador necesitaba para cachear el JWT del Data API. Se mudaron enteros a
+ * `adapters/neon/token.ts` con el ADR 0006, junto con la advertencia que costó
+ * una tarde: el JWT solo sale de `/token`, y `getJWTToken()` del SDK devuelve
+ * otra cosa detrás de nuestro proxy.
  */
-const TOKEN_ENDPOINT = "token";
-
-/** Cuánto antes de que caduque se pide otro. Un minuto de margen. */
-const TOKEN_MARGIN_MS = 60_000;
-
-/** Sin `exp` legible no se adivina: se guarda un minuto y se vuelve a pedir. */
-const TOKEN_FALLBACK_MS = 60_000;
-
-/**
- * Cuándo caduca este JWT, en milisegundos de época.
- *
- * Se lee la carga útil, que en un JWT va en claro y es pública por definición:
- * no se está verificando nada aquí —de eso se encarga el motor contra el
- * JWKS—, solo se mira hasta cuándo vale para no pedir otro en cada consulta.
- */
-function expiryOf(jwt: string): number | null {
-  const payload = jwt.split(".")[1];
-  if (!payload) return null;
-  try {
-    const claims = JSON.parse(
-      atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
-    ) as { exp?: unknown };
-    return typeof claims.exp === "number" ? claims.exp * 1000 : null;
-  } catch {
-    return null;
-  }
-}
 
 function buildClient(): NeonBrowserClient {
-  // Literal a propósito: Next incrusta los `NEXT_PUBLIC_*` en tiempo de build
-  // sustituyendo el texto, así que un acceso indirecto no se sustituye.
-  const dataApiUrl = requireEnv(
-    NEON_ENV_KEYS.dataApiUrl,
-    process.env.NEXT_PUBLIC_NEON_DATA_API_URL,
-    SETUP_HINT,
-  );
-
   const authUrl = resolveAuthUrl();
   const auth = createAuthClient(authUrl);
 
-  /**
-   * El JWT vigente, mientras lo sea.
-   *
-   * Se cachea porque `getToken` corre en CADA consulta al Data API, y sin caché
-   * cada lista de Proyectos costaría dos viajes en vez de uno. Se olvida al
-   * entrar y al salir —no solo al caducar— porque un JWT del usuario anterior
-   * serviría para leer sus datos: la caducidad es una optimización, el olvido
-   * es la garantía.
-   */
-  let cached: { token: string; until: number } | null = null;
-
-  /**
-   * La petición que está en vuelo, si hay alguna.
-   *
-   * Sin esto, dos consultas que arrancan a la vez fallan las dos la caché y
-   * piden el token por separado. Pasa de verdad y en el primer render: React en
-   * modo estricto monta los efectos DOS veces en desarrollo, así que el provider
-   * carga la lista dos veces y el proveedor de auth recibe dos peticiones
-   * simultáneas para la misma sesión.
-   */
-  let inFlight: Promise<string | null> | null = null;
-
-  async function fetchToken(): Promise<string | null> {
-    // Por `fetch` y no por el SDK: el cliente vanilla no expone este endpoint,
-    // y la petición no tiene nada de particular — misma ruta, mismas cookies.
-    const response = await fetch(`${authUrl}/${TOKEN_ENDPOINT}`, {
-      credentials: "include",
-    });
-    // Sin sesión el proveedor contesta 401. `null` y no un throw: el store lo
-    // traduce a `UnauthenticatedError` en vez de salir a la red sin token.
-    if (!response.ok) return null;
-
-    const body = (await response.json()) as { token?: unknown };
-    if (typeof body.token !== "string" || body.token.length === 0) return null;
-
-    const expiry = expiryOf(body.token);
-    cached = {
-      token: body.token,
-      until: expiry ? expiry - TOKEN_MARGIN_MS : Date.now() + TOKEN_FALLBACK_MS,
-    };
-    return cached.token;
-  }
-
-  async function accessToken(): Promise<string | null> {
-    if (cached && Date.now() < cached.until) return cached.token;
-
-    inFlight ??= fetchToken().finally(() => {
-      inFlight = null;
-    });
-    return inFlight;
-  }
-
-  const data = createClient<Database>({
-    dataApi: {
-      url: dataApiUrl,
-      getToken: accessToken,
-    },
-  });
-
-  return {
-    auth,
-    data,
-    accessToken,
-    forgetToken: () => {
-      cached = null;
-      inFlight = null;
-    },
-  };
+  return { auth };
 }
 
 let client: NeonBrowserClient | null = null;

@@ -42,3 +42,15 @@ export function getServerBackend(): ServerBackendProvider {
 export function resetServerBackend(): void {
   active = null;
 }
+
+/**
+ * Solo para tests: pone un proveedor concreto sin mirar el interruptor.
+ *
+ * Existe para que la contract suite pueda correr contra los Route Handlers de
+ * VERDAD montados sobre el adaptador en memoria, y así el salto por el cable
+ * —la serialización, las fechas, la taxonomía de errores— quede cubierto sin
+ * levantar un servidor ni tocar Neon. Ver `lib/backend/testing/loopback.ts`.
+ */
+export function setServerBackend(provider: ServerBackendProvider): void {
+  active = provider;
+}

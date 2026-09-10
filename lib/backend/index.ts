@@ -6,26 +6,33 @@
  * fuera de `lib/backend/` sabe cuál es. La variable la lee
  * `lib/backend/switch.ts`, compartido con la mitad de servidor.
  *
+ * ── Lo que el ADR 0006 cambió aquí ────────────────────────────────────────
+ *
+ * El proveedor que ve el navegador ya no sale entero de un adaptador: son dos
+ * piezas cosidas. La mitad de AUTH sigue siendo del adaptador activo, porque el
+ * cliente de Better Auth vive ahí y habla con `/api/auth`. Los REPOSITORIOS son
+ * siempre el adaptador HTTP, que llama a `/api/*` — y desde este lado del cable
+ * ya no se puede saber qué motor hay detrás, que es exactamente lo que se
+ * buscaba: ninguna petición del navegador sale hacia el proveedor.
+ *
+ * El interruptor sigue siendo uno. Lo que pasa es que ahora mueve tres mitades
+ * en vez de dos, y dos de ellas están en el servidor (`lib/backend/server.ts`).
+ *
  * El mapa es estático a propósito. Un `import()` dinámico dejaría al proveedor
  * dormido fuera del typecheck y del bundle, y entonces «volver es cambiar una
  * variable» sería falso: sería cambiar una variable y descubrir qué se ha roto
  * mientras nadie miraba.
- *
- * Esto es el proveedor tal y como lo ve el NAVEGADOR: el ADR 0001 decide que el
- * cliente habla DIRECTO con PostgREST y que la autorización se queda en RLS. Lo
- * que el servidor necesita —leer la sesión de una petición, decidir si pasa,
- * montar el handler de auth— es `lib/backend/server.ts`, y lo trajo el ticket de
- * autenticación (#7). Ver `docs/adr/0002-sesion-de-primera-parte.md`.
  */
 
-import { createNeonBackend } from "@/lib/backend/adapters/neon";
-import { createSupabaseBackend } from "@/lib/backend/adapters/supabase";
+import { createHttpRepositories } from "@/lib/backend/adapters/http";
+import { createNeonAuth } from "@/lib/backend/adapters/neon";
+import { createSupabaseAuth } from "@/lib/backend/adapters/supabase";
 import { readBackendName, type BackendName } from "@/lib/backend/switch";
-import type { BackendProvider } from "@/lib/backend/ports";
+import type { AuthProvider, BackendProvider } from "@/lib/backend/ports";
 
-const ADAPTERS: Record<BackendName, () => BackendProvider> = {
-  neon: createNeonBackend,
-  supabase: createSupabaseBackend,
+const ADAPTERS: Record<BackendName, () => AuthProvider> = {
+  neon: createNeonAuth,
+  supabase: createSupabaseAuth,
 };
 
 let active: BackendProvider | null = null;
@@ -43,7 +50,12 @@ let active: BackendProvider | null = null;
  */
 export function getBackend(): BackendProvider {
   if (active) return active;
-  active = ADAPTERS[readBackendName()]();
+  const name = readBackendName();
+  active = {
+    name,
+    auth: ADAPTERS[name](),
+    ...createHttpRepositories(),
+  };
   return active;
 }
 

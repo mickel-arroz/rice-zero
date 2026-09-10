@@ -22,10 +22,13 @@ import {
 import type { User } from "@supabase/supabase-js";
 
 import { SUPABASE_ENV_KEYS } from "@/lib/backend/adapters/supabase/client";
+import { createSupabaseRowStore } from "@/lib/backend/adapters/supabase/store";
+import { createRepositories } from "@/lib/backend/adapters/postgrest/kernel";
 import type { Database } from "@/lib/backend/adapters/supabase/database.types";
 import { requireEnv } from "@/lib/backend/env";
 import type {
   AuthSession,
+  ServerData,
   SessionGate,
   SessionGuard,
   ServerBackendProvider,
@@ -168,11 +171,38 @@ function createSupabaseSessionGuard(
   };
 }
 
+/**
+ * Los repositorios de Supabase, atados a la sesión de cada petición.
+ *
+ * Sale casi gratis, y esa es exactamente la promesa del ADR 0001 puesta a
+ * prueba: `clientFor` ya existía para el guardia, `createSupabaseRowStore` ya
+ * aceptaba este cliente, y el núcleo compartido es el mismo. Volver a Supabase
+ * sigue siendo cambiar una variable.
+ *
+ * La asimetría con Neon es que aquí no hace falta pedir ningún JWT: el SDK
+ * saca el `access_token` de las cookies `sb-*` él solo, porque son de primera
+ * parte desde el principio. Por eso no hay caché de tokens en este archivo.
+ *
+ * Las cookies que el cliente quisiera refrescar (`pending`) se descartan: quien
+ * las siembra es `gate`, que corre antes en el proxy y sí puede escribirlas en
+ * la respuesta. Una ruta de datos que sentara cookies por su cuenta competiría
+ * con él.
+ */
+function createSupabaseServerData(config: SupabaseServerConfig): ServerData {
+  return {
+    async repositoriesFor(request) {
+      const { client } = clientFor(request.headers, config);
+      return createRepositories(createSupabaseRowStore(client));
+    },
+  };
+}
+
 export function createSupabaseServerBackend(): ServerBackendProvider {
   const config = readConfig();
   return {
     name: "supabase",
     session: createSupabaseSessionGuard(config),
     authRoute: null,
+    data: createSupabaseServerData(config),
   };
 }

@@ -11,11 +11,18 @@
  * cosa: lo que se comprueba es la forma del token que emite un servicio real y
  * lo que ese servicio real hace con él. Un doble no tiene nada que decir aquí.
  *
- * ⚠ Contra Node esta corrida NO pasa por `/api/auth`: sin `window` no hay
- * origen que resolver y el cliente apunta al servicio directamente (ver
- * `resolveAuthUrl`). Por eso mira `accessToken()` y no `get-session`: es el
- * único punto por el que los dos caminos —el directo y el del proxy— tienen que
- * dar lo mismo, que es un JWT.
+ * ── Qué cambió con el ADR 0006 ────────────────────────────────────────────
+ *
+ * El camino de datos se mudó al servidor, así que este archivo ya no puede
+ * pedirle el token al cliente de navegador: allí no queda ninguno. Lo pide al
+ * endpoint `/token` del proveedor directamente, apoyándose en el tarro de
+ * cookies de `vitest.live.setup.ts`, y con él arma el MISMO cliente de datos
+ * que arma la mitad de servidor (`createNeonDataClient`).
+ *
+ * Lo que se prueba sigue siendo exactamente lo mismo —la forma del token y lo
+ * que el Data API hace con él— porque eso es lo único que esta corrida puede
+ * probar. Lo que NO cubre es el salto por nuestras rutas, igual que ya no
+ * cubría el salto por `/api/auth`: eso se ve en Playwright.
  *
  * Solo LEE: no crea ni borra nada, así que no depende del estado de la cuenta.
  */
@@ -23,6 +30,7 @@
 import { describe, expect, it } from "vitest";
 
 import { getNeonClient, resetNeonClient } from "@/lib/backend/adapters/neon/client";
+import { createNeonDataClient } from "@/lib/backend/adapters/neon/data";
 import { getBackend, resetBackend } from "@/lib/backend";
 import { readBackendName } from "@/lib/backend/switch";
 
@@ -37,7 +45,7 @@ if (!enabled) {
 } else {
   describe("Data API de Neon", () => {
     /**
-     * Deja la sesión abierta y devuelve el cliente, el mismo que usa la app.
+     * Deja la sesión abierta y devuelve el JWT y el cliente de datos.
      *
      * Una sola vez para todo el archivo: Managed Better Auth contesta
      * `429 over_request_rate_limit` a los pocos logins seguidos.
@@ -50,12 +58,19 @@ if (!enabled) {
         email: process.env.BACKEND_CONTRACT_EMAIL!,
         password: process.env.BACKEND_CONTRACT_PASSWORD!,
       });
-      return getNeonClient();
+
+      // El `fetch` de esta corrida lleva el tarro de cookies y la cabecera
+      // `Origin` que el proveedor exige, así que esta llamada es la misma que
+      // hace `token.ts` en el servidor, sin el proxy en medio.
+      const response = await fetch(`${process.env.NEON_AUTH_URL}/token`);
+      const body = (await response.json()) as { token?: string };
+      const token = body.token ?? null;
+
+      return { token, client: createNeonDataClient(async () => token, () => {}) };
     })();
 
     it("lo que se le entrega al Data API es un JWT", async () => {
-      const client = await signedIn;
-      const token = await client.accessToken();
+      const { token } = await signedIn;
 
       expect(token, "no hay token que entregar").toBeTruthy();
 
@@ -79,16 +94,16 @@ if (!enabled) {
       // `getJWTToken()` del propio SDK, y detrás de nuestro proxy de primera
       // parte es un identificador opaco. Tomarlo por un JWT fue el fallo. Si
       // algún día los dos coinciden, este test lo dirá antes de que alguien
-      // «simplifique» el cliente de vuelta al agujero.
-      const client = await signedIn;
-      const { data } = await client.auth.getSession();
+      // «simplifique» el servidor de vuelta al agujero.
+      const { token } = await signedIn;
+      const { data } = await getNeonClient().auth.getSession();
 
       expect(data?.session?.token).toBeTruthy();
-      expect(await client.accessToken()).not.toBe(data?.session?.token);
+      expect(token).not.toBe(data?.session?.token);
     });
 
     it("la vista de la lista de Proyectos responde", async () => {
-      const client = await signedIn;
+      const { client } = await signedIn;
 
       // La consulta EXACTA que hace la pantalla de Proyectos: la vista, con su
       // orden. Comprueba de una vez el token, la caché de esquema de PostgREST
@@ -103,7 +118,7 @@ if (!enabled) {
     });
 
     it("la RPC del alta está expuesta", async () => {
-      const client = await signedIn;
+      const { client } = await signedIn;
 
       // Sin llegar a crear nada: un título vacío lo rechaza el `check` de la
       // tabla, así que un error de CHECK prueba que la función existe, que se

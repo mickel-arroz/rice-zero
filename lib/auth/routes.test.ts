@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isApiPath,
+  isBlockedAuthPath,
   isPublicPath,
   loginRedirectFor,
   safeNextPath,
@@ -98,5 +100,69 @@ describe("loginRedirectFor", () => {
   it("no cuelga nada cuando el destino no es recuperable", () => {
     const url = loginRedirectFor("/", "https://rice.example/");
     expect(url.searchParams.has("next")).toBe(false);
+  });
+});
+
+describe("isApiPath", () => {
+  it("reconoce las rutas de datos y las de auth", () => {
+    for (const pathname of [
+      "/api",
+      "/api/projects",
+      "/api/projects/overviews",
+      "/api/nodes/count",
+      "/api/versions/una-version/clone",
+      "/api/auth/sign-in/email",
+    ]) {
+      expect(isApiPath(pathname), pathname).toBe(true);
+    }
+  });
+
+  it("no confunde una página que empieza igual", () => {
+    // Compara por SEGMENTO. Sin eso, `/apilado` recibiría un 401 en JSON donde
+    // una persona espera una página.
+    expect(isApiPath("/apilado")).toBe(false);
+    expect(isApiPath("/projects")).toBe(false);
+  });
+
+  it("la barra final no cambia la respuesta", () => {
+    expect(isApiPath("/api/")).toBe(true);
+  });
+});
+
+/**
+ * Ver `docs/adr/0006-los-datos-pasan-por-la-api-propia.md`. Mientras `token`
+ * estuvo abierto, un XSS canjeaba la cookie httpOnly por un JWT portátil con
+ * una línea, y toda la ganancia del ADR era cero.
+ */
+describe("isBlockedAuthPath", () => {
+  it("no se reenvía el endpoint del plugin JWT", () => {
+    expect(isBlockedAuthPath("token")).toBe(true);
+  });
+
+  it("tampoco lo que cuelgue de él", () => {
+    expect(isBlockedAuthPath("token/anonymous")).toBe(true);
+  });
+
+  it("una barra inicial de más no lo esquiva", () => {
+    // El handler pasa `path.join("/")`, que no la lleva. Pero una comprobación
+    // de seguridad que se salte con un carácter no es una comprobación.
+    expect(isBlockedAuthPath("/token")).toBe(true);
+    expect(isBlockedAuthPath("//token")).toBe(true);
+  });
+
+  it("los flujos de verdad siguen pasando", () => {
+    // Equivocarse por este lado tumba la autenticación entera, así que la
+    // lista es negra y corta a propósito.
+    for (const path of [
+      "sign-in/email",
+      "sign-up/email",
+      "sign-out",
+      "get-session",
+      "reset-password",
+      "callback/google",
+      "tokenizador",
+    ]) {
+      expect(isBlockedAuthPath(path), path).toBe(false);
+    }
   });
 });

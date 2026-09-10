@@ -39,7 +39,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createNeonRowStore } from "@/lib/backend/adapters/neon/store";
-import type { NeonBrowserClient } from "@/lib/backend/adapters/neon/client";
+import type { NeonDataClient } from "@/lib/backend/adapters/neon/data";
 import type { PostgrestFailure } from "@/lib/backend/adapters/postgrest/errors";
 import type { Row } from "@/lib/backend/adapters/postgrest/store";
 
@@ -129,7 +129,7 @@ function fakeClient(answers: Answer[]) {
       rpc: () => builder(next, record, { unaFila: true }),
     },
     forgetToken: () => {},
-  } as unknown as NeonBrowserClient;
+  } as unknown as NeonDataClient;
 
   return { client, calls: () => calls, selects: () => selects };
 }

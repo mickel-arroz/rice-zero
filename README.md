@@ -58,14 +58,24 @@ npm run dev
 
 ```
 lib/backend/
-├── index.ts       el interruptor: NEXT_PUBLIC_BACKEND, mapa estático
+├── index.ts       el interruptor, navegador: auth del adaptador + repos HTTP
+├── server.ts      el interruptor, servidor: sesión, ruta de auth y datos
+├── wire.ts        el códec del cable: fechas encajonadas, errores del puerto
+├── http/          el montaje de /api/* y el envoltorio de las doce rutas
 ├── ports/         entidades de dominio, repositorios, taxonomía de errores
 ├── adapters/
 │   ├── postgrest/ núcleo compartido por los dos (no importa ningún SDK)
+│   ├── http/      los repositorios del NAVEGADOR, contra /api/*
 │   ├── neon/      @neondatabase/* + Managed Better Auth
 │   └── supabase/  @supabase/*
-└── testing/       adaptador en memoria + contract suite compartida
+└── testing/       adaptador en memoria, contract suite y el loopback
 ```
+
+Desde el ADR 0006 el navegador **no habla con el proveedor**: llama a las rutas
+de `app/api/`, y son ellas las que hablan con Neon **con el JWT del usuario**, de
+modo que la autorización sigue estando en las políticas RLS del motor y no en
+código nuestro. Por eso `adapters/http/` no sabe qué proveedor hay detrás: en ese
+lado del cable ya no se puede saber.
 
 Dos límites, y ESLint los aplica — no son convenciones de palabra:
 
@@ -185,9 +195,12 @@ escriben se apagan, y que lo tecleado justo antes del corte queda **Pendiente** 
 se escribe solo al volver.
 
 Lo que **no** afirma es que el árbol se vea tras una recarga sin red, porque no
-pasa y no debe pasar: por el ADR 0001 el navegador pide los Nodos directamente
-al Data API, que es otro origen, y `lib/pwa/cache.ts` deja fuera de lo que
-sobrevive todo lo que pueda llevar datos de alguien dentro. Lo que sí se afirma
+pasa y no debe pasar. Desde el ADR 0006 los Nodos se piden a `/api/nodes`, que es
+nuestro propio origen, así que la razón ya no es «es otro dominio»: es que
+`lib/pwa/cache.ts` deja TODA la API fuera de la caché, a propósito. La regla
+`apis` de Serwist serviría una copia de hasta 24 horas a los diez segundos de
+espera, y una pantalla que enseña un árbol que el motor no tiene es justo lo que
+el ADR 0005 no admite. Lo que sí se afirma
 es lo que el usuario nota: que una recarga sin conexión devuelve **la app** —su
 cascarón, sus accesos directos y una pantalla en español con su botón de
 reintentar— y no el dinosaurio del navegador.
@@ -315,8 +328,9 @@ La generación está partida porque sus dos mitades corren en sitios distintos, 
    `app/(dashboard)/projects/[projectId]/[versionId]/actions.ts`. Ahí está la
    API key y ahí se queda. Es un punto de entrada público, así que exige sesión
    y valida lo que le manden antes de gastar una petición de cuota.
-2. **Persistir, en el navegador.** Como todo lo demás (ADR 0001): directo a
-   PostgREST y bajo las mismas políticas RLS que un Nodo.
+2. **Persistir, desde el navegador.** Como todo lo demás: por `/api/analyses`, y
+   bajo las mismas políticas RLS que un Nodo (ADR 0006). El Análisis cruza el
+   cable como cualquier otra entidad; quien habla con PostgREST es el servidor.
 
 El action DEVUELVE sus fallos en vez de lanzarlos: en producción Next sustituye
 un error del servidor por un mensaje genérico, así que una taxonomía lanzada

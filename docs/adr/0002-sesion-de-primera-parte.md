@@ -41,6 +41,11 @@ lo dejaba sin poder probarse. Se usan en su lugar las primitivas agnósticas de
 de datos. Se rechazó porque contradice el ADR 0001 sin motivo nuevo: el navegador sigue hablando
 directo con PostgREST y la autorización sigue en RLS. Lo único que cambia es de dónde sale el JWT.
 
+> **Superado por el ADR 0006.** Esta opción se aceptó después, cuando aparecieron los dos motivos
+> que aquí faltaban: que `/api/auth/token` convertía la cookie httpOnly en una credencial portátil
+> que un XSS podía exfiltrar, y que la superficie del cable era PostgREST entero mientras cuatro
+> reglas del dominio vivían solo en código de navegador.
+
 ## Consequences
 
 **La confirmación de email se exige en el SERVIDOR, no en el navegador.** Cuando el handler de auth

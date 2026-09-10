@@ -5,6 +5,7 @@ import {
   isNeverCached,
   isOfflineDocument,
 } from "@/lib/pwa/cache";
+import { API_MOUNT, DATA_ROUTES } from "@/lib/backend/http/mount";
 import { ROUTES } from "@/lib/constants";
 
 /** Una petición como la que le llega al matcher del service worker. */
@@ -134,6 +135,40 @@ describe("isNeverCached", () => {
         false,
       );
     }
+  });
+
+  /**
+   * La regla del ADR 0006. `defaultCache` atrapa TODO GET de nuestro origen
+   * bajo `/api/` con `NetworkFirst` y diez segundos de espera, así que sin esto
+   * una red lenta serviría el árbol de ayer y `useOffline()` no lo vería: la
+   * pantalla enseñaría algo que el motor no tiene, con el editor desbloqueado.
+   */
+  it("no guarda NINGUNA respuesta de la API", () => {
+    for (const pathname of [
+      API_MOUNT,
+      DATA_ROUTES.projects,
+      `${DATA_ROUTES.projects}/overviews`,
+      `${DATA_ROUTES.nodes}/count`,
+      `${DATA_ROUTES.versions}/una-version/clone`,
+      DATA_ROUTES.analyses,
+      ROUTES.authApi,
+    ]) {
+      expect(isNeverCached({ pathname, sameOrigin: true }), pathname).toBe(true);
+    }
+  });
+
+  it("una ruta de API futura nace fuera de la caché", () => {
+    // Va el punto de montaje entero y no las cuatro rutas de datos, así que
+    // esto se cumple sin que nadie tenga que acordarse de apuntarla.
+    expect(
+      isNeverCached({ pathname: "/api/lo-que-venga", sameOrigin: true }),
+    ).toBe(true);
+  });
+
+  it("no confunde una página que empieza igual con la API", () => {
+    // `isSameOrUnder` compara por SEGMENTO: sin eso, un `/apilado` cualquiera
+    // se quedaría sin caché sin que nadie entendiera por qué.
+    expect(isNeverCached({ pathname: "/apilado", sameOrigin: true })).toBe(false);
   });
 
   it("no opina sobre lo que no es nuestro", () => {

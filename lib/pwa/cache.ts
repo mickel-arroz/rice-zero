@@ -10,6 +10,7 @@
  */
 
 import { isSameOrUnder, normalizePath } from "@/lib/path";
+import { API_MOUNT } from "@/lib/backend/http/mount";
 import { ROUTES } from "@/lib/constants";
 
 /**
@@ -70,7 +71,33 @@ export function isOfflineDocument({ request, origin }: CacheQuestion): boolean {
  * enlace de un correo, una vez, y que sin red no puede hacer nada de todos
  * modos porque su único botón habla con el proveedor.
  */
-const NEVER_CACHED: readonly string[] = [ROUTES.resetPassword];
+const NEVER_CACHED: readonly string[] = [
+  ROUTES.resetPassword,
+  /**
+   * Toda la API, y no solo las rutas de datos.
+   *
+   * `defaultCache` de `@serwist/turbopack` trae una regla que atrapa TODO GET
+   * de nuestro origen bajo `/api/` con `NetworkFirst`, caché `apis`, 16
+   * entradas, 24 horas y 10 segundos de espera. Desde el ADR 0006 las lecturas
+   * de datos son GET a `/api/*`, así que sin esta línea el árbol de una Versión
+   * acabaría ahí dentro — y a los diez segundos de una red lenta la pantalla
+   * enseñaría una copia de ayer sin decir nada.
+   *
+   * Eso es exactamente lo que el ADR 0005 declara inaceptable: «un árbol que
+   * enseña algo que el motor no tiene». Y sería invisible, porque `useOffline()`
+   * solo instrumenta el tráfico propio de Next: `blocked` seguiría en `false` y
+   * se podría editar encima de datos rancios.
+   *
+   * Va el punto de montaje entero y no las cuatro rutas de datos por lo mismo
+   * que la lista de arriba es corta: ninguna respuesta de nuestra API tiene
+   * sentido guardada. `/api/auth` ya estaba fuera —el propio `defaultCache` la
+   * excluye con `NetworkOnly`—, así que incluirla aquí no cambia nada y evita
+   * que una ruta futura nazca cacheada.
+   *
+   * Las escrituras no necesitan esto: Workbox solo enruta GET.
+   */
+  API_MOUNT,
+];
 
 /**
  * ¿Esta petición no debe tocar la caché?

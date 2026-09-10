@@ -53,6 +53,11 @@ cualquier otro escenario.
 **Managed Better Auth está en Beta** y queda en el camino crítico de los user stories 3–6 del spec.
 El puerto es también la mitigación: si la Beta se rompe, el adaptador es el único código a tocar.
 
+> **Matizado por el ADR 0006.** «El navegador habla directo con PostgREST» dejó de ser cierto: el
+> navegador llama a `/api/*` y es el servidor quien consulta el motor. Lo que NO cambió, y es lo que
+> esta decisión de verdad sostiene, es que la autorización sigue siendo RLS — el servidor usa el JWT
+> del usuario, nunca un rol con BYPASSRLS.
+
 **Los dos adaptadores comparten hoy un núcleo de repositorios** (`lib/backend/adapters/postgrest/`),
 porque Supabase y el Data API de Neon hablan ambos PostgREST. Es una coincidencia que se aprovecha,
 no una promesa: vive entera detrás del puerto, no llega a ningún call site, y un adaptador que no

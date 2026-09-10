@@ -141,15 +141,14 @@ function nameFromEmail(email: string): string {
 export function createNeonAuthProvider(
   client: NeonBrowserClient,
 ): AuthProvider {
-  /**
-   * El JWT del Data API se olvida en cada cambio de sesión.
-   *
-   * No es una optimización, es la garantía: el token va cacheado hasta que
-   * caduca, y un JWT del usuario anterior serviría para leer sus Proyectos
-   * mientras dure. Entrar y salir son los dos únicos momentos en que la
-   * identidad cambia, así que son los dos únicos sitios donde hay que olvidar.
+  /*
+   * Aquí había un `forget()` que tiraba el JWT cacheado al entrar y al salir,
+   * porque un token del usuario anterior serviría para leer sus Proyectos.
+   * Desde el ADR 0006 no hace falta y no puede hacer falta: en el navegador ya
+   * no hay ningún token. El caché vive en el servidor y su clave es la COOKIE
+   * de sesión, así que una sesión nueva es una clave nueva y falla sola — la
+   * garantía dejó de depender de que alguien se acordara de invalidar.
    */
-  const forget = () => client.forgetToken();
 
   async function currentSession(): Promise<AuthSession | null> {
     try {
@@ -199,7 +198,6 @@ export function createNeonAuthProvider(
     },
 
     async signInWithEmail({ email, password }) {
-      forget();
       try {
         const { data, error } = await client.auth.signIn.email({
           email,
@@ -223,7 +221,6 @@ export function createNeonAuthProvider(
     },
 
     async signInWithGoogle(redirectTo) {
-      forget();
       try {
         const { error } = await client.auth.signIn.social({
           provider: "google",
@@ -286,7 +283,6 @@ export function createNeonAuthProvider(
       // Antes de la llamada y no después: si el servicio falla, la sesión local
       // queda en un estado que no controlamos, y el token cacheado es lo último
       // que debe sobrevivir a eso.
-      forget();
       try {
         const { error } = await client.auth.signOut();
         if (error) throw translateAuthFailure(error);

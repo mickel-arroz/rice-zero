@@ -17,6 +17,7 @@
  */
 
 import type { AuthSession } from "@/lib/backend/ports/entities";
+import type { ServerData } from "@/lib/backend/ports/data";
 
 /**
  * Dónde se monta la superficie HTTP de auth.
@@ -138,4 +139,10 @@ export type ServerBackendProvider = {
   readonly session: SessionGuard;
   /** `null` cuando el proveedor no necesita ninguna ruta propia. */
   readonly authRoute: AuthRoute | null;
+  /**
+   * Leer y escribir los datos de una petición. Obligatoria, a diferencia de
+   * `authRoute`: un proveedor puede no necesitar ruta de auth propia, pero
+   * ninguno puede no tener datos.
+   */
+  readonly data: ServerData;
 };

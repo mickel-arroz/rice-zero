@@ -6,6 +6,7 @@
  */
 
 export * from "@/lib/backend/ports/auth";
+export * from "@/lib/backend/ports/data";
 export * from "@/lib/backend/ports/entities";
 export * from "@/lib/backend/ports/errors";
 export * from "@/lib/backend/ports/provider";

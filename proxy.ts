@@ -16,11 +16,12 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
-import { isPublicPath, loginRedirectFor } from "@/lib/auth/routes";
+import { isApiPath, isPublicPath, loginRedirectFor } from "@/lib/auth/routes";
 import { mergeSetCookies } from "@/lib/backend/cookies";
 import { getServerBackend } from "@/lib/backend/server";
-import type { SetCookies } from "@/lib/backend/ports";
+import { UnauthenticatedError, type SetCookies } from "@/lib/backend/ports";
 import { PUBLIC_ROUTES } from "@/lib/constants";
+import { encodeBackendError, statusForWireError } from "@/lib/backend/wire";
 
 function applyCookies(
   response: NextResponse,
@@ -49,6 +50,18 @@ export async function proxy(request: NextRequest) {
   });
 
   if (gate.kind === "redirect") {
+    // Un `fetch` que espera JSON no sabe qué hacer con un 302 a una página: lo
+    // sigue y se encuentra HTML. La decisión es la misma —aquí no se entra—,
+    // solo se dice en el protocolo correcto. El sobre lo arma `wire.ts`, que es
+    // el mismo códec que usan las rutas, para que el adaptador reconstruya un
+    // `UnauthenticatedError` de verdad y la interfaz mande a login.
+    if (isApiPath(pathname)) {
+      const error = encodeBackendError(new UnauthenticatedError());
+      return applyCookies(
+        NextResponse.json({ error }, { status: statusForWireError(error) }),
+        gate.setCookies,
+      );
+    }
     return applyCookies(NextResponse.redirect(gate.to), gate.setCookies);
   }
 

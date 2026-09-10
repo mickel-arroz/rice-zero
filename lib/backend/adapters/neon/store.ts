@@ -11,7 +11,7 @@
 
 import { AuthRequiredError } from "@neondatabase/neon-js";
 
-import type { NeonBrowserClient } from "@/lib/backend/adapters/neon/client";
+import type { NeonDataClient } from "@/lib/backend/adapters/neon/data";
 import {
   asRelation,
   asRows,
@@ -59,7 +59,7 @@ function isSessionHiccup(error: unknown): boolean {
   );
 }
 
-export function createNeonRowStore(client: NeonBrowserClient): RowStore {
+export function createNeonRowStore(client: NeonDataClient): RowStore {
   /**
    * Una escritura, y un segundo intento si fue el tropiezo de arriba.
    *

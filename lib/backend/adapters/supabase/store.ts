@@ -19,7 +19,7 @@ import {
 } from "@/lib/backend/adapters/postgrest/response";
 import type { Row, RowStore } from "@/lib/backend/adapters/postgrest/store";
 import { retryColdRead } from "@/lib/backend/adapters/postgrest/warmup";
-import type { SupabaseBrowserClient } from "@/lib/backend/adapters/supabase/client";
+import type { SupabaseDataClient } from "@/lib/backend/adapters/supabase/client";
 
 // Sin `recover`: el SDK de Supabase no lanza por falta de sesión, manda la
 // petición y el motor contesta con PGRST301.
@@ -34,7 +34,7 @@ const { run, runCount } = createRunner();
 // quien tiene tres cosas es un fallo que se ve.
 
 export function createSupabaseRowStore(
-  client: SupabaseBrowserClient,
+  client: SupabaseDataClient,
 ): RowStore {
   return {
     async select(source, options) {
