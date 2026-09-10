@@ -79,8 +79,22 @@ import { layoutForest, treeEdges } from "@/lib/tree/layout";
 /** Fuera del componente: si cambiara en cada render, el lienzo lo advertiría. */
 const NODE_TYPES = { [CANVAS_NODE_TYPE]: NodeView };
 
+/**
+ * El lienzo tiene fondo PROPIO, y opaco.
+ *
+ * No lo tenía: heredaba el de la tarjeta del Contenedor. Cuando ésa se volvió
+ * transparente para dejar ver el fondo de puntos de la app, el lienzo se quedó
+ * con DOS retículas superpuestas —la suya y la del layout— y la de abajo se
+ * enciende siguiendo al ratón. Arrastrar un Nodo mueve el ratón sesenta veces
+ * por segundo, así que el fondo entero latía debajo del diagrama y no se podía
+ * mirar nada.
+ *
+ * El Canvas es una superficie de trabajo con su propia retícula, y una
+ * superficie de trabajo no deja ver otra por debajo. El fondo de puntos es de
+ * la app; aquí dentro manda el lienzo.
+ */
 const VIEWPORT_CLASS =
-  "relative flex-1 min-h-[380px] overflow-hidden rounded-[20px] border border-border";
+  "relative flex-1 min-h-[380px] overflow-hidden rounded-[20px] border border-border bg-card";
 
 /**
  * Cuánto hay que mover el dedo para que sea un arrastre y no un clic.
@@ -109,9 +123,14 @@ export function CanvasView({ fullscreen, onFullscreen }: FullscreenControl) {
   if (tree.nodes.length === 0) return <TreeEmpty readOnlyOnMobile />;
 
   return (
-    // A pantalla completa el borde y las esquinas sobran: el lienzo ya no está
-    // metido en una caja dentro de la página, ES la página.
-    <div className={fullscreen ? "relative min-h-0 flex-1" : VIEWPORT_CLASS}>
+    <div
+      className={
+        // A pantalla completa el fondo lo pone el `main` que sale del flujo, y
+        // el borde y las esquinas sobran: el lienzo ya no está metido en una
+        // caja dentro de la página, ES la página.
+        fullscreen ? "relative min-h-0 flex-1 bg-card" : VIEWPORT_CLASS
+      }
+    >
       {/* El provider se saca FUERA del lienzo a propósito: `useReactFlow` solo
           existe dentro de su contexto, y `Canvas` lo necesita para traducir el
           puntero a coordenadas del bosque mientras se arrastra. `<ReactFlow>`
