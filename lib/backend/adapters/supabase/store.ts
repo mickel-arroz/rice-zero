@@ -18,26 +18,45 @@ import {
   filteredId,
 } from "@/lib/backend/adapters/postgrest/response";
 import type { Row, RowStore } from "@/lib/backend/adapters/postgrest/store";
+import { retryColdRead } from "@/lib/backend/adapters/postgrest/warmup";
 import type { SupabaseBrowserClient } from "@/lib/backend/adapters/supabase/client";
 
 // Sin `recover`: el SDK de Supabase no lanza por falta de sesión, manda la
 // petición y el motor contesta con PGRST301.
 const { run, runCount } = createRunner();
 
-export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore {
+// Las LECTURAS van envueltas en `retryColdRead`, igual que las del adaptador de
+// Neon. No es que a Supabase se le haya visto el tropiezo del #41: es que la
+// causa —PostgREST evaluando RLS detrás de un pool, con la sesión JWT puesta
+// por conexión— es de esa arquitectura y no del proveedor, así que el que no lo
+// tenga hoy tampoco es una promesa. El precio es un viaje de más por lectura
+// vacía, y el mismo argumento vale a los dos lados: enseñar «no hay nada» a
+// quien tiene tres cosas es un fallo que se ve.
+
+export function createSupabaseRowStore(
+  client: SupabaseBrowserClient,
+): RowStore {
   return {
     async select(source, options) {
-      let query = client.from(asRelation(source)).select("*");
-      for (const filter of options?.where ?? []) {
-        query = query.eq(filter.column, filter.value);
-      }
-      for (const order of options?.order ?? []) {
-        query = query.order(order.column, {
-          ascending: order.ascending,
-          nullsFirst: order.nullsFirst,
-        });
-      }
-      return asRows(await run(query, source, filteredId(options?.where)));
+      // Como función y no como consulta ya armada: un `PostgrestBuilder` se
+      // consume al esperarlo, así que el segundo intento necesita una nueva.
+      const build = () => {
+        let query = client.from(asRelation(source)).select("*");
+        for (const filter of options?.where ?? []) {
+          query = query.eq(filter.column, filter.value);
+        }
+        for (const order of options?.order ?? []) {
+          query = query.order(order.column, {
+            ascending: order.ascending,
+            nullsFirst: order.nullsFirst,
+          });
+        }
+        return run(query, source, filteredId(options?.where));
+      };
+
+      return asRows(
+        await retryColdRead(build, (data) => asRows(data).length === 0),
+      );
     },
 
     async count(source, where) {
@@ -45,14 +64,18 @@ export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore 
       // como un HEAD y el motor devuelve la cuenta en una cabecera SIN mandar
       // una sola fila. Contar leyendo el árbol entero para hacerle `.length`
       // costaba el árbol entero por el cable para enseñar un número.
-      let query = client.from(asRelation(source)).select("id", {
-        count: "exact",
-        head: true,
-      });
-      for (const filter of where ?? []) {
-        query = query.eq(filter.column, filter.value);
-      }
-      return runCount(query, source, filteredId(where));
+      const build = () => {
+        let query = client.from(asRelation(source)).select("id", {
+          count: "exact",
+          head: true,
+        });
+        for (const filter of where ?? []) {
+          query = query.eq(filter.column, filter.value);
+        }
+        return runCount(query, source, filteredId(where));
+      };
+
+      return retryColdRead(build, (total) => total === 0);
     },
 
     async searchNodes(term, limit) {
@@ -60,19 +83,25 @@ export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore 
       // un `%` o un `_` escritos por una persona son texto que quiere
       // encontrar, no comodines que quiera usar. Sin escaparlos, buscar «100%»
       // devolvería medio árbol.
-      const rows = await run(
-        client
-          .from("nodes")
-          .select("*, project_versions!inner(id, version_number, label, projects!inner(id, title))")
-          .ilike("content", `%${escapeLike(term)}%`)
-          // Los más recientes primero: entre dos Nodos que dicen lo mismo, el
-          // que se escribió hace un rato es casi siempre el que se busca.
-          .order("updated_at", { ascending: false })
-          .limit(limit),
-        "nodes",
-        null,
+      const build = () =>
+        run(
+          client
+            .from("nodes")
+            .select(
+              "*, project_versions!inner(id, version_number, label, projects!inner(id, title))",
+            )
+            .ilike("content", `%${escapeLike(term)}%`)
+            // Los más recientes primero: entre dos Nodos que dicen lo mismo, el
+            // que se escribió hace un rato es casi siempre el que se busca.
+            .order("updated_at", { ascending: false })
+            .limit(limit),
+          "nodes",
+          null,
+        );
+
+      return asRows(
+        await retryColdRead(build, (data) => asRows(data).length === 0),
       );
-      return asRows(rows);
     },
 
     async insert(table, values) {
@@ -92,7 +121,12 @@ export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore 
       // es tuyo», y eso es un `NotFoundError` que pone el núcleo, no un error
       // del motor.
       const data = await run(
-        client.from(table).update(asWritePayload(values)).eq("id", id).select().maybeSingle(),
+        client
+          .from(table)
+          .update(asWritePayload(values))
+          .eq("id", id)
+          .select()
+          .maybeSingle(),
         table,
         id,
       );
@@ -100,7 +134,11 @@ export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore 
     },
 
     async delete(table, id) {
-      const data = await run(client.from(table).delete().eq("id", id).select(), table, id);
+      const data = await run(
+        client.from(table).delete().eq("id", id).select(),
+        table,
+        id,
+      );
       return asRows(data).length > 0;
     },
 
@@ -118,14 +156,21 @@ export function createSupabaseRowStore(client: SupabaseBrowserClient): RowStore 
     },
 
     async cloneVersion(versionId, label) {
-      const data = await run(
-        client.rpc("clone_project_version", {
-          p_version_id: versionId,
-          p_label: label,
-        }),
-        "project_versions",
-        versionId,
-      );
+      // Una RPC también evalúa RLS: sin `auth.uid()` no encuentra la Versión de
+      // origen y devuelve `null`, que el núcleo traduce a «no existe». Clonar
+      // dos veces no duplica nada — el intento que no encontró el origen no
+      // llegó a escribir.
+      const build = () =>
+        run(
+          client.rpc("clone_project_version", {
+            p_version_id: versionId,
+            p_label: label,
+          }),
+          "project_versions",
+          versionId,
+        );
+
+      const data = await retryColdRead(build, (row) => row == null);
       return (data as Row | null) ?? null;
     },
   };

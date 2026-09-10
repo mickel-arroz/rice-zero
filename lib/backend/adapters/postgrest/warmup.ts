@@ -1,9 +1,8 @@
 /**
  * El tropiezo de la sesión, visto desde una LECTURA.
  *
- * `neon/store.ts` ya lo atrapa para las escrituras (`isSessionHiccup`): Neon
- * establece la sesión JWT sobre una conexión de su pool, y de vez en cuando la
- * primera petición llega antes de que esa sesión esté puesta. Con `auth.uid()`
+ * Neon establece la sesión JWT sobre una conexión de su pool, y de vez en
+ * cuando la primera petición llega antes de que esté puesta. Con `auth.uid()`
  * nulo, RLS no casa con nada.
  *
  * En una ESCRITURA eso es un 42501 —hay error, hay algo que atrapar—. En una
@@ -13,73 +12,110 @@
  *
  *     GET /rest/v1/project_overviews?select=*&order=… → 200 []
  *
- * El comentario de aquel store decía que en una lectura «no hay nada que
- * detectar». Sí lo hay, y no son las filas: es **cuándo**. El tropiezo solo cabe
- * en la ventana en la que la sesión aún no está puesta, o sea, en las peticiones
- * que SALEN con un token que todavía no ha confirmado ninguna respuesta. Fuera
- * de ella, una lista vacía es una lista vacía.
+ * ── Por qué la regla no intenta adivinar la ventana ───────────────────────
  *
- * ── «Al salir» y no «al volver» ───────────────────────────────────────────
+ * Los dos intentos anteriores sí lo intentaron, y los dos fallaron. La idea era
+ * que el tropiezo solo cabe mientras la sesión no está puesta, así que bastaba
+ * con reintentar las lecturas que salieran «con el token recién estrenado» y
+ * dejar en paz a las demás. Una lista vacía de verdad no pagaría nada.
  *
- * La primera versión de esto cerraba la ventana en cuanto volvía cualquier
- * respuesta, y se quedó corta: abrir un Proyecto lanza TRES lecturas a la vez
- * —los Proyectos, las Versiones y el árbol— y todas salen dentro de la misma
- * ventana mala. La primera en volver marcaba el token como rodado y las otras
- * dos se quedaban sin reintento aunque hubieran salido antes que ella. El bug
- * seguía, solo que ahora en `project_versions` en vez de en `project_overviews`.
+ * El problema es que esa señal no existe en el momento en que hay que leerla.
+ * El JWT se pide PEREZOSAMENTE, dentro de la propia petición: el SDK llama a
+ * `getToken` mientras la manda. Así que en la primerísima lectura de la sesión
+ * —justo la que tropieza— todavía no hay token cacheado, la señal contesta «no
+ * está fresco» porque no hay nada, y el reintento no se dispara. Cada arreglo
+ * pasaba sus tests porque el doble arrancaba con un token ya puesto, que es el
+ * único estado que el cliente de verdad no tiene al empezar.
  *
- * Así que la frescura se mira ANTES de mandar la petición, no después. Y la
- * ventana se cierra con una respuesta que PRUEBE que la sesión está puesta —una
- * que trae filas— o cuando ya se ha gastado el reintento, que es lo que impide
- * que una cuenta de verdad vacía siga preguntando dos veces para siempre.
+ * De ahí esta regla, que es deliberadamente tonta: **si la primera lectura
+ * falla o vuelve vacía, se pregunta una segunda vez, y lo que conteste esa
+ * segunda es la respuesta**. No hay ventana que calcular, ni estado que
+ * mantener entre peticiones, ni un doble que pueda mentir sobre él.
  *
- * De ahí la regla de abajo, que es todo lo que este módulo decide. Vive suelta y
- * con test por lo mismo que el resto de las decisiones de este repositorio: se
- * puede equivocar en dos direcciones —reintentar de más cuesta un viaje, no
- * reintentar deja la pantalla mintiendo— y ninguna de las dos se ve leyendo el
- * `store`.
+ * ── Lo que cuesta ─────────────────────────────────────────────────────────
+ *
+ * Un viaje de más por cada lectura que de verdad vuelve vacía: la Versión sin
+ * Nodos, la Búsqueda sin resultados, la cuenta recién creada. Es un coste real
+ * y es el precio elegido a sabiendas: enseñar «no tienes ningún Proyecto» a
+ * quien tiene tres es un fallo que se ve, y una lista vacía que tarda el doble
+ * en confirmarse no lo es.
+ *
+ * La cota es la que importa: **uno y solo uno**. Nunca hay un tercer intento,
+ * así que ninguna pantalla puede quedarse dando vueltas.
  */
 
-/**
- * Lo que se sabe de una lectura que acaba de volver.
- *
- * `tokenIsFresh` es la señal, y la única que hay: significa «con este JWT
- * todavía no ha vuelto ninguna petición del Data API», no «el JWT es nuevo».
- * Quien la mantiene es el cliente, que es el único que sabe cuándo lo trajo.
- */
-export type EmptyRead = {
-  /** Volvió sin nada: cero filas, cero en la cuenta, o ninguna fila de una RPC. */
+import { UnauthenticatedError } from "@/lib/backend/ports";
+
+/** Lo que se sabe del primer intento cuando hay que decidir si va otro. */
+export type FirstAttempt = {
+  /** Lanzó. Un error de transporte, del motor o de RLS: da igual cuál. */
+  failed: boolean;
+  /** Volvió sin nada: cero filas, cero en la cuenta, o una RPC sin fila. */
   empty: boolean;
-  /**
-   * El token con el que SALIÓ esta petición no había confirmado todavía ninguna
-   * respuesta. Se mira al mandarla y no al recibirla: ver la cabecera.
-   */
-  tokenIsFresh: boolean;
-  /** Este intento ya ERA el reintento. Nunca hay un tercero. */
-  retried: boolean;
 };
 
 /**
- * ¿Merece la pena volver a preguntar?
+ * ¿Se vuelve a preguntar?
  *
- * Las tres condiciones son necesarias, y cada una acota un fallo distinto:
+ * Las dos condiciones son la misma cosa vista desde los dos lados del mismo
+ * tropiezo: una escritura sin sesión da error y una lectura sin sesión da
+ * vacío. Cualquiera de las dos merece un segundo intento; el resto —una lectura
+ * que trajo filas— ya está contestado.
  *
- *   · **Volvió vacía.** Con filas no hubo tropiezo: RLS casó.
- *   · **Token recién estrenado.** Es la ventana del tropiezo. Sin esto, cada
- *     Versión vacía y cada Búsqueda sin resultados pagarían un viaje de más,
- *     para siempre.
- *   · **No se ha reintentado ya.** Uno y no un bucle: si el segundo intento
- *     también vuelve vacío, es que la lista está vacía de verdad. Es el mismo
- *     criterio que `retryOnce` aplica a las escrituras.
- *
- * El precio de equivocarse por exceso está acotado a UN viaje por token: una
- * cuenta recién creada, que de verdad no tiene Proyectos, pregunta dos veces la
- * primera vez y una a partir de entonces.
+ * No recibe `retried`: quien llama solo pregunta por el PRIMER intento, y que
+ * no haya tercero es una propiedad de `retryColdRead`, no una condición que
+ * alguien pueda olvidarse de pasar. La versión anterior sí lo recibía, y el
+ * `retried: false` escrito a mano en el único call site no probaba nada.
  */
-export function shouldRetryEmptyRead({
-  empty,
-  tokenIsFresh,
-  retried,
-}: EmptyRead): boolean {
-  return empty && tokenIsFresh && !retried;
+export function shouldRetryRead({ failed, empty }: FirstAttempt): boolean {
+  return failed || empty;
+}
+
+/**
+ * Una lectura que, si vuelve mal o vuelve vacía, se hace una segunda vez.
+ *
+ * Es la función auxiliar por la que pasa TODA lectura de los dos adaptadores
+ * PostgREST. Vive en el núcleo compartido y no en `neon/` porque el tropiezo es
+ * de la forma «PostgREST + RLS + un pool por delante», no del proveedor.
+ *
+ * Lo que garantiza, en el orden en que importa:
+ *
+ *   1. Si el primer intento trae datos, se devuelve tal cual: un solo viaje.
+ *   2. Si falla o vuelve vacío, se repite UNA vez.
+ *   3. Lo que conteste el segundo intento es la respuesta final, venga vacío o
+ *      venga con un error. Se propaga sin más reintentos.
+ *   4. La promesa no se resuelve hasta tener esa respuesta final. De ahí sale
+ *      solo el estado de carga de las pantallas: mientras esto no termine,
+ *      quien llama sigue en «cargando», así que no hay parpadeo posible entre
+ *      «vacío» y «aquí están tus Proyectos». No hace falta que ninguna pantalla
+ *      colabore, y por eso no se le pide a ninguna.
+ *
+ * @param read la consulta, COMO FUNCIÓN. Un `PostgrestBuilder` se consume al
+ *   esperarlo, así que el segundo intento necesita una nueva.
+ * @param isEmpty qué significa «vacío» para lo que devuelve `read`. Lo decide
+ *   quien llama porque no es lo mismo en una lista, en una cuenta y en una RPC.
+ */
+export async function retryColdRead<T>(
+  read: () => Promise<T>,
+  isEmpty: (result: T) => boolean,
+): Promise<T> {
+  let empty: boolean;
+
+  try {
+    const first = await read();
+    empty = isEmpty(first);
+    if (!shouldRetryRead({ failed: false, empty })) return first;
+  } catch (error) {
+    // La única excepción, y no es una lectura que salió mal: es una que no
+    // llegó a salir. Sin sesión el SDK lanza ANTES de tocar la red, así que un
+    // segundo intento manda exactamente la misma nada y retrasa el viaje al
+    // login que es la respuesta correcta.
+    if (error instanceof UnauthenticatedError) throw error;
+    if (!shouldRetryRead({ failed: true, empty: false })) throw error;
+  }
+
+  // El segundo es el definitivo: lo que traiga es lo que se enseña, y si lanza,
+  // lanza. Sin `try` a propósito — atraparlo aquí solo podría servir para
+  // intentar un tercero.
+  return read();
 }

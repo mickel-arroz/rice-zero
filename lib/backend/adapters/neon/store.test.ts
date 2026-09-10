@@ -1,5 +1,5 @@
 /**
- * El tropiezo de la sesión en una LECTURA (#41).
+ * El tropiezo de la sesión en una LECTURA (#41), visto desde el store de Neon.
  *
  * Reproduce lo que se veía en el navegador: la primera petición al Data API
  * vuelve **200 con cero filas** —RLS no casó porque `auth.uid()` salía nulo en
@@ -7,12 +7,23 @@
  * entera. Se veía como «los Proyectos salen vacíos la primera vez y al recargar
  * ya están».
  *
- * Con el bug presente estos tests fallan: el store devolvía la lista vacía tal
- * cual, porque una lectura sin error no tenía nada que atrapar.
+ * La decisión de reintentar vive en `postgrest/warmup.ts` y tiene su test allí.
+ * Lo que se comprueba AQUÍ es el cableado: que las cuatro lecturas del store
+ * pasen por él, cada una con su idea de «vacío».
  *
- * El doble imita solo lo que el store usa del SDK —`from().select()` con sus
- * `eq`/`order`, y la forma `{ data, error }` al esperarlo—, y no el SDK entero:
- * lo que se prueba es la decisión del store, no PostgREST.
+ * ── Por qué este archivo pasaba mientras el bug seguía vivo ───────────────
+ *
+ * Los dos arreglos anteriores dependían de una señal del cliente
+ * —`tokenIsFresh()`, «con este JWT todavía no ha vuelto ninguna petición»— y el
+ * doble de aquí la implementaba arrancando en `true`. Eso daba por hecho que
+ * cuando el store pregunta YA HAY un token, y el cliente de verdad no lo tiene:
+ * lo pide perezosamente, dentro de la petición. En la primerísima lectura la
+ * señal contestaba «no está fresco» porque no había nada, y el reintento no
+ * salía nunca — justo en el único caso que importaba.
+ *
+ * El doble mentía sobre el estado inicial del sistema, y por eso los tests eran
+ * verdes sobre un bug que el usuario seguía viendo. La lección se paga aquí:
+ * este doble ya no sabe nada de tokens, porque el store tampoco.
  */
 
 import { describe, expect, it } from "vitest";
@@ -28,7 +39,7 @@ type Answer = { rows: Row[]; count?: number };
  * El constructor de consultas, reducido a lo que el store encadena.
  *
  * Es `thenable` y no una promesa: el SDK devuelve un builder que solo sale a la
- * red al esperarlo, y de ahí viene la regla que obligó a que `retryEmptyOnce`
+ * red al esperarlo, y de ahí viene la regla que obliga a que `retryColdRead`
  * reciba una FUNCIÓN — un builder ya esperado no se puede volver a usar.
  */
 function builder(answer: () => Answer) {
@@ -54,7 +65,6 @@ function builder(answer: () => Answer) {
  */
 function fakeClient(answers: Answer[]) {
   let calls = 0;
-  let warm = false;
 
   const client = {
     data: {
@@ -65,13 +75,7 @@ function fakeClient(answers: Answer[]) {
           return answer;
         }),
     },
-    tokenIsFresh: () => !warm,
-    markTokenWarm: () => {
-      warm = true;
-    },
-    forgetToken: () => {
-      warm = false;
-    },
+    forgetToken: () => {},
   } as unknown as NeonBrowserClient;
 
   return { client, calls: () => calls };
@@ -80,10 +84,15 @@ function fakeClient(answers: Answer[]) {
 const UNA_FILA: Answer = { rows: [{ id: "p1" }], count: 1 };
 const VACIA: Answer = { rows: [], count: 0 };
 
-describe("una lectura vacía con el token recién estrenado", () => {
-  it("se vuelve a preguntar, y la segunda respuesta es la que vale", async () => {
+describe("una lectura vacía se vuelve a pedir", () => {
+  it("y la segunda respuesta es la que vale", async () => {
     // Es el bug tal cual: `project_overviews` contesta 200 con `[]` y a la
     // siguiente trae los Proyectos.
+    //
+    // Y es además el arranque EN FRÍO —este cliente no ha traído ningún token
+    // todavía—, que es el caso que los dos arreglos anteriores dejaban fuera:
+    // era el único en el que la señal de frescura contestaba «no», por no haber
+    // nada de lo que preguntar.
     const { client, calls } = fakeClient([VACIA, UNA_FILA]);
 
     const rows = await createNeonRowStore(client).select("project_overviews");
@@ -92,9 +101,9 @@ describe("una lectura vacía con el token recién estrenado", () => {
     expect(calls()).toBe(2);
   });
 
-  it("y una sola vez: si la segunda también vino vacía, está vacía", async () => {
-    // Una cuenta recién creada paga un viaje de más la primera vez y ninguno
-    // después. Un bucle aquí dejaría la pantalla girando para siempre.
+  it("una sola vez: si la segunda también vino vacía, está vacía", async () => {
+    // Una cuenta que de verdad no tiene nada paga un viaje de más y se le
+    // enseña el estado vacío. Un tercer intento sería una pantalla girando.
     const { client, calls } = fakeClient([VACIA, VACIA, UNA_FILA]);
 
     expect(await createNeonRowStore(client).select("projects")).toEqual([]);
@@ -110,49 +119,22 @@ describe("una lectura vacía con el token recién estrenado", () => {
     expect(calls()).toBe(1);
   });
 
-  it("la ventana se cierra al gastar el reintento, no antes", async () => {
-    // Con el token ya rodado, una lista vacía es una lista vacía: la Versión
-    // sin Nodos y la Búsqueda sin resultados no pueden pagar un viaje de más
-    // cada vez que se miran.
-    const { client, calls } = fakeClient([VACIA, VACIA, VACIA]);
-    const store = createNeonRowStore(client);
-
-    await store.select("projects"); // dos peticiones: la primera y su reintento
-    await store.select("projects"); // una sola: el token ya no está fresco
-
-    expect(calls()).toBe(3);
-  });
-
   it("las tres lecturas del arranque se reintentan, no solo la primera", async () => {
-    // Es el caso que se escapó al primer arreglo y por el que el bug siguió
-    // apareciendo, ahora en `project_versions`: abrir un Proyecto lanza los
-    // Proyectos, las Versiones y el árbol A LA VEZ, y las tres salen dentro de
-    // la misma ventana. Mirando la frescura al VOLVER, la primera en contestar
-    // la cerraba y dejaba a las otras dos sin reintento.
-    const { client, calls } = fakeClient([VACIA, VACIA, VACIA, UNA_FILA]);
-    const store = createNeonRowStore(client);
+    // Abrir un Proyecto lanza los Proyectos, las Versiones y el árbol A LA VEZ.
+    // Con una ventana compartida entre lecturas, la primera en contestar se la
+    // cerraba a las otras dos; sin ventana no hay nada que cerrar.
+    const uno = fakeClient([VACIA, UNA_FILA]);
+    const dos = fakeClient([VACIA, UNA_FILA]);
+    const tres = fakeClient([VACIA, UNA_FILA]);
 
-    const [a, b, c] = await Promise.all([
-      store.select("projects"),
-      store.select("project_versions"),
-      store.select("nodes"),
+    const filas = await Promise.all([
+      createNeonRowStore(uno.client).select("projects"),
+      createNeonRowStore(dos.client).select("project_versions"),
+      createNeonRowStore(tres.client).select("nodes"),
     ]);
 
-    // Seis peticiones: las tres que salieron y sus tres reintentos.
-    expect(calls()).toBe(6);
-    // Y la que llegó cuando la sesión ya estaba puesta trae sus filas.
-    expect([a, b, c].some((rows) => rows.length > 0)).toBe(true);
-  });
-
-  it("una respuesta vacía no cierra la ventana: no prueba nada", async () => {
-    // Solo una respuesta CON contenido demuestra que la sesión está puesta en
-    // la conexión. Cerrar con una vacía es lo que dejaba pasar el tropiezo a la
-    // lectura siguiente.
-    const { client, calls } = fakeClient([VACIA, VACIA, UNA_FILA]);
-    const store = createNeonRowStore(client);
-
-    await store.select("projects"); // vacía + reintento vacío → 2
-    expect(calls()).toBe(2);
+    expect(filas.every((rows) => rows.length === 1)).toBe(true);
+    expect([uno.calls(), dos.calls(), tres.calls()]).toEqual([2, 2, 2]);
   });
 
   it("contar también, porque una cuenta a cero se lee igual de mal", async () => {
@@ -165,6 +147,15 @@ describe("una lectura vacía con el token recién estrenado", () => {
     ]);
 
     expect(total).toBe(126);
+    expect(calls()).toBe(2);
+  });
+
+  it("y la Búsqueda: «no encontré nada» y «no vi nada» se leen igual", async () => {
+    const { client, calls } = fakeClient([VACIA, UNA_FILA]);
+
+    expect(await createNeonRowStore(client).searchNodes("idea", 20)).toEqual([
+      { id: "p1" },
+    ]);
     expect(calls()).toBe(2);
   });
 });

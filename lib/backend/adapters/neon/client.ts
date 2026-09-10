@@ -55,22 +55,17 @@ export type NeonBrowserClient = {
    */
   accessToken(): Promise<string | null>;
   /**
-   * ¿Con el JWT vigente todavía no ha VUELTO ninguna petición del Data API?
+   * Olvida el JWT cacheado. Lo llama el proveedor al entrar y al salir.
    *
-   * Es la señal del tropiezo de la sesión en una lectura (#41). Neon establece
-   * la sesión JWT sobre una conexión de su pool, y la primera petición puede
-   * llegar antes de que esté puesta: entonces `auth.uid()` sale nulo, RLS no
-   * casa y el motor contesta **200 con cero filas** — sin error que atrapar.
-   *
-   * Vive aquí y no en el store porque el único que sabe cuándo se trajo el
-   * token es quien lo trae. Ver `shouldRetryEmptyRead`.
+   * Aquí vivieron un `tokenIsFresh()` y un `markTokenWarm()`, que intentaban
+   * marcar la ventana del tropiezo del #41 para reintentar solo las lecturas
+   * que cayeran dentro. No funcionaban, y el motivo está justo debajo, en
+   * `accessToken`: el JWT se pide PEREZOSAMENTE, dentro de la propia petición,
+   * así que en la primerísima lectura de la sesión —la que tropieza— no había
+   * token del que preguntar si estaba fresco. La respuesta era «no» por no
+   * haber nada, y el reintento no salía. Lo que reintenta ahora es
+   * `retryColdRead`, que no necesita saber nada del token.
    */
-  tokenIsFresh(): boolean;
-
-  /** Ya volvió una petición con este token: se acabó la ventana del tropiezo. */
-  markTokenWarm(): void;
-
-  /** Olvida el JWT cacheado. Lo llama el proveedor al entrar y al salir. */
   forgetToken(): void;
 };
 
@@ -161,7 +156,7 @@ function buildClient(): NeonBrowserClient {
    * serviría para leer sus datos: la caducidad es una optimización, el olvido
    * es la garantía.
    */
-  let cached: { token: string; until: number; warm: boolean } | null = null;
+  let cached: { token: string; until: number } | null = null;
 
   /**
    * La petición que está en vuelo, si hay alguna.
@@ -190,12 +185,7 @@ function buildClient(): NeonBrowserClient {
     const expiry = expiryOf(body.token);
     cached = {
       token: body.token,
-      until: expiry
-        ? expiry - TOKEN_MARGIN_MS
-        : Date.now() + TOKEN_FALLBACK_MS,
-      // Todavía no ha vuelto ninguna petición del Data API con él: ver
-      // `tokenIsFresh`.
-      warm: false,
+      until: expiry ? expiry - TOKEN_MARGIN_MS : Date.now() + TOKEN_FALLBACK_MS,
     };
     return cached.token;
   }
@@ -220,10 +210,6 @@ function buildClient(): NeonBrowserClient {
     auth,
     data,
     accessToken,
-    tokenIsFresh: () => cached !== null && !cached.warm,
-    markTokenWarm: () => {
-      if (cached) cached.warm = true;
-    },
     forgetToken: () => {
       cached = null;
       inFlight = null;

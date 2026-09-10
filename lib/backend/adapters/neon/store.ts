@@ -21,7 +21,7 @@ import {
   filteredId,
 } from "@/lib/backend/adapters/postgrest/response";
 import type { Row, RowStore } from "@/lib/backend/adapters/postgrest/store";
-import { shouldRetryEmptyRead } from "@/lib/backend/adapters/postgrest/warmup";
+import { retryColdRead } from "@/lib/backend/adapters/postgrest/warmup";
 import { UnauthenticatedError } from "@/lib/backend/ports";
 
 /**
@@ -51,7 +51,8 @@ const { run, runCount } = createRunner((error) =>
  * policy» con un token válido solo puede ser esto.
  */
 function isSessionHiccup(error: unknown): boolean {
-  const cause = (error as { cause?: { code?: string; message?: string } })?.cause;
+  const cause = (error as { cause?: { code?: string; message?: string } })
+    ?.cause;
   return (
     cause?.code === "42501" &&
     /row[- ]level security/i.test(cause.message ?? "")
@@ -67,10 +68,9 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
    * Proyecto.
    *
    * No envuelve a las LECTURAS, y no porque estén a salvo: allí el mismo
-   * tropiezo no da error, da 200 con cero filas. Durante un tiempo aquí ponía
-   * que en una lectura «no hay nada que detectar», y eso era el bug #41 — lo que
-   * hay que detectar no son las filas, es cuándo. De eso se ocupa
-   * `retryEmptyOnce`, aquí abajo.
+   * tropiezo no da error, da 200 con cero filas. De ésas se ocupa
+   * `retryColdRead`, en el núcleo compartido, que reintenta por vacío además de
+   * por error.
    *
    * Uno y no un bucle: si el segundo intento también choca, es que no era esto.
    */
@@ -84,44 +84,6 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
       client.forgetToken();
       return operation();
     }
-  }
-
-  /**
-   * Una lectura, y un segundo intento si volvió vacía con el token sin estrenar.
-   *
-   * Es el gemelo de `retryOnce` para el otro lado del mismo tropiezo. En una
-   * escritura, la sesión que aún no está puesta da un 42501 que se puede
-   * atrapar; en una lectura da **200 con cero filas**, que es indistinguible de
-   * una lista que de verdad está vacía — salvo por CUÁNDO ocurre. Ver
-   * `shouldRetryEmptyRead`, que es quien lo decide, y el bug #41.
-   *
-   * @param build la consulta, como función: un `PostgrestBuilder` se consume al
-   *   esperarlo, así que el reintento necesita una nueva.
-   * @param rowsOf cuántas filas trajo lo que devolvió `build`.
-   */
-  async function retryEmptyOnce<T>(
-    build: () => Promise<T>,
-    isEmpty: (result: T) => boolean,
-  ): Promise<T> {
-    // ANTES de mandarla, y no después: abrir un Proyecto lanza tres lecturas a
-    // la vez, y todas salen dentro de la misma ventana. Mirándolo al volver, la
-    // primera en contestar cerraba la ventana y dejaba a las otras dos sin
-    // reintento aunque hubieran salido antes que ella.
-    const tokenIsFresh = client.tokenIsFresh();
-    const first = await build();
-
-    if (!shouldRetryEmptyRead({ empty: isEmpty(first), tokenIsFresh, retried: false })) {
-      // Solo una respuesta CON contenido prueba que la sesión ya está puesta en
-      // la conexión. Una vacía no prueba nada: es justo la que no sabemos leer.
-      if (!isEmpty(first)) client.markTokenWarm();
-      return first;
-    }
-
-    // Gastado el reintento, se acabó la ventana pase lo que pase. Es lo que
-    // impide que una cuenta de verdad vacía pregunte dos veces para siempre.
-    const second = await build();
-    client.markTokenWarm();
-    return second;
   }
 
   return {
@@ -141,7 +103,7 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
       };
 
       return asRows(
-        await retryEmptyOnce(build, (data) => asRows(data).length === 0),
+        await retryColdRead(build, (data) => asRows(data).length === 0),
       );
     },
 
@@ -166,7 +128,7 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
         return runCount(query, source, filteredId(where));
       };
 
-      return retryEmptyOnce(build, (total) => total === 0);
+      return retryColdRead(build, (total) => total === 0);
     },
 
     async searchNodes(term, limit) {
@@ -178,7 +140,9 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
         run(
           client.data
             .from("nodes")
-            .select("*, project_versions!inner(id, version_number, label, projects!inner(id, title))")
+            .select(
+              "*, project_versions!inner(id, version_number, label, projects!inner(id, title))",
+            )
             .ilike("content", `%${escapeLike(term)}%`)
             // Los más recientes primero: entre dos Nodos que dicen lo mismo, el
             // que se escribió hace un rato es casi siempre el que se busca.
@@ -191,7 +155,7 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
       // También la Búsqueda: una que no encuentra nada y una que no vio nada
       // por RLS se leen igual desde aquí, y la segunda es un fallo.
       return asRows(
-        await retryEmptyOnce(build, (data) => asRows(data).length === 0),
+        await retryColdRead(build, (data) => asRows(data).length === 0),
       );
     },
 
@@ -270,7 +234,7 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
           versionId,
         );
 
-      const data = await retryEmptyOnce(build, (row) => row == null);
+      const data = await retryColdRead(build, (row) => row == null);
       return (data as Row | null) ?? null;
     },
   };
