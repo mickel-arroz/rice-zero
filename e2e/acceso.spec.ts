@@ -9,7 +9,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { credenciales } from "@/e2e/apoyo/entorno";
+import { ESTADO_SESION, credenciales } from "@/e2e/apoyo/entorno";
 import { literal } from "@/e2e/apoyo/texto";
 import {
   conNavegacionAbierta,
@@ -90,7 +90,9 @@ test.describe("sin sesión", () => {
     await page
       .getByLabel(AUTH_COPY.signUp.passwordLabel, { exact: true })
       .fill(password);
-    await page.getByLabel(AUTH_COPY.confirmLabel, { exact: true }).fill(password);
+    await page
+      .getByLabel(AUTH_COPY.confirmLabel, { exact: true })
+      .fill(password);
     await enviar.click();
 
     // La cuenta de la suite ya existe: el camino que se prueba aquí es que el
@@ -164,7 +166,10 @@ test.describe("sin sesión", () => {
     // registrado en Neon Auth (ver `scripts/setup-neon.sh`) o que Google no
     // esté activado allí.
     await expect.poll(() => respuestas.length).toBeGreaterThan(0);
-    const salida = JSON.parse(respuestas[0]) as { url?: string; redirect?: boolean };
+    const salida = JSON.parse(respuestas[0]) as {
+      url?: string;
+      redirect?: boolean;
+    };
     expect(salida.redirect).toBe(true);
     expect(salida.url ?? "").toContain("/sign-in/social/init");
   });
@@ -202,7 +207,9 @@ test.describe("recuperar la contraseña", () => {
   const aviso = (page: Page) =>
     page.locator('[role="alert"]').filter({ hasText: /\S/ });
 
-  test("el enlace está en «Entrar» y no en «Crear cuenta»", async ({ page }) => {
+  test("el enlace está en «Entrar» y no en «Crear cuenta»", async ({
+    page,
+  }) => {
     await page.goto(ROUTES.login);
     await expect(enlaceOlvido(page)).toBeVisible();
 
@@ -226,7 +233,9 @@ test.describe("recuperar la contraseña", () => {
 
     // Ni pestañas ni Google mientras se recupera: son dos formas de entrar, y
     // aquí todavía no se puede.
-    await expect(page.getByRole("tab", { name: AUTH_COPY.signIn.tab })).toBeHidden();
+    await expect(
+      page.getByRole("tab", { name: AUTH_COPY.signIn.tab }),
+    ).toBeHidden();
 
     await page.getByLabel(AUTH_COPY.emailLabel).fill(DESCONOCIDO);
     await page
@@ -254,7 +263,9 @@ test.describe("recuperar la contraseña", () => {
     // que pidió el enlace. Si `proxy.ts` la protegiera, el correo llevaría a
     // /login y el flujo no tendría salida.
     await page.goto(ROUTES.resetPassword);
-    await expect(page).toHaveURL(new RegExp(`${literal(ROUTES.resetPassword)}$`));
+    await expect(page).toHaveURL(
+      new RegExp(`${literal(ROUTES.resetPassword)}$`),
+    );
     await expect(
       page.getByRole("heading", {
         name: AUTH_COPY.reset.expiredTitle,
@@ -308,7 +319,9 @@ test.describe("recuperar la contraseña", () => {
     // Lo que se afirma es la TRADUCCIÓN: el SDK contesta «Invalid or expired
     // session token», y de eso no puede quedar ni rastro en pantalla.
     await expect(notice).not.toContainText("Invalid", { ignoreCase: true });
-    await expect(notice).not.toContainText("session token", { ignoreCase: true });
+    await expect(notice).not.toContainText("session token", {
+      ignoreCase: true,
+    });
   });
 });
 
@@ -350,6 +363,53 @@ test.describe("cerrar sesión", () => {
     // rebota. Sin esto, la prueba solo diría que la app navegó.
     await page.goto(ROUTES.projects);
     await page.waitForURL(RUTA_DE_LOGIN);
+  });
+});
+
+/**
+ * El único bloque del archivo que corre CON sesión.
+ *
+ * El `test.use` de arriba vacía las cookies para todo el archivo, que es lo que
+ * deja afirmar «lo protegido no se ve sin entrar». Aquí hace falta lo
+ * contrario, así que se vuelve a poner el estado que dejó la preparación —el
+ * mismo que usan los demás archivos— y se pone SOLO en este bloque.
+ *
+ * Ninguna de las dos pruebas escribe nada: entran, miran a dónde acabaron y se
+ * van. Por eso pueden compartir la cuenta con el resto de la suite sin el
+ * cuidado que sí necesita «cerrar sesión», aquí arriba.
+ */
+test.describe("con sesión", () => {
+  test.use({ storageState: ESTADO_SESION });
+
+  test("entrar a /login con la sesión puesta rebota a Proyectos", async ({
+    page,
+  }) => {
+    // Quien ya puede entrar no tiene nada que hacer en el formulario. Lo decide
+    // la página (`app/login/page.tsx`) y no `proxy.ts`, porque /login es
+    // pública a propósito.
+    await page.goto(ROUTES.login);
+
+    await expect(page).toHaveURL(new RegExp(`${literal(ROUTES.projects)}$`));
+    await expect(
+      page.getByRole("heading", { name: PROJECTS_COPY.title }),
+    ).toBeVisible();
+  });
+
+  test("y respeta el destino que traiga, en vez de mandar siempre a Proyectos", async ({
+    page,
+  }) => {
+    // Con un parámetro pegado, que es lo que distingue «respetó el destino» de
+    // «cayó al de por defecto»: `/projects` a secas sería el mismo sitio en los
+    // dos casos y la prueba pasaría sin probar nada. `safeNextPath` conserva el
+    // `search`, y solo acepta rutas nuestras y protegidas — de ahí que el
+    // destino sea este y no `/about`.
+    const destino = `${ROUTES.projects}?volviendo=1`;
+
+    await page.goto(
+      `${ROUTES.login}?${NEXT_PARAM}=${encodeURIComponent(destino)}`,
+    );
+
+    await expect(page).toHaveURL(new RegExp(`${literal(destino)}$`));
   });
 });
 
