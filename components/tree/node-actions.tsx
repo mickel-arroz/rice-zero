@@ -15,6 +15,8 @@ import { fire } from "@/components/tree/fire";
 import { APP_FRAME_BLEED } from "@/components/layout/app-frame";
 import { useTree } from "@/components/tree/tree-provider";
 import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
+import { NODE_ERRORS } from "@/lib/services/nodes";
+import { BRANCH_RULES, isBlank } from "@/lib/tree/model";
 import { inheritedStrike, type TreeRow } from "@/lib/tree/rows";
 import {
   DESELECT_SHORTCUT,
@@ -64,6 +66,16 @@ type Action = {
   run: () => void;
   /** Apagada, con el motivo implícito: no hay a dónde subir, no hay qué bajar. */
   disabled?: boolean;
+  /**
+   * El motivo, para cuando NO es implícito.
+   *
+   * «No hay a dónde subir» se entiende del sitio del Nodo; «este Nodo está
+   * vacío» no se entiende de nada — el botón apagado solo dice que no, y quien
+   * lo mira no tiene forma de saber qué hacer para encenderlo. Cuando lo lleva,
+   * sustituye al atajo en el `title`: un atajo para una acción que ahora mismo
+   * no se puede hacer es la respuesta a la pregunta que no se está haciendo.
+   */
+  reason?: string;
   danger?: boolean;
 };
 
@@ -85,8 +97,7 @@ const WRAPPER_CLASS = {
   // quien pone el relleno que hay que cancelar. Escrito a mano valía `-mx-6
   // px-6`, calibrado contra un `px-6` que ya no está donde estaba.
   flow: `sticky bottom-0 z-30 mt-2 pt-3 pb-6 lg:pb-8 ${APP_FRAME_BLEED}`,
-  floating:
-    "pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 lg:p-4",
+  floating: "pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 lg:p-4",
 } as const;
 
 /**
@@ -142,6 +153,17 @@ export function NodeActions({
   // encima de la pantalla sería castigarla por quedarse sin conexión.
   const blocked = useBlocked();
   const id = row.node.id;
+  // Un Nodo sin texto no ramifica. Se decide con la MISMA función que usa el
+  // servicio para rechazarlo, así que el botón apagado y el rechazo del
+  // servidor no pueden discrepar; y se dice aquí, antes de pulsar, porque un
+  // «no puedes» que solo llega después de intentarlo es peor que no poder.
+  //
+  // Sobre `textOf` y no sobre el texto guardado: entre teclear y el rebote del
+  // autoguardado hay medio segundo, y mirando lo guardado el botón seguiría
+  // apagado con la palabra ya escrita delante. Lo que ve el servicio es lo
+  // mismo, porque `run` guarda lo pendiente antes de tocar la estructura.
+  const cannotBranch = isBlank(tree.textOf(row.node));
+  const branchReason = NODE_ERRORS[BRANCH_RULES.blankSource];
 
   const actions: Action[] = [
     {
@@ -166,6 +188,8 @@ export function NodeActions({
       label: TREE_COPY.actions.child,
       shortcut: SHORTCUTS.createChild,
       run: () => fire(tree.createChild(id)),
+      disabled: cannotBranch,
+      reason: branchReason,
     },
     {
       id: "sibling",
@@ -173,6 +197,8 @@ export function NodeActions({
       label: TREE_COPY.actions.sibling,
       shortcut: SHORTCUTS.createSibling,
       run: () => fire(tree.createSibling(id)),
+      disabled: cannotBranch,
+      reason: branchReason,
     },
     {
       id: "move",
@@ -246,31 +272,39 @@ export function NodeActions({
           {actions.map((action) => {
             const off = blocked || action.disabled;
             return (
-            <button
-              key={action.id}
-              type="button"
-              onClick={action.run}
-              disabled={off}
-              // Solo cuando el motivo es la red. «No hay a dónde subir» ya se
-              // entiende del sitio del Nodo, y repetirlo en un `title` sería
-              // ruido en las seis veces de cada siete que no hace falta.
-              // El atajo va en los DOS. El `title` solo lo ve quien tiene
-              // ratón y espera encima; desde que la barra es solo iconos, el
-              // nombre accesible es lo único que anuncia un lector de pantalla,
-              // y dejar el atajo fuera lo escondería justo para quien más lo
-              // usa. Ver `withShortcut`.
-              title={
-                blocked
-                  ? CONNECTION_COPY.blocked
-                  : withShortcut(action.label, action.shortcut)
-              }
-              aria-label={withShortcut(action.label, action.shortcut)}
-              className={`${BUTTON_CLASS} ${action.danger ? "text-primary" : ""} ${
-                off ? "" : "hover:border-primary hover:text-primary"
-              }`}
-            >
-              <action.icon width={18} height={18} />
-            </button>
+              <button
+                key={action.id}
+                type="button"
+                onClick={action.run}
+                disabled={off}
+                // Solo cuando el motivo es la red. «No hay a dónde subir» ya se
+                // entiende del sitio del Nodo, y repetirlo en un `title` sería
+                // ruido en las seis veces de cada siete que no hace falta.
+                // El atajo va en los DOS. El `title` solo lo ve quien tiene
+                // ratón y espera encima; desde que la barra es solo iconos, el
+                // nombre accesible es lo único que anuncia un lector de pantalla,
+                // y dejar el atajo fuera lo escondería justo para quien más lo
+                // usa. Ver `withShortcut`.
+                title={
+                  blocked
+                    ? CONNECTION_COPY.blocked
+                    : (action.disabled && action.reason) ||
+                      withShortcut(action.label, action.shortcut)
+                }
+                // El nombre accesible lleva el motivo igual que el `title`: un
+                // lector de pantalla anuncia «no disponible» y ahí se acaba, y
+                // sin el porqué la persona se queda mirando un botón muerto sin
+                // saber que lo enciende escribir en el Nodo.
+                aria-label={
+                  (action.disabled && action.reason) ||
+                  withShortcut(action.label, action.shortcut)
+                }
+                className={`${BUTTON_CLASS} ${action.danger ? "text-primary" : ""} ${
+                  off ? "" : "hover:border-primary hover:text-primary"
+                }`}
+              >
+                <action.icon width={18} height={18} />
+              </button>
             );
           })}
 
@@ -288,10 +322,7 @@ export function NodeActions({
           <button
             type="button"
             onClick={() => tree.select(null)}
-            aria-label={withShortcut(
-              TREE_COPY.deselectHint,
-              DESELECT_SHORTCUT,
-            )}
+            aria-label={withShortcut(TREE_COPY.deselectHint, DESELECT_SHORTCUT)}
             title={withShortcut(TREE_COPY.actions.deselect, DESELECT_SHORTCUT)}
             className={`${BUTTON_CLASS} text-muted-foreground hover:border-primary hover:text-primary`}
           >

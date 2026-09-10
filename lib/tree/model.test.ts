@@ -10,8 +10,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BRANCH_RULES,
+  branchRejection,
   buildTree,
   countDescendants,
+  isBlank,
   REPARENT_RULES,
   nextOrderIndex,
   reorderPlan,
@@ -192,5 +195,67 @@ describe("dominio del árbol: sitio entre hermanos", () => {
 
   it("un Nodo que no está en la Versión no tiene sitio", () => {
     expect(siblingIndexOf(forest(), "fantasma")).toBe(-1);
+  });
+});
+
+describe("dominio del árbol: texto en blanco", () => {
+  it("una cadena vacía está en blanco", () => {
+    expect(isBlank("")).toBe(true);
+  });
+
+  it("solo espacios también, y por eso se recorta antes de mirar", () => {
+    // Es el caso real: el campo queda con el espacio que separaba dos palabras
+    // cuando se borra la segunda, y eso no es texto.
+    expect(isBlank("   ")).toBe(true);
+    expect(isBlank("\n\t ")).toBe(true);
+  });
+
+  it("un solo carácter ya cuenta", () => {
+    // El listón es «dijo algo», no «dijo algo suficiente». Quién decide cuánto
+    // es bastante es el usuario.
+    expect(isBlank("?")).toBe(false);
+  });
+});
+
+describe("dominio del árbol: ramificar", () => {
+  /** El árbol de siempre, pero con `a1` todavía sin escribir. */
+  function conHueco(): TreeNode[] {
+    return [
+      node("a", null, 0),
+      node("a1", "a", 0, ""),
+      node("a2", "a", 1),
+      node("b", null, 1, "   "),
+    ];
+  }
+
+  it("un Nodo con texto ramifica", () => {
+    expect(branchRejection(conHueco(), "a")).toBeNull();
+  });
+
+  it("uno vacío no", () => {
+    // El caso que se veía: colgarle un subnodo a un Nodo en blanco dejaba una
+    // rama cuyo origen no se puede leer.
+    expect(branchRejection(conHueco(), "a1")).toBe(BRANCH_RULES.blankSource);
+  });
+
+  it("uno con solo espacios tampoco: es el mismo hueco escrito distinto", () => {
+    expect(branchRejection(conHueco(), "b")).toBe(BRANCH_RULES.blankSource);
+  });
+
+  it("uno que no está en la Versión se rechaza por otra regla", () => {
+    // Distinta de `blankSource` a propósito: quien llama traduce cada una a
+    // su frase, y «escribe algo» sobre un Nodo que ya no existe no ayuda.
+    expect(branchRejection(conHueco(), "fantasma")).toBe(
+      BRANCH_RULES.unknownSource,
+    );
+  });
+
+  it("la regla no mira a los hijos que ya tenga", () => {
+    // Un Nodo vaciado DESPUÉS de ramificar sigue teniendo su rama; lo que se
+    // impide es abrir una nueva, no romper lo que ya está.
+    const nodes = [node("a", null, 0, ""), node("a1", "a", 0)];
+
+    expect(branchRejection(nodes, "a")).toBe(BRANCH_RULES.blankSource);
+    expect(branchRejection(nodes, "a1")).toBeNull();
   });
 });

@@ -11,6 +11,7 @@ import {
   resolveTreeKey,
   type KeyStroke,
 } from "@/lib/tree/keymap";
+import { isBlank } from "@/lib/tree/model";
 
 /**
  * El cableado del mapa de teclado: de un evento del navegador a una operación
@@ -167,9 +168,16 @@ export function useTreeKeys(nodeId: string) {
 
       switch (action) {
         case "createSibling":
+          // Un Nodo sin texto no ramifica. Se comprueba aquí y no en el mapa
+          // por lo mismo que los bordes de «Subir»: es del Nodo, no de la
+          // tecla. Misma función que apaga los dos botones de la barra, y
+          // sobre el borrador por lo mismo — teclear y ramificar seguido no
+          // puede tropezar con el rebote del autoguardado.
+          if (isBlank(textOf(row.node))) return;
           fire(createSibling(id));
           return;
         case "createChild":
+          if (isBlank(textOf(row.node))) return;
           fire(createChild(id));
           return;
         case "moveUp":

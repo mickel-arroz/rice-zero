@@ -28,6 +28,8 @@ import {
   type TreeNode,
 } from "@/lib/backend/ports";
 import {
+  BRANCH_RULES,
+  branchRejection,
   countDescendants,
   buildTree,
   nextOrderIndex,
@@ -35,6 +37,7 @@ import {
   reorderPlan,
   reparentRejection,
   siblingIndexOf,
+  type BranchRule,
   type ReparentRule,
   type Subtree,
 } from "@/lib/tree/model";
@@ -142,14 +145,20 @@ export type NodeService = {
  * Los mensajes de los rechazos, todos en un sitio. Ver `PROJECT_ERRORS`.
  *
  * Indexado por la REGLA que devuelve el dominio, no por una clave inventada
- * aquí: así una regla nueva en `REPARENT_RULES` no compila hasta que alguien
- * le escribe su frase en español.
+ * aquí: así una regla nueva en `REPARENT_RULES` o en `BRANCH_RULES` no compila
+ * hasta que alguien le escribe su frase en español.
  */
-export const NODE_ERRORS: Record<ReparentRule, string> = {
+export const NODE_ERRORS: Record<ReparentRule | BranchRule, string> = {
   [REPARENT_RULES.unknownNode]: "Ese Nodo ya no está en esta Versión.",
   [REPARENT_RULES.unknownParent]: "El Nodo de destino no está en esta Versión.",
   [REPARENT_RULES.cycle]:
     "Un Nodo no puede colgar de sí mismo ni de uno de sus subnodos.",
+  [BRANCH_RULES.unknownSource]: "Ese Nodo ya no está en esta Versión.",
+  // En segunda persona y diciendo QUÉ HACER, no qué falló: es la frase que la
+  // barra de acciones enseña en el botón apagado, y ahí «Escribe algo…» le
+  // dice al usuario cómo encenderlo mientras que «El Nodo está vacío» solo le
+  // describe lo que ya está viendo.
+  [BRANCH_RULES.blankSource]: "Escribe algo en este Nodo antes de ramificarlo.",
 };
 
 /**
@@ -195,6 +204,21 @@ export function createNodeService(backend: BackendProvider): NodeService {
    * aquí nunca —`requireNode` lo ataja antes, y como `NotFoundError`—, pero la
    * traducción lo cubre porque el dominio puede devolverlo.
    */
+  /**
+   * Comprueba que el Nodo del que se parte pueda ramificar.
+   *
+   * Va DESPUÉS de la comprobación de existencia en los dos sitios que la
+   * llaman, y por eso `unknownSource` no llega aquí nunca: quien no está ya
+   * salió como `NotFoundError`, que es lo que corresponde. Se traduce igual
+   * —mismo motivo que `unknownNode` en `assertReparent`— porque el dominio
+   * puede devolverlo y el mapa no admite huecos.
+   */
+  function assertBranch(nodes: TreeNode[], nodeId: string): void {
+    const rejection = branchRejection(nodes, nodeId);
+    if (!rejection) return;
+    throw new ConflictError(rejection, NODE_ERRORS[rejection]);
+  }
+
   function assertReparent(
     nodes: TreeNode[],
     nodeId: string,
@@ -247,6 +271,11 @@ export function createNodeService(backend: BackendProvider): NodeService {
           NODE_ERRORS[REPARENT_RULES.unknownParent],
         );
       }
+      // Y que TENGA ALGO ESCRITO. Sin esto el árbol crece sobre huecos: el
+      // padre vacío deja de poder borrarse solo —`planNodeBlur` respeta a los
+      // que tienen hijos— y la rama queda colgando de algo que no se puede
+      // leer.
+      assertBranch(nodes, parentId);
       return backend.nodes.create({
         versionId,
         parentId,
@@ -258,6 +287,10 @@ export function createNodeService(backend: BackendProvider): NodeService {
     async createSibling(versionId, siblingId, content = "") {
       const nodes = await read(versionId);
       const sibling = requireNode(nodes, siblingId);
+      // También al lado: pulsar «hermano» sobre un Nodo en blanco es lo que
+      // llena una lista de filas vacías, y ninguna de ellas se borra sola
+      // porque el foco va saltando a la siguiente.
+      assertBranch(nodes, siblingId);
 
       // Nace el último —es lo único que sabe hacer el repositorio— y después
       // se le trae a su sitio. Dos escrituras y no una porque el puesto de un
@@ -274,7 +307,11 @@ export function createNodeService(backend: BackendProvider): NodeService {
       // El puesto se cuenta sobre el árbol de ANTES, que es donde estaba la
       // referencia; el recién nacido va justo detrás. `reorder` vuelve a leer
       // —y ahí ya se ve a sí mismo—, así que el destino cae dentro del rango.
-      await this.reorder(versionId, created.id, siblingIndexOf(nodes, siblingId) + 1);
+      await this.reorder(
+        versionId,
+        created.id,
+        siblingIndexOf(nodes, siblingId) + 1,
+      );
 
       // Se devuelve la fila del alta y no una relectura: lo único que cambió
       // después fue su `orderIndex`, y quien llama lo que necesita es el id

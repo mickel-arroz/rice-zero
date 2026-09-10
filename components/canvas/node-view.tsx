@@ -15,6 +15,8 @@ import { useTree } from "@/components/tree/tree-provider";
 import { useTreeKeys } from "@/components/tree/use-tree-keys";
 import { STRUCK_CLASS } from "@/components/layout/site-chrome";
 import { CANVAS_COPY, CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
+import { NODE_ERRORS } from "@/lib/services/nodes";
+import { BRANCH_RULES, isBlank } from "@/lib/tree/model";
 
 /**
  * Un Nodo dibujado en el lienzo.
@@ -144,6 +146,8 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
   const editing = tree.editingId === data.nodeId;
   const empty = data.text.trim().length === 0;
   const named = TREE_COPY.nodeLabel(data.text);
+  // Ver el «+» de abajo. Misma función que apaga los botones de la barra.
+  const cannotBranch = isBlank(data.text);
 
   const area = useRef<HTMLTextAreaElement>(null);
   const onKeyDown = useTreeKeys(data.nodeId);
@@ -348,9 +352,24 @@ export function NodeView({ data }: NodeProps<CanvasNode>) {
         // Sin red se apaga igual que el resto de lo que escribe. Sigue
         // pintándose —solo aparece al pasar por encima— porque esconderlo
         // dejaría al Nodo sin ninguna pista de que ahí había algo.
-        disabled={!data.editable}
-        title={data.blocked ? CONNECTION_COPY.blocked : undefined}
-        aria-label={CANVAS_COPY.addChild(named)}
+        //
+        // Y con el Nodo en blanco, por la regla del dominio: un Nodo sin texto
+        // no ramifica. `data.text` ya es lo que se está tecleando —sale de
+        // `textOf`—, así que el «+» se enciende con la primera letra y no medio
+        // segundo después.
+        disabled={!data.editable || cannotBranch}
+        title={
+          data.blocked
+            ? CONNECTION_COPY.blocked
+            : cannotBranch
+              ? NODE_ERRORS[BRANCH_RULES.blankSource]
+              : undefined
+        }
+        aria-label={
+          cannotBranch
+            ? NODE_ERRORS[BRANCH_RULES.blankSource]
+            : CANVAS_COPY.addChild(named)
+        }
         className="nodrag absolute right-0 bottom-0 z-10 hidden size-6 translate-x-1/2 translate-y-1/2 items-center justify-center rounded-full border border-primary bg-card text-primary opacity-0 shadow-popover transition-opacity lg:pointer-events-none lg:flex lg:group-hover:pointer-events-auto lg:group-hover:opacity-100 lg:focus-visible:pointer-events-auto lg:focus-visible:opacity-100"
       >
         <PlusIcon width={14} height={14} />

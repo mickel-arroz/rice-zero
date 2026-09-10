@@ -125,6 +125,66 @@ describe("capa de servicios: Nodos", () => {
     });
   });
 
+  describe("un Nodo sin texto no ramifica", () => {
+    it("rechaza colgarle un subnodo", async () => {
+      // El caso que se veía en la interfaz: pulsar «Subnodo» sobre un Nodo en
+      // blanco creaba la rama sin decir nada.
+      const vacio = await nodes.createRoot(version.id);
+
+      await expect(
+        nodes.createChild(version.id, vacio.id, "Cuelga de la nada"),
+      ).rejects.toThrow(ConflictError);
+    });
+
+    it("y tampoco un hermano a su lado", async () => {
+      const vacio = await nodes.createRoot(version.id);
+
+      await expect(
+        nodes.createSibling(version.id, vacio.id, "Otro"),
+      ).rejects.toThrow(ConflictError);
+    });
+
+    it("solo espacios cuenta como vacío", async () => {
+      const vacio = await nodes.createRoot(version.id, "   ");
+
+      await expect(
+        nodes.createChild(version.id, vacio.id, "Nada"),
+      ).rejects.toThrow(ConflictError);
+    });
+
+    it("el rechazo no llega a escribir nada", async () => {
+      // Lo que importa de comprobarlo antes: si el alta se hiciera igual y se
+      // borrara después, un fallo de red dejaría el hueco puesto.
+      const vacio = await nodes.createRoot(version.id);
+
+      await nodes.createChild(version.id, vacio.id, "Nada").catch(() => {});
+
+      expect(await ids()).toEqual([vacio.id]);
+    });
+
+    it("en cuanto se escribe algo, ramifica", async () => {
+      // La regla no cierra la puerta: la abre el usuario escribiendo, que es
+      // el gesto que ya tenía que hacer de todas formas.
+      const nodo = await nodes.createRoot(version.id);
+      await nodes.edit(nodo.id, "Ya dice algo");
+
+      const hijo = await nodes.createChild(version.id, nodo.id, "Ahora sí");
+
+      expect(hijo.parentId).toBe(nodo.id);
+    });
+
+    it("un Nodo vaciado después conserva la rama que ya tenía", async () => {
+      // Se impide abrir ramas nuevas, no romper las que están: borrar el texto
+      // del padre no puede llevarse a los hijos por delante.
+      const padre = await nodes.createRoot(version.id, "Con texto");
+      const hijo = await nodes.createChild(version.id, padre.id, "Hijo");
+
+      await nodes.edit(padre.id, "");
+
+      expect(await ids()).toEqual([padre.id, hijo.id]);
+    });
+  });
+
   describe("crear hermano", () => {
     /** Los hijos de un padre, por contenido y en el orden en que quedaron. */
     async function childrenOf(parentId: string): Promise<string[]> {
