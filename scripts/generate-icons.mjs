@@ -58,6 +58,22 @@ const GLYPH = {
    * tamaño; aquí lo que se recorta son puntos.
    */
   ceroCorto: ["01110", "10001", "10001", "10001", "01110"],
+  /**
+   * «R0» para el favicon: 4+3 columnas y 5 filas, la matriz más pequeña en la
+   * que las dos siguen siendo esas dos letras.
+   *
+   * Estrechas por MEDIDA. En una pestaña el icono se ve a 16 px, y el paso lo
+   * fija el lado más largo de la matriz: con la R de 5 columnas y el cero de 5
+   * —las de la marca grande— son 11 columnas y cada punto queda en 1,4 px, que
+   * el antialiasing funde en un borrón. Con 8 columnas el punto sube a 1,9 y en
+   * una pantalla HiDPI —donde esos 16 son 32 reales— a 3,8: ahí se leen.
+   *
+   * La R pierde la pata diagonal y la resuelve con un escalón; el cero pierde
+   * las esquinas redondeadas y queda rectangular. Los dos son lo que hace
+   * cualquier tipografía de matriz al bajar de cuerpo.
+   */
+  rCorta: ["1110", "1001", "1110", "1010", "1001"],
+  ceroEstrecho: ["111", "101", "101", "101", "111"],
 };
 
 /**
@@ -71,17 +87,19 @@ const DOT_RATIO = 0.72;
 const WORDMARK = [GLYPH.R, GLYPH.abre, GLYPH.cero, GLYPH.cierra];
 
 /**
- * La marca del favicon.
+ * La marca del favicon: «R0», sin paréntesis.
  *
  * No puede ser `WORDMARK`: en una pestaña el icono se ve a 16 px, y ahí las 19
  * columnas del wordmark dejan cada punto en 0,47 px. Eso no es la marca en
  * pequeño, es un borrón gris. Por eso el favicon lleva su propia reducción.
  *
- * Es el cero y no la R porque el `(0)` es lo que distingue a RICE(0) de
- * cualquier otro «Rice», y porque a este tamaño un anillo se lee como forma
- * mientras que una R de 5×7 puntos se confunde con una B o un 8.
+ * Los paréntesis son lo primero que cae. Son seis columnas de las once que
+ * costaría `R(0)` —más de la mitad del ancho— para dos glifos que a este tamaño
+ * se leen como dos rayas, y su trabajo es decir que el cero es un cero: eso ya
+ * lo dice ir detrás de la R. Sin ellos caben las DOS letras, que era lo que
+ * faltaba — antes iba solo el cero, y un anillo suelto no es una marca.
  */
-const FAVICON_MARK = [GLYPH.ceroCorto];
+const FAVICON_MARK = [GLYPH.rCorta, GLYPH.ceroEstrecho];
 
 /** Las columnas que ocupa una marca, contando las de separación. */
 function columnsOf(mark) {
@@ -114,19 +132,40 @@ function dots(mark) {
  * @param size el lado del lienzo en píxeles.
  * @param inset cuánto del lado ocupa la marca, de 0 a 1.
  * @param mark los glifos a dibujar.
- * @param dotRatio diámetro del punto como fracción del paso.
+ * @param options.dotRatio diámetro del punto como fracción del paso.
+ * @param options.corner radio de las esquinas como fracción del lado. Con `0`
+ *   sale el cuadrado de siempre, que es lo que quiere el `maskable`.
+ * @param options.snap cuadra el paso y el margen a píxeles enteros. Ver abajo.
  */
-function markSvg(size, inset, mark, dotRatio = DOT_RATIO) {
+function markSvg(
+  size,
+  inset,
+  mark,
+  { dotRatio = DOT_RATIO, corner = CORNER_RATIO, snap = false } = {},
+) {
   const columns = columnsOf(mark);
   const rows = rowsOf(mark);
   // El paso lo fija el lado más apretado de la matriz. Con el wordmark manda
   // el ancho (19 columnas contra 7 filas) y da igual cuál se use; con una marca
   // estrecha manda el alto, y dividir por las columnas la desbordaría por
   // arriba en vez de encogerla.
-  const pitch = (size * inset) / Math.max(columns, rows);
+  const exact = (size * inset) / Math.max(columns, rows);
+  // A tamaño de pestaña el paso EXACTO es lo que emborrona la marca. Con 16 px
+  // sale 1,9: cada punto cae en un sitio distinto dentro de su píxel, ninguno
+  // llena uno entero, y las dos letras se funden en una mancha gris. Cuadrado a
+  // 2 px enteros —paso y margen— cada punto ocupa siempre las mismas casillas y
+  // la R vuelve a ser una R.
+  //
+  // Solo lo pide el favicon: de 180 px para arriba la parte decimal del paso es
+  // ruido frente al tamaño del punto, y redondear ahí solo movería la marca.
+  const pitch = snap ? Math.max(1, Math.round(exact)) : exact;
   const radius = (pitch * dotRatio) / 2;
-  const left = (size - pitch * columns) / 2;
-  const top = (size - pitch * rows) / 2;
+  const place = (count) => {
+    const start = (size - pitch * count) / 2;
+    return snap ? Math.round(start) : start;
+  };
+  const left = place(columns);
+  const top = place(rows);
   const circles = dots(mark)
     .map(({ x, y }) => {
       const cx = (left + (x + 0.5) * pitch).toFixed(2);
@@ -134,7 +173,8 @@ function markSvg(size, inset, mark, dotRatio = DOT_RATIO) {
       return `<circle cx="${cx}" cy="${cy}" r="${radius.toFixed(2)}" fill="${INK}"/>`;
     })
     .join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" fill="${PAPER}"/>${circles}</svg>`;
+  const rx = (size * corner).toFixed(2);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" rx="${rx}" ry="${rx}" fill="${PAPER}"/>${circles}</svg>`;
 }
 
 /**
@@ -175,8 +215,25 @@ function ico(images) {
   return Buffer.concat([header, ...entries, ...images.map(({ png }) => png)]);
 }
 
-const png = (size, inset, mark, dotRatio) =>
-  sharp(Buffer.from(markSvg(size, inset, mark, dotRatio)))
+/**
+ * Cuánto se redondean las esquinas del lienzo, como fracción del lado.
+ *
+ * El #27 decidió DEJARLAS CUADRADAS —«los sistemas operativos ya recortan el
+ * icono, y hacerlo dos veces produce un borde sobrante»— y esto lo revierte a
+ * petición explícita. La decisión no era falsa, era parcial: vale para el
+ * `maskable`, donde Android recorta de verdad, y no vale para la pestaña del
+ * navegador ni para el acceso directo de Windows, que pintan el PNG tal cual y
+ * dejan un cuadrado negro perfecto donde todo lo demás va redondeado.
+ *
+ * 0,18 y no el 0,2237 del squircle de iOS: ese está calculado para que la
+ * curva se coma el borde del icono ENTERO, y aquí la marca vive dentro. A 16 px
+ * son 2,9 px de radio: se nota que está redondeado sin que el cero pierda su
+ * esquina.
+ */
+const CORNER_RATIO = 0.18;
+
+const png = (size, inset, mark, options) =>
+  sharp(Buffer.from(markSvg(size, inset, mark, options)))
     .png({ compressionLevel: 9 })
     .toBuffer();
 
@@ -185,8 +242,10 @@ const OUTPUTS = [
   { file: "icon-192.png", px: 192, inset: 0.78 },
   { file: "icon-512.png", px: 512, inset: 0.78 },
   // El maskable se aparta más: Android recorta a la forma del launcher y solo
-  // garantiza el 80 % central.
-  { file: "icon-maskable-512.png", px: 512, inset: 0.66 },
+  // garantiza el 80 % central. Y es el ÚNICO que sigue cuadrado: el recorte lo
+  // pone el sistema, y redondear aquí además dejaría el borde sobrante que el
+  // #27 quería evitar.
+  { file: "icon-maskable-512.png", px: 512, inset: 0.66, corner: 0 },
   { file: "apple-touch-icon.png", px: 180, inset: 0.7 },
 ];
 
@@ -200,18 +259,26 @@ const OUTPUTS = [
  */
 const FAVICON_SIZES = [16, 32, 48];
 
-/** El favicon casi no deja margen: a 16 px cada píxel de borde cuenta. */
-const FAVICON_INSET = 0.95;
+/**
+ * El favicon casi no deja margen: a 16 px cada píxel de borde cuenta.
+ *
+ * 0,9 y no 0,95 por el redondeo: con el paso cuadrado a píxeles enteros, 0,95
+ * empuja el de 48 px de 5 a 6 y la marca sale a ras de los cuatro bordes, justo
+ * donde ahora hay una esquina redondeada que morder.
+ */
+const FAVICON_INSET = 0.9;
 
 /**
  * El punto del favicon va más gordo que el de la marca.
  *
  * A 16 px el hueco de 0,28 del paso que deja `DOT_RATIO` no llega a un píxel,
  * así que no separa nada y solo resta brillo: el punto sale gris en vez de
- * blanco. A 0,85 el hueco sigue existiendo donde hay resolución para verlo
- * —en el 48— y a 16 px el punto llega a blanco.
+ * blanco. Con el paso ya cuadrado a 2 px, el punto que llena el paso entero es
+ * el único que llena sus casillas; cualquier fracción vuelve a repartir brillo
+ * entre píxeles vecinos. Los puntos quedan tangentes, que en una matriz de
+ * puntos es lo que se espera ver.
  */
-const FAVICON_DOT_RATIO = 0.85;
+const FAVICON_DOT_RATIO = 1;
 
 const iconsDir = path.join(process.cwd(), "public", "icons");
 await mkdir(iconsDir, { recursive: true });
@@ -224,8 +291,11 @@ await writeFile(
   "utf8",
 );
 
-for (const { file, px, inset } of OUTPUTS) {
-  await writeFile(path.join(iconsDir, file), await png(px, inset, WORDMARK));
+for (const { file, px, inset, corner } of OUTPUTS) {
+  await writeFile(
+    path.join(iconsDir, file),
+    await png(px, inset, WORDMARK, { corner }),
+  );
   console.log(`icons/${file}  ${px}x${px}`);
 }
 
@@ -236,7 +306,10 @@ await writeFile(
     await Promise.all(
       FAVICON_SIZES.map(async (px) => ({
         px,
-        png: await png(px, FAVICON_INSET, FAVICON_MARK, FAVICON_DOT_RATIO),
+        png: await png(px, FAVICON_INSET, FAVICON_MARK, {
+          dotRatio: FAVICON_DOT_RATIO,
+          snap: true,
+        }),
       })),
     ),
   ),
