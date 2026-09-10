@@ -10,7 +10,12 @@ import { useProjects } from "@/components/projects/projects-provider";
 import { useTree } from "@/components/tree/tree-provider";
 import { ViewSwitch } from "@/components/tree/view-switch";
 import { VersionPicker } from "@/components/versions/version-picker";
-import { CONNECTION_COPY, ROUTES, TREE_COPY, type TreeView } from "@/lib/constants";
+import {
+  CONNECTION_COPY,
+  ROUTES,
+  TREE_COPY,
+  type TreeView,
+} from "@/lib/constants";
 
 /**
  * La cabecera de la pantalla del árbol: dónde estás, qué Versión, y cómo verla.
@@ -25,15 +30,32 @@ export function TreeHeader({
   projectId,
   view,
   onView,
+  search,
 }: {
   projectId: string;
   view: TreeView;
   onView: (view: TreeView) => void;
+  /**
+   * El campo de la Búsqueda, que la cabecera COLOCA pero no monta.
+   *
+   * Llega como nodo y no se pinta aquí dentro porque su estado —lo que se ha
+   * escrito— es de la pantalla: es lo que decide si se ven los resultados o el
+   * árbol, y eso no es asunto de una cabecera. Lo que sí es asunto suyo es
+   * dónde cae, y por eso entra.
+   *
+   * Y entra UNA vez, en vez de pintarse aquí para escritorio y abajo para
+   * móvil: dos campos con el mismo nombre accesible son dos campos para un
+   * lector de pantalla aunque uno esté oculto, y quien escribe en el que no
+   * toca no entiende por qué no pasa nada. Es la misma razón por la que el
+   * interruptor de vistas se mueve con `order` y no se duplica.
+   */
+  search?: React.ReactNode;
 }) {
   const { projects, status: projectsStatus } = useProjects();
   const tree = useTree();
 
-  const project = projects.find((candidate) => candidate.id === projectId) ?? null;
+  const project =
+    projects.find((candidate) => candidate.id === projectId) ?? null;
 
   return (
     <header className="flex flex-col gap-3">
@@ -86,11 +108,31 @@ export function TreeHeader({
           cambia (#14). La cuenta de Nodos se queda fuera del botón: es del
           árbol que estás mirando, no del selector, y meterla dentro haría que
           la pastilla cambiara de ancho cada vez que se crea un Nodo. */}
+      {/* La Búsqueda comparte ESTA fila, y no una propia.
+          
+          Una línea entera dedicada al campo son unos 64 px con su hueco, y
+          quien abre una Versión viene a mirar el árbol: en escritorio el
+          Contenedor ya no crece, así que cada línea de cabecera se la quita
+          al árbol directamente. Esta fila es donde cabe — lo que ya hay son
+          dos etiquetas cortas, no controles que compitan.
+
+          En móvil el `flex-wrap` lo resuelve solo: con `w-full` el campo se
+          va a su propio renglón, que es donde tiene que estar cuando no hay
+          360 px para repartir entre tres cosas. No hace falta ninguna
+          consulta de medios para eso, y por eso no hay ninguna. */}
       <div className="flex flex-wrap items-center gap-2.5">
         <VersionPicker projectId={projectId} />
         <span className="text-xs text-muted-foreground">
           {TREE_COPY.nodeCount(tree.nodes.length)}
         </span>
+        {search ? (
+          // `ml-auto` lo empuja a la derecha y `max-w-96` le pone techo: sin
+          // él, en una pantalla ancha con la sidebar plegada el campo se comía
+          // media cabecera para escribir dos palabras.
+          <div className="w-full lg:ml-auto lg:w-auto lg:max-w-96 lg:flex-1">
+            {search}
+          </div>
+        ) : null}
       </div>
     </header>
   );
@@ -138,7 +180,10 @@ function SaveState() {
     <span className="flex items-center gap-1.5 text-[10px] tracking-[0.12em] uppercase text-muted-foreground">
       {save === "saving" ? (
         <>
-          <span aria-hidden="true" className="size-[7px] rounded-full bg-primary" />
+          <span
+            aria-hidden="true"
+            className="size-[7px] rounded-full bg-primary"
+          />
           {TREE_COPY.saving}
         </>
       ) : (

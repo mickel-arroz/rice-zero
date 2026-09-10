@@ -43,7 +43,12 @@ export function TreeSearch({
 }) {
   const { found, total } = useSearchCounts(query);
   return (
-    <TreeSearchField query={query} onQuery={onQuery} found={found} total={total} />
+    <TreeSearchField
+      query={query}
+      onQuery={onQuery}
+      found={found}
+      total={total}
+    />
   );
 }
 
@@ -62,12 +67,22 @@ function TreeSearchField({
   const active = query.length > 0;
 
   return (
+    // Dos alturas, y no por gusto. En escritorio el campo vive DENTRO de la
+    // cabecera, compartiendo fila con la pastilla de Versión (`h-8`): a 52 px
+    // estiraba esa fila y se leía como el control principal de la pantalla,
+    // que no lo es. A 36 queda por encima de la pastilla —lo justo para
+    // parecer un sitio donde se escribe— sin mandar sobre ella.
+    //
+    // En móvil se queda en 52: ahí ocupa su propia línea y es un blanco de
+    // dedo, y 36 px de alto es lo que se falla al tocar en un autobús.
     <div
-      className={`flex h-13 shrink-0 items-center gap-3 rounded-full border bg-card px-5 transition-colors ${
+      className={`@container flex h-13 shrink-0 items-center gap-3 rounded-full border bg-card px-5 transition-colors lg:h-9 lg:gap-2.5 lg:px-4 ${
         active ? "border-primary" : "border-border focus-within:border-primary"
       }`}
     >
-      <SearchIcon className={active ? "text-primary" : "text-muted-foreground"} />
+      <SearchIcon
+        className={`shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`}
+      />
       <input
         type="search"
         value={query}
@@ -77,11 +92,26 @@ function TreeSearchField({
         // `search` en vez de `text` por la equis nativa de algunos navegadores,
         // que se apaga abajo: dos formas de limpiar el campo en el mismo sitio
         // se pisan, y la nuestra es la que se ve igual en todos.
-        className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
+        className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground lg:text-[13px] [&::-webkit-search-cancel-button]:hidden"
       />
       {active ? (
         <>
-          <span className="shrink-0 text-[11px] tracking-[0.08em] text-muted-foreground uppercase">
+          {/* La cuenta se cae cuando el campo se queda estrecho. En la cabecera
+              comparte fila y encoge, y hay un ancho a partir del cual «1 DE
+              32» le come el sitio a lo que se está escribiendo — que es lo que
+              de verdad hay que poder leer.
+
+              `@container` y no una consulta de medios porque lo que decide es
+              el ancho del CAMPO, no el de la ventana: el mismo campo cabe
+              holgado con la sidebar plegada y va justo con ella abierta.
+
+              16rem se mide sobre la caja de CONTENIDO del campo, que es lo que
+              mira una consulta de contenedor: no son los 384 px del borde sino
+              esos menos el relleno y el borde. La primera versión de esto puso
+              22rem contra los 384 «visibles» y la cuenta no salía nunca —
+              quedaba en 21,875. El número de ahora deja holgura de sobra por
+              los dos lados en vez de rozar el límite. */}
+          <span className="hidden shrink-0 text-[11px] tracking-[0.08em] text-muted-foreground uppercase @[16rem]:inline">
             {TREE_COPY.searchCount(found, total)}
           </span>
           <button
@@ -138,9 +168,7 @@ function Result({
   onOpen: () => void;
 }) {
   const text = hit.row.node.content.trim();
-  const path = hit.ancestors
-    .map((name) => name.trim() || "…")
-    .join(" · ");
+  const path = hit.ancestors.map((name) => name.trim() || "…").join(" · ");
 
   return (
     <li>
@@ -148,16 +176,14 @@ function Result({
         type="button"
         onClick={onOpen}
         className={`flex w-full flex-col gap-1.5 rounded-2xl border p-3.5 text-left transition-colors ${
-          selected ? "border-primary bg-accent" : "border-border hover:border-primary"
+          selected
+            ? "border-primary bg-accent"
+            : "border-border hover:border-primary"
         }`}
       >
         <span
           className={`text-sm leading-relaxed break-words ${
-            hit.row.struck
-              ? STRUCK_CLASS
-              : text
-                ? ""
-                : "text-muted-foreground"
+            hit.row.struck ? STRUCK_CLASS : text ? "" : "text-muted-foreground"
           }`}
         >
           {text ? (

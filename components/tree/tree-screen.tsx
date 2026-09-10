@@ -136,16 +136,24 @@ export function TreeScreen({
           mismo. Ver `node-dialogs.tsx`. */}
       <NodeDialogs>
         <div className="flex min-h-0 flex-1 flex-col">
-          {/* A pantalla completa no hay cabecera: es lo que se pide al pedirla. */}
+          {/* A pantalla completa no hay cabecera: es lo que se pide al pedirla.
+              Y con ella se va la Búsqueda, que ahora vive dentro — ahí el
+              lienzo ES la pantalla y el campo tendría que flotar sobre él. */}
           {fullscreen ? null : (
-            <TreeHeader projectId={projectId} view={view} onView={changeView} />
+            <TreeHeader
+              projectId={projectId}
+              view={view}
+              onView={changeView}
+              // El campo lo monta la pantalla y lo COLOCA la cabecera: lo que
+              // se ha escrito decide si se ven los resultados o el árbol, y esa
+              // decisión es de aquí. Ver el `search` de `TreeHeader`.
+              search={<TreeSearch query={query} onQuery={setQuery} />}
+            />
           )}
 
-          <div className={`flex min-h-0 flex-1 flex-col gap-3.5 ${fullscreen ? "" : "mt-5"}`}>
-            {/* A pantalla completa no hay Búsqueda: ahí el lienzo ES la
-                pantalla, y el campo tendría que flotar sobre él. */}
-            {fullscreen ? null : <TreeSearch query={query} onQuery={setQuery} />}
-
+          <div
+            className={`flex min-h-0 flex-1 flex-col gap-3.5 ${fullscreen ? "" : "mt-5"}`}
+          >
             {searching ? (
               // Los resultados REEMPLAZAN a la vista, no se ponen al lado: en
               // el teléfono no hay ancho para dos columnas, y en escritorio un
@@ -154,7 +162,10 @@ export function TreeScreen({
               // Nodo ya señalado.
               <TreeSearchResults query={query} onQuery={setQuery} />
             ) : canvas ? (
-              <CanvasView fullscreen={fullscreen} onFullscreen={toggleFullscreen} />
+              <CanvasView
+                fullscreen={fullscreen}
+                onFullscreen={toggleFullscreen}
+              />
             ) : (
               <RegistroView />
             )}
