@@ -112,7 +112,7 @@ export function DashboardNav({
     onNavigate?: () => void,
     height = 38,
     fontSize = 14,
-    isCollapsed = false
+    isCollapsed = false,
   ) {
     if (projects.length === 0) {
       return isCollapsed ? null : (
@@ -154,7 +154,37 @@ export function DashboardNav({
   return (
     // `relative z-10`: el fondo de puntos vive en el layout raíz como hermano
     // `fixed`, así que sin esto el shell entero quedaría DEBAJO de él.
-    <div className="relative z-10 flex flex-1">
+    //
+    // ── `lg:h-dvh lg:overflow-hidden`: en escritorio la página no se desplaza ─
+    //
+    // El shell mide exactamente la ventana y ahí se acaba. El desplazamiento se
+    // muda DENTRO del Contenedor (ver `app-frame.tsx`), que es lo que hace que
+    // el envoltorio —su borde, sus esquinas y la barra lateral a su izquierda—
+    // se quede quieto enmarcando el contenido en vez de irse hacia arriba con
+    // él. Antes crecía la página entera y el marco se perdía por arriba, que es
+    // justo lo que un marco no puede hacer.
+    //
+    // Va AQUÍ y no en el `<body>`, aunque el `<body>` sea el sitio obvio: la
+    // landing, `/about` sin sesión y el login comparten ese `<body>` y son
+    // páginas largas que tienen que desplazarse con normalidad. Esto es una
+    // regla del dashboard, así que vive con el dashboard.
+    //
+    // Solo en `lg`: en el teléfono la página se desplaza entera y debe hacerlo
+    // —la cabecera es `sticky` y el Contenedor se sale por abajo a propósito—,
+    // y un alto fijo con el teclado en pantalla abierto es la receta clásica
+    // para que un campo quede debajo de él.
+    //
+    // La franja de conexión es hermana de esto y va en flujo, así que cuando
+    // aparece la suma pasa de la ventana y la página gana su desplazamiento por
+    // el alto de la franja. Es lo correcto: mientras haya un aviso encima,
+    // poder llegar a todo importa más que no tener barra.
+    // `lg:flex-none` junto al `lg:h-dvh`, y no es adorno: sin él esto no
+    // funciona. `flex-1` es `flex: 1 1 0%`, y el `<body>` es una columna de
+    // flex, así que ese `flex-basis: 0%` MANDA SOBRE `height` en el eje
+    // vertical — el alto de ventana se ignoraba y `flex-grow` estiraba el shell
+    // hasta el alto del contenido. Con `flex-none` el basis vuelve a `auto`, el
+    // `h-dvh` pasa a ser el alto de verdad, y ya no hay nada que crezca.
+    <div className="relative z-10 flex flex-1 lg:h-dvh lg:flex-none lg:overflow-hidden">
       {/* ── Sidebar de escritorio ──────────────────────────────────── */}
       <aside
         // Por debajo de `lg` la navegación es el menú de la cabecera, no esta
@@ -246,7 +276,14 @@ export function DashboardNav({
       </aside>
 
       {/* ── Columna de contenido, con la cabecera móvil encima ──────── */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* `lg:min-h-0`: un hijo de flex no baja de su contenido por defecto
+          (`min-height: auto`), así que sin esto la columna se estiraría con la
+          pantalla más larga y empujaría el alto de ventana del shell hacia
+          fuera — el desplazamiento volvería a la página. Es la misma línea que
+          ya llevan la lista de la sidebar y su bloque de Proyectos, por el
+          mismo motivo, y hay que repetirla en CADA eslabón hasta el que
+          finalmente se desplaza. */}
+      <div className="flex min-w-0 flex-1 flex-col lg:min-h-0">
         {/* `sticky` y no `fixed`, por lo mismo que la franja de conexión: en
             flujo ocupa su alto y empuja al contenido, así que no puede tapar el
             primer elemento. `fixed` habría exigido un relleno de compensación

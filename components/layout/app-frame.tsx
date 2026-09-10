@@ -27,6 +27,12 @@
  * del layout raíz se vea por debajo del contenido. Lo que la hace tarjeta es su
  * geometría, no su relleno. Ver el comentario de la caja, más abajo.
  *
+ * Y una cuarta: en ESCRITORIO, dónde está el scroll. Va dentro de la tarjeta y
+ * no en la página, así que el marco no se mueve nunca — se queda enmarcando
+ * mientras el contenido corre por dentro. El alto de ventana que lo hace
+ * posible lo pone el shell (`dashboard-nav.tsx`); aquí se recoge y se convierte
+ * en desplazamiento. En móvil no aplica: allí se desplaza la página.
+ *
  * ⚠ De ahí se sigue una regla para lo que se monte dentro: lo que necesite
  * fondo propio se lo pone ÉL. Una tarjeta de Proyecto, un diálogo o un menú
  * flotante llevan el suyo —y lo llevaban ya— porque tienen que despegarse de lo
@@ -94,7 +100,7 @@ export function AppFrame({
     // ancho de la sidebar —que por eso perdió su borde derecho: dos bordes
     // pegados se leen como un trazo de 2 px, no como dos elementos.
     <div
-      className={`flex flex-1 flex-col p-3 pb-0 lg:p-4 lg:pl-0 ${className}`}
+      className={`flex flex-1 flex-col p-3 pb-0 lg:min-h-0 lg:p-4 lg:pl-0 ${className}`}
     >
       {/* La tarjeta. En móvil se sale por abajo de la pantalla a propósito:
           sin barra lateral que la enmarque, cerrarla por abajo dejaría una
@@ -120,8 +126,33 @@ export function AppFrame({
 
           La barra lateral NO cambia: conserva su `bg-background` opaco, que es
           lo que hace que la retícula empiece donde empieza el contenido en vez
-          de correr por debajo de la navegación. */}
-      <div className="flex flex-1 flex-col rounded-t-[20px] border border-b-0 border-border px-4 py-5 lg:rounded-[20px] lg:border-b lg:px-8 lg:py-7">
+          de correr por debajo de la navegación.
+
+          ── EL SCROLL DE ESCRITORIO VIVE AQUÍ ──────────────────────────────
+
+          `lg:min-h-0 lg:overflow-y-auto`. La tarjeta mide lo que queda de
+          ventana y lo que sobra se desplaza POR DENTRO. Es lo que hace que el
+          envoltorio no se mueva: el borde, las esquinas y el margen contra la
+          barra lateral se quedan donde están, y lo único que corre es el
+          contenido. La barra de desplazamiento cae por dentro del borde
+          derecho, ya fina y del color del tema.
+
+          Y es la tarjeta y no la columna de medida de dentro: esa está
+          centrada y limitada a 1024, así que en una pantalla ancha su barra
+          aparecería en mitad del contenedor en vez de pegada a su borde.
+
+          ⚠ Esto crea un contexto de recorte, y arriba dice que aquí no puede
+          haber uno. Sigue siendo cierto para lo que importa: los diálogos son
+          `fixed` —no los recorta ningún `overflow` de un ancestro— y el menú de
+          la cuenta vive en la barra lateral, fuera de esta caja. Lo que sí
+          queda dentro es el menú de una tarjeta de Proyecto, que se abre hacia
+          abajo: con `auto` en vez de `hidden` no se corta, se alcanza
+          desplazándose.
+
+          Solo en `lg`, como el alto de ventana del que cuelga: en móvil la
+          tarjeta se sale por abajo a propósito y la que se desplaza es la
+          página. */}
+      <div className="flex flex-1 flex-col rounded-t-[20px] border border-b-0 border-border px-4 py-5 lg:min-h-0 lg:overflow-y-auto lg:rounded-[20px] lg:border-b lg:px-8 lg:py-7">
         <div
           className="mx-auto flex w-full flex-1 flex-col"
           style={{ maxWidth: `${APP_MEASURE}px` }}

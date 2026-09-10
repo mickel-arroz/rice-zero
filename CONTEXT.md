@@ -47,6 +47,8 @@ _Avoid_: outliner, vista lista, vista simple
 
 **Contenedor**:
 El marco que rodea a toda pantalla posterior al inicio de sesión: una tarjeta flotante de esquinas redondeadas, con margen arriba, abajo y a la derecha, y dentro una columna de ancho máximo único. Lo decide un solo sitio (`components/layout/app-frame.tsx`) y lo monta el Shell envolviendo a la pantalla, así que ninguna pantalla pone su propio ancho ni su propio relleno. No incluye la navegación: eso es el Shell.
+
+En escritorio es además **donde vive el scroll**: el marco mide exactamente la ventana y no se mueve nunca, y lo que se desplaza es su contenido por dentro. La página, por tanto, no se desplaza. En móvil al revés — la que se desplaza es la página y el Contenedor se sale por abajo a propósito.
 _Avoid_: layout, wrapper, marco, contenedor post-login
 
 **Shell**:
