@@ -74,8 +74,26 @@ export function TreeHeader({
           ocupar una propia: son unos 50 px de alto que se lleva el árbol, que
           es lo que se ha venido a mirar. En móvil no cabe al lado de un título
           largo, así que sigue encima — de ahí el `order`, que deja el mismo
-          orden de lectura de siempre sin pintar el selector dos veces. */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+          orden de lectura de siempre sin pintar el selector dos veces.
+
+          ── En escritorio son DOS FILAS DE UNA REJILLA, no dos filas sueltas ─
+
+          Título y controles arriba; Versión y Búsqueda abajo. Van en la misma
+          rejilla porque la columna derecha tiene que medir lo mismo en las dos
+          filas: el campo de Búsqueda queda EXACTAMENTE tan ancho como el
+          interruptor y «Analizar» juntos, y los cuatro controles forman un
+          bloque alineado por los dos costados en vez de tres anchos distintos.
+
+          Y lo hace la rejilla en vez de un ancho escrito a mano porque ese
+          ancho no es un número: es lo que miden dos botones con texto en
+          español, y cambia el día que «Analizar» se llame otra cosa o que la
+          app se traduzca. La columna es `auto`, así que la mide el navegador y
+          el campo la hereda. Un `max-w-96` calibrado a ojo —que es lo que
+          había— acertaba solo mientras nadie tocara la copia.
+
+          Por debajo de `lg` no hay rejilla: es una columna de flex, con el
+          mismo `order` de siempre. */}
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-x-6 lg:gap-y-3">
         {/* El interruptor y la puerta del Panel de IA comparten fila: la puerta
             NO es una tercera vista —el panel se abre ENCIMA del árbol, no en su
             lugar— pero es la otra cosa que se hace desde aquí, y en móvil la
@@ -84,54 +102,51 @@ export function TreeHeader({
             derecha—; en escritorio van juntos al lado del título, que es donde
             los pone el boceto. `justify-end` y no `between` porque ahí la fila
             ya no es suya: la comparten con el `h1`. */}
-        <div className="order-first flex items-center justify-between gap-3 lg:order-none lg:justify-end">
+        {/* Este es el que MIDE la columna derecha: va a su ancho natural, y de
+            él cuelga el del campo de Búsqueda de la fila de abajo. */}
+        <div className="order-first flex items-center justify-between gap-3 lg:order-none lg:col-start-2 lg:row-start-1 lg:justify-end">
           <ViewSwitch view={view} onChange={onView} />
           <AnalyzeButton />
         </div>
 
         {project ? (
-          <h1 className="text-[29px] leading-none tracking-[0.02em] text-balance lg:order-first lg:min-w-0 lg:text-5xl">
+          <h1 className="text-[29px] leading-none tracking-[0.02em] text-balance lg:order-first lg:col-start-1 lg:row-start-1 lg:min-w-0 lg:text-5xl">
             {project.title}
           </h1>
         ) : (
           // Mientras la lista de Proyectos viaja no se inventa un título: se
           // deja su hueco, del alto que va a ocupar.
           <span
-            className="w-52 rounded-lg bg-accent lg:order-first"
+            className="w-52 rounded-lg bg-accent lg:order-first lg:col-start-1 lg:row-start-1"
             style={{ height: 29 }}
             aria-hidden={projectsStatus === "loading"}
           />
         )}
-      </div>
 
-      {/* La pastilla que solo DECÍA la Versión pasa a ser el control que la
-          cambia (#14). La cuenta de Nodos se queda fuera del botón: es del
-          árbol que estás mirando, no del selector, y meterla dentro haría que
-          la pastilla cambiara de ancho cada vez que se crea un Nodo. */}
-      {/* La Búsqueda comparte ESTA fila, y no una propia.
-          
-          Una línea entera dedicada al campo son unos 64 px con su hueco, y
-          quien abre una Versión viene a mirar el árbol: en escritorio el
-          Contenedor ya no crece, así que cada línea de cabecera se la quita
-          al árbol directamente. Esta fila es donde cabe — lo que ya hay son
-          dos etiquetas cortas, no controles que compitan.
+        {/* La pastilla que solo DECÍA la Versión pasa a ser el control que la
+            cambia (#14). La cuenta de Nodos se queda fuera del botón: es del
+            árbol que estás mirando, no del selector, y meterla dentro haría que
+            la pastilla cambiara de ancho cada vez que se crea un Nodo. */}
+        <div className="flex flex-wrap items-center gap-2.5 lg:col-start-1 lg:row-start-2">
+          <VersionPicker projectId={projectId} />
+          <span className="text-xs text-muted-foreground">
+            {TREE_COPY.nodeCount(tree.nodes.length)}
+          </span>
+        </div>
 
-          En móvil el `flex-wrap` lo resuelve solo: con `w-full` el campo se
-          va a su propio renglón, que es donde tiene que estar cuando no hay
-          360 px para repartir entre tres cosas. No hace falta ninguna
-          consulta de medios para eso, y por eso no hay ninguna. */}
-      <div className="flex flex-wrap items-center gap-2.5">
-        <VersionPicker projectId={projectId} />
-        <span className="text-xs text-muted-foreground">
-          {TREE_COPY.nodeCount(tree.nodes.length)}
-        </span>
+        {/* La Búsqueda, debajo de los controles y de su mismo ancho.
+
+            Una línea propia para el campo son unos 64 px con su hueco, y quien
+            abre una Versión viene a mirar el árbol: en escritorio el Contenedor
+            ya no crece, así que cada línea de cabecera se la quita al árbol
+            directamente. Aquí no ocupa ninguna — cae en el hueco que la fila de
+            la Versión tenía libre a la derecha.
+
+            En móvil no hay rejilla y esto es un elemento más de la columna, así
+            que el campo va a su propio renglón. Que es donde tiene que estar
+            cuando no hay 360 px para repartir entre tres cosas. */}
         {search ? (
-          // `ml-auto` lo empuja a la derecha y `max-w-96` le pone techo: sin
-          // él, en una pantalla ancha con la sidebar plegada el campo se comía
-          // media cabecera para escribir dos palabras.
-          <div className="w-full lg:ml-auto lg:w-auto lg:max-w-96 lg:flex-1">
-            {search}
-          </div>
+          <div className="w-full lg:col-start-2 lg:row-start-2">{search}</div>
         ) : null}
       </div>
     </header>

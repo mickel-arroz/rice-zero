@@ -67,16 +67,17 @@ function TreeSearchField({
   const active = query.length > 0;
 
   return (
-    // Dos alturas, y no por gusto. En escritorio el campo vive DENTRO de la
-    // cabecera, compartiendo fila con la pastilla de Versión (`h-8`): a 52 px
-    // estiraba esa fila y se leía como el control principal de la pantalla,
-    // que no lo es. A 36 queda por encima de la pastilla —lo justo para
-    // parecer un sitio donde se escribe— sin mandar sobre ella.
+    // Dos alturas, y no por gusto. En escritorio el campo cae justo debajo del
+    // interruptor y «Analizar», en la misma columna y del mismo ancho, así que
+    // lo que se ve es un bloque: `h-10` son los 40 px que mide esa caja de
+    // botones, y con cualquier otro número el bloque deja de serlo. A 52 —lo
+    // que medía cuando tenía línea propia— además estiraba la fila y se leía
+    // como el control principal de la pantalla, que no lo es.
     //
     // En móvil se queda en 52: ahí ocupa su propia línea y es un blanco de
-    // dedo, y 36 px de alto es lo que se falla al tocar en un autobús.
+    // dedo, y 40 px de alto es lo que se falla al tocar en un autobús.
     <div
-      className={`@container flex h-13 shrink-0 items-center gap-3 rounded-full border bg-card px-5 transition-colors lg:h-9 lg:gap-2.5 lg:px-4 ${
+      className={`@container flex h-13 shrink-0 items-center gap-3 rounded-full border bg-card px-5 transition-colors lg:h-10 lg:gap-2.5 lg:px-4 ${
         active ? "border-primary" : "border-border focus-within:border-primary"
       }`}
     >
@@ -87,6 +88,17 @@ function TreeSearchField({
         type="search"
         value={query}
         onChange={(event) => onQuery(event.target.value)}
+        // Un `input` mide por defecto unos 20 caracteres, y ese ancho no es
+        // decorativo: es lo que aporta a la hora de calcular una caja. En la
+        // cabecera el campo vive en una columna de rejilla `auto`, que se
+        // ajusta al más ancho de sus elementos — con las 20 por defecto era el
+        // campo el que ensanchaba la columna, y entonces la columna ya no medía
+        // lo que miden el interruptor y «Analizar», que es todo el propósito.
+        //
+        // Con 1, el campo no pide nada y se estira con su `flex-1` hasta llenar
+        // lo que la columna le dé. No recorta lo que se puede escribir: `size`
+        // es ancho, no límite — eso sería `maxLength`.
+        size={1}
         placeholder={TREE_COPY.searchPlaceholder}
         aria-label={TREE_COPY.searchLabel}
         // `search` en vez de `text` por la equis nativa de algunos navegadores,
