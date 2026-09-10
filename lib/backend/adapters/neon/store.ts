@@ -21,6 +21,7 @@ import {
   filteredId,
 } from "@/lib/backend/adapters/postgrest/response";
 import type { Row, RowStore } from "@/lib/backend/adapters/postgrest/store";
+import { shouldRetryEmptyRead } from "@/lib/backend/adapters/postgrest/warmup";
 import { UnauthenticatedError } from "@/lib/backend/ports";
 
 /**
@@ -63,8 +64,13 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
    *
    * Reintentar una escritura solo es seguro porque un rechazo de RLS aborta la
    * sentencia: no se escribió nada, así que no hay forma de duplicar un
-   * Proyecto. Por eso NO envuelve a `select`: una lectura con `auth.uid()` nulo
-   * no falla, devuelve cero filas en silencio, y ahí no hay nada que detectar.
+   * Proyecto.
+   *
+   * No envuelve a las LECTURAS, y no porque estén a salvo: allí el mismo
+   * tropiezo no da error, da 200 con cero filas. Durante un tiempo aquí ponía
+   * que en una lectura «no hay nada que detectar», y eso era el bug #41 — lo que
+   * hay que detectar no son las filas, es cuándo. De eso se ocupa
+   * `retryEmptyOnce`, aquí abajo.
    *
    * Uno y no un bucle: si el segundo intento también choca, es que no era esto.
    */
@@ -80,19 +86,56 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
     }
   }
 
+  /**
+   * Una lectura, y un segundo intento si volvió vacía con el token sin estrenar.
+   *
+   * Es el gemelo de `retryOnce` para el otro lado del mismo tropiezo. En una
+   * escritura, la sesión que aún no está puesta da un 42501 que se puede
+   * atrapar; en una lectura da **200 con cero filas**, que es indistinguible de
+   * una lista que de verdad está vacía — salvo por CUÁNDO ocurre. Ver
+   * `shouldRetryEmptyRead`, que es quien lo decide, y el bug #41.
+   *
+   * @param build la consulta, como función: un `PostgrestBuilder` se consume al
+   *   esperarlo, así que el reintento necesita una nueva.
+   * @param rowsOf cuántas filas trajo lo que devolvió `build`.
+   */
+  async function retryEmptyOnce<T>(
+    build: () => Promise<T>,
+    rowsOf: (result: T) => number,
+  ): Promise<T> {
+    const first = await build();
+    const retry = shouldRetryEmptyRead({
+      rows: rowsOf(first),
+      tokenIsFresh: client.tokenIsFresh(),
+      retried: false,
+    });
+
+    // Se marca SIEMPRE y antes de reintentar: la ventana del tropiezo se cierra
+    // en cuanto vuelve una petición, salga como salga. Sin esto, una cuenta de
+    // verdad vacía reintentaría en cada lectura y no solo en la primera.
+    client.markTokenWarm();
+    return retry ? build() : first;
+  }
+
   return {
     async select(source, options) {
-      let query = client.data.from(asRelation(source)).select("*");
-      for (const filter of options?.where ?? []) {
-        query = query.eq(filter.column, filter.value);
-      }
-      for (const order of options?.order ?? []) {
-        query = query.order(order.column, {
-          ascending: order.ascending,
-          nullsFirst: order.nullsFirst,
-        });
-      }
-      return asRows(await run(query, source, filteredId(options?.where)));
+      const build = () => {
+        let query = client.data.from(asRelation(source)).select("*");
+        for (const filter of options?.where ?? []) {
+          query = query.eq(filter.column, filter.value);
+        }
+        for (const order of options?.order ?? []) {
+          query = query.order(order.column, {
+            ascending: order.ascending,
+            nullsFirst: order.nullsFirst,
+          });
+        }
+        return run(query, source, filteredId(options?.where));
+      };
+
+      return asRows(
+        await retryEmptyOnce(build, (data) => asRows(data).length),
+      );
     },
 
     async count(source, where) {
@@ -100,14 +143,23 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
       // como un HEAD y el motor devuelve la cuenta en una cabecera SIN mandar
       // una sola fila. Contar leyendo el árbol entero para hacerle `.length`
       // costaba el árbol entero por el cable para enseñar un número.
-      let query = client.data.from(asRelation(source)).select("id", {
-        count: "exact",
-        head: true,
-      });
-      for (const filter of where ?? []) {
-        query = query.eq(filter.column, filter.value);
-      }
-      return runCount(query, source, filteredId(where));
+      //
+      // Y pasa por el mismo reintento que `select`: una cuenta también sale a
+      // cero cuando RLS no casa, y de ahí cuelga la frase de un diálogo de
+      // borrado — «se lleva 0 Nodos por delante» sobre un árbol de ciento
+      // veintiséis es peor que no decir nada.
+      const build = () => {
+        let query = client.data.from(asRelation(source)).select("id", {
+          count: "exact",
+          head: true,
+        });
+        for (const filter of where ?? []) {
+          query = query.eq(filter.column, filter.value);
+        }
+        return runCount(query, source, filteredId(where));
+      };
+
+      return retryEmptyOnce(build, (total) => total);
     },
 
     async searchNodes(term, limit) {

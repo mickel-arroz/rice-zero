@@ -54,6 +54,22 @@ export type NeonBrowserClient = {
    * typecheck ni contra el adaptador en memoria.
    */
   accessToken(): Promise<string | null>;
+  /**
+   * ¿Con el JWT vigente todavía no ha VUELTO ninguna petición del Data API?
+   *
+   * Es la señal del tropiezo de la sesión en una lectura (#41). Neon establece
+   * la sesión JWT sobre una conexión de su pool, y la primera petición puede
+   * llegar antes de que esté puesta: entonces `auth.uid()` sale nulo, RLS no
+   * casa y el motor contesta **200 con cero filas** — sin error que atrapar.
+   *
+   * Vive aquí y no en el store porque el único que sabe cuándo se trajo el
+   * token es quien lo trae. Ver `shouldRetryEmptyRead`.
+   */
+  tokenIsFresh(): boolean;
+
+  /** Ya volvió una petición con este token: se acabó la ventana del tropiezo. */
+  markTokenWarm(): void;
+
   /** Olvida el JWT cacheado. Lo llama el proveedor al entrar y al salir. */
   forgetToken(): void;
 };
@@ -145,7 +161,7 @@ function buildClient(): NeonBrowserClient {
    * serviría para leer sus datos: la caducidad es una optimización, el olvido
    * es la garantía.
    */
-  let cached: { token: string; until: number } | null = null;
+  let cached: { token: string; until: number; warm: boolean } | null = null;
 
   /**
    * La petición que está en vuelo, si hay alguna.
@@ -177,6 +193,9 @@ function buildClient(): NeonBrowserClient {
       until: expiry
         ? expiry - TOKEN_MARGIN_MS
         : Date.now() + TOKEN_FALLBACK_MS,
+      // Todavía no ha vuelto ninguna petición del Data API con él: ver
+      // `tokenIsFresh`.
+      warm: false,
     };
     return cached.token;
   }
@@ -201,6 +220,10 @@ function buildClient(): NeonBrowserClient {
     auth,
     data,
     accessToken,
+    tokenIsFresh: () => cached !== null && !cached.warm,
+    markTokenWarm: () => {
+      if (cached) cached.warm = true;
+    },
     forgetToken: () => {
       cached = null;
       inFlight = null;
