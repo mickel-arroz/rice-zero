@@ -34,6 +34,7 @@ import {
   fitViewport,
   nodeLines,
   nodeSize,
+  revealViewport,
   type Size,
 } from "@/components/canvas/geometry";
 import {
@@ -49,7 +50,7 @@ import { useTree } from "@/components/tree/tree-provider";
 import { TreeEmpty, TreeError } from "@/components/tree/tree-states";
 import { CANVAS_COPY, DOT_PATTERN } from "@/lib/constants";
 import { NODE_ERRORS } from "@/lib/services/nodes";
-import { layoutForest, treeEdges } from "@/lib/tree/layout";
+import { layoutForest, treeEdges, type NodeBox } from "@/lib/tree/layout";
 
 /**
  * La Vista Canvas: el mismo árbol como diagrama.
@@ -473,12 +474,23 @@ function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
 
       <CanvasChrome
         bounds={bounds}
+        boxes={boxes}
         fullscreen={fullscreen}
         onFullscreen={onFullscreen}
       />
     </ReactFlow>
   );
 }
+
+/**
+ * Cuánto tarda la cámara en llegar al Nodo buscado, en milisegundos.
+ *
+ * Animado y no de golpe: un salto instantáneo a otra parte del bosque pierde a
+ * quien lo mira —no queda ni rastro de por dónde se iba—, y el recorrido es
+ * justo lo que dice «te he traído aquí desde allí». 320 ms es lo bastante corto
+ * para no hacer esperar y lo bastante largo para leerse como un movimiento.
+ */
+const REVEAL_MS = 320;
 
 /**
  * Lo que flota sobre el lienzo: el aviso de solo lectura y los controles.
@@ -488,10 +500,12 @@ function Canvas({ fullscreen, onFullscreen }: FullscreenControl) {
  */
 function CanvasChrome({
   bounds,
+  boxes,
   fullscreen,
   onFullscreen,
-}: FullscreenControl & { bounds: Size }) {
-  const { setViewport, zoomIn, zoomOut } = useReactFlow();
+}: FullscreenControl & { bounds: Size; boxes: NodeBox[] }) {
+  const { getViewport, setViewport, zoomIn, zoomOut } = useReactFlow();
+  const { selectedId } = useTree();
 
   // Dos selectores y no uno que devuelva un objeto: el store compara por
   // identidad, y un objeto nuevo en cada llamada repintaría sin parar.
@@ -515,6 +529,40 @@ function CanvasChrome({
     fit();
   }, [fit, paneHeight, paneWidth]);
 
+  /**
+   * Llevar la cámara al Nodo seleccionado cuando no se está viendo.
+   *
+   * Es lo que le faltaba a la Búsqueda en el Canvas: pulsar un resultado
+   * seleccionaba el Nodo y le ponía el foco, pero si caía fuera de la pantalla
+   * la cámara no se movía y desde fuera parecía que no había pasado nada. En la
+   * Vista Registro no se notaba porque allí la lista ya lleva el foco a la
+   * fila; aquí el «dónde mira» es una cámara y hay que moverla a mano.
+   *
+   * Va DESPUÉS del efecto de encaje, y el orden importa: al pulsar un
+   * resultado, la Búsqueda se limpia y el lienzo se monta de cero, así que
+   * primero encaja el bosque y solo entonces tiene sentido preguntar si el
+   * Nodo se ve. Al revés, se centraría y el encaje lo desharía acto seguido.
+   *
+   * Qué es «no se ve» y a dónde ir lo decide `revealViewport`, que es pura y
+   * tiene su tabla de tests. Aquí solo se le pregunta y se obedece — incluido
+   * su `null`, que significa «déjalo donde está».
+   */
+  useEffect(() => {
+    if (selectedId === null || paneWidth === 0 || paneHeight === 0) return;
+
+    const box = boxes.find((candidate) => candidate.id === selectedId);
+    // Puede no estar: el Nodo seleccionado cuelga de una rama plegada, y una
+    // rama plegada no tiene caja en el lienzo. Ahí no hay a dónde mirar.
+    if (!box) return;
+
+    const next = revealViewport(
+      box,
+      { width: paneWidth, height: paneHeight },
+      getViewport(),
+    );
+    if (next) void setViewport(next, { duration: REVEAL_MS });
+  }, [selectedId, boxes, paneWidth, paneHeight, getViewport, setViewport]);
+
   return (
     <>
       {/* Solo por debajo de `lg`, que es donde la barra de acciones no se
@@ -531,15 +579,25 @@ function CanvasChrome({
       </Panel>
 
       <Panel position="bottom-right" className="flex flex-col gap-2">
-        <ZoomButton icon={PlusIcon} label={CANVAS_COPY.zoomIn} onClick={() => zoomIn()} />
-        <ZoomButton icon={MinusIcon} label={CANVAS_COPY.zoomOut} onClick={() => zoomOut()} />
+        <ZoomButton
+          icon={PlusIcon}
+          label={CANVAS_COPY.zoomIn}
+          onClick={() => zoomIn()}
+        />
+        <ZoomButton
+          icon={MinusIcon}
+          label={CANVAS_COPY.zoomOut}
+          onClick={() => zoomOut()}
+        />
         {/* Encajar y pantalla completa son cosas DISTINTAS y por eso son dos
             botones: uno mueve la cámara para que quepa el árbol, el otro
             agranda la ventana por la que se mira. */}
         <ZoomButton icon={FitIcon} label={CANVAS_COPY.fit} onClick={fit} />
         <ZoomButton
           icon={fullscreen ? CollapseIcon : ExpandIcon}
-          label={fullscreen ? CANVAS_COPY.exitFullscreen : CANVAS_COPY.fullscreen}
+          label={
+            fullscreen ? CANVAS_COPY.exitFullscreen : CANVAS_COPY.fullscreen
+          }
           onClick={onFullscreen}
         />
       </Panel>

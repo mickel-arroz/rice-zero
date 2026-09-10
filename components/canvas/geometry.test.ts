@@ -7,6 +7,7 @@ import {
   fitViewport,
   nodeLines,
   nodeSize,
+  revealViewport,
 } from "@/components/canvas/geometry";
 
 describe("nodeLines", () => {
@@ -105,10 +106,75 @@ describe("fitViewport", () => {
 
   it("un lienzo todavía sin medir no mueve nada", () => {
     // Pasa en el primer render, antes de que el navegador mida la caja.
-    expect(fitViewport({ width: 400, height: 200 }, { width: 0, height: 0 })).toEqual({
+    expect(
+      fitViewport({ width: 400, height: 200 }, { width: 0, height: 0 }),
+    ).toEqual({
       x: CANVAS_PADDING,
       y: CANVAS_PADDING,
       zoom: 1,
     });
+  });
+});
+
+describe("revealViewport", () => {
+  /** Un lienzo de 800×600 y una caja del tamaño de un Nodo del Canvas. */
+  const pane = { width: 800, height: 600 };
+  const caja = { x: 0, y: 0, width: 208, height: 64 };
+  /** La cámara en el origen y sin zoom: lo que se ve empieza en (0,0). */
+  const origen = { x: 0, y: 0, zoom: 1 };
+
+  it("no mueve la cámara si la caja ya se está viendo", () => {
+    // Es lo que evita que pulsar un Nodo del lienzo dé un salto: se ve, se
+    // queda donde está.
+    expect(
+      revealViewport({ ...caja, x: 100, y: 100 }, pane, origen),
+    ).toBeNull();
+  });
+
+  it("centra la que está fuera por abajo", () => {
+    const vista = revealViewport({ ...caja, x: 0, y: 2000 }, pane, origen);
+
+    // El centro de la caja acaba en el centro del lienzo.
+    expect(vista).not.toBeNull();
+    expect(0 * 1 + vista!.x + 208 / 2).toBe(pane.width / 2);
+    expect(2000 * 1 + vista!.y + 64 / 2).toBe(pane.height / 2);
+  });
+
+  it("también la que está fuera por la derecha", () => {
+    expect(
+      revealViewport({ ...caja, x: 5000, y: 0 }, pane, origen),
+    ).not.toBeNull();
+  });
+
+  it("y la que solo asoma: pegada al borde se lee como cortada", () => {
+    // El borde inferior de esta cae en 600, justo el del lienzo. Está
+    // «dentro» por aritmética y recortada por el margen, que es el mismo que
+    // usa el encaje.
+    const vista = revealViewport({ ...caja, x: 100, y: 536 }, pane, origen);
+
+    expect(vista).not.toBeNull();
+  });
+
+  it("conserva el zoom: buscar no es alejar ni acercar", () => {
+    const alejado = { x: 0, y: 0, zoom: 0.5 };
+
+    const vista = revealViewport({ ...caja, x: 0, y: 4000 }, pane, alejado);
+
+    expect(vista!.zoom).toBe(0.5);
+  });
+
+  it("cuenta con el zoom al decidir si se ve", () => {
+    // A 1:1 esta caja se sale por la derecha; alejada a la mitad, cabe. La
+    // decisión no puede mirar solo las coordenadas del bosque.
+    const lejos = { ...caja, x: 700, y: 100 };
+
+    expect(revealViewport(lejos, pane, origen)).not.toBeNull();
+    expect(revealViewport(lejos, pane, { x: 0, y: 0, zoom: 0.5 })).toBeNull();
+  });
+
+  it("un lienzo sin medir no decide nada", () => {
+    // El primer render: la caja del lienzo es de cero y todavía no hay
+    // «dentro» ni «fuera».
+    expect(revealViewport(caja, { width: 0, height: 0 }, origen)).toBeNull();
   });
 });

@@ -141,7 +141,12 @@ export function fitViewport(content: Size, pane: Size): CanvasViewport {
   const usableHeight = pane.height - CANVAS_PADDING * 2;
 
   // Un bosque o un lienzo sin tamaño: no hay nada que encajar todavía.
-  if (content.width <= 0 || content.height <= 0 || usableWidth <= 0 || usableHeight <= 0) {
+  if (
+    content.width <= 0 ||
+    content.height <= 0 ||
+    usableWidth <= 0 ||
+    usableHeight <= 0
+  ) {
     return { x: CANVAS_PADDING, y: CANVAS_PADDING, zoom: 1 };
   }
 
@@ -155,11 +160,93 @@ export function fitViewport(content: Size, pane: Size): CanvasViewport {
 
   /** Centra si sobra sitio; si no, pega al borde y deja que se desplace. */
   const place = (size: number, available: number) =>
-    size <= available ? (available - size) / 2 + CANVAS_PADDING : CANVAS_PADDING;
+    size <= available
+      ? (available - size) / 2 + CANVAS_PADDING
+      : CANVAS_PADDING;
 
   return {
     x: place(content.width * zoom, usableWidth),
     y: place(content.height * zoom, usableHeight),
+    zoom,
+  };
+}
+
+/**
+ * Una caja ya colocada por el layout, en coordenadas del bosque.
+ *
+ * Es la forma que devuelve `layoutForest` en `boxes`, recortada a lo que hace
+ * falta para apuntar la cámara. Se declara aquí y no se importa de `layout.ts`
+ * para que esta función siga sin saber qué es un Nodo: lo que centra es una
+ * caja, y de dónde salió es problema de quien llama.
+ */
+export type Box = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+/**
+ * Dónde mirar para que una caja se vea, o `null` si ya se está viendo.
+ *
+ * Existe por la Búsqueda en el Canvas: pulsar un resultado seleccionaba el Nodo
+ * y le ponía el foco, pero si estaba fuera de la pantalla no pasaba nada
+ * visible — la cámara se quedaba donde estaba y el usuario se quedaba mirando
+ * un lienzo que, hasta donde él veía, no había hecho nada.
+ *
+ * ── Por qué devuelve `null` en vez de centrar siempre ─────────────────────
+ *
+ * Porque centrar una caja que ya se está viendo es un salto gratuito. Todo lo
+ * que selecciona un Nodo pasa por aquí —la Búsqueda, pero también pulsar el
+ * propio Nodo en el lienzo—, y recolocar la cámara cada vez que alguien toca
+ * algo mueve el árbol bajo el dedo justo al señalarlo. Si se ve, no se toca.
+ *
+ * ── Y por qué conserva el zoom ────────────────────────────────────────────
+ *
+ * Se mueve la cámara, no se cambia el objetivo. El zoom es del usuario: lo puso
+ * él con los botones o con la rueda, y buscar un Nodo no es motivo para
+ * deshacerlo. `fitViewport` sí lo calcula, pero eso es abrir el Canvas, que es
+ * otra cosa.
+ *
+ * @param box la caja a la que apuntar, en coordenadas del bosque.
+ * @param pane lo que mide el lienzo en pantalla.
+ * @param current dónde mira la cámara ahora.
+ * @returns la vista nueva, o `null` si no hay que moverse.
+ */
+export function revealViewport(
+  box: Box,
+  pane: Size,
+  current: CanvasViewport,
+): CanvasViewport | null {
+  const { zoom } = current;
+
+  // Sin lienzo medido no hay «dentro» ni «fuera» que decidir. Pasa en el primer
+  // render, cuando la caja del lienzo todavía es de cero.
+  if (pane.width <= 0 || pane.height <= 0) return null;
+
+  // La caja en coordenadas de PANTALLA, que es donde se mira si cabe.
+  const left = box.x * zoom + current.x;
+  const top = box.y * zoom + current.y;
+  const right = left + box.width * zoom;
+  const bottom = top + box.height * zoom;
+
+  // Con su aire: una caja pegada al borde exacto está técnicamente dentro y se
+  // lee como cortada. El mismo margen que usa el encaje, para que «visible»
+  // signifique lo mismo en los dos sitios.
+  const visible =
+    left >= CANVAS_PADDING &&
+    top >= CANVAS_PADDING &&
+    right <= pane.width - CANVAS_PADDING &&
+    bottom <= pane.height - CANVAS_PADDING;
+
+  if (visible) return null;
+
+  // Centrada. No «lo mínimo para que entre»: quien acaba de buscar un Nodo está
+  // buscando ESE, y dejarlo rozando el borde inferior obliga a buscarlo otra
+  // vez con los ojos.
+  return {
+    x: pane.width / 2 - (box.x + box.width / 2) * zoom,
+    y: pane.height / 2 - (box.y + box.height / 2) * zoom,
     zoom,
   };
 }
