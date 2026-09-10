@@ -4,6 +4,8 @@ import {
   applyUpdated,
   followUp,
   isOptimistic,
+  opensEditor,
+  optimisticOrderIndex,
   optimisticId,
   optimisticNode,
   settleOptimistic,
@@ -159,5 +161,100 @@ describe("borrar se lleva el subárbol", () => {
 
   it("un id que no está no cambia nada", () => {
     expect(withoutSubtree(sample(), "fantasma")).toEqual(sample());
+  });
+});
+
+describe("dónde nace el Nodo optimista", () => {
+  /** Tres hermanos bajo la misma raíz, en orden. */
+  function siblings() {
+    return [
+      treeNode("a", null, 0),
+      treeNode("b", null, 1),
+      treeNode("c", null, 2),
+    ];
+  }
+
+  it("sin referencia, el último: es lo único que sabe hacer el repositorio", () => {
+    expect(optimisticOrderIndex(siblings(), null, null)).toBe(3);
+  });
+
+  it("con referencia, ENTRE ella y la siguiente", () => {
+    // El bug que arregla: crear un hermano lo pintaba al final de la lista y
+    // medio segundo después lo movía detrás de su referencia.
+    const at = optimisticOrderIndex(siblings(), null, "a");
+    expect(at).toBeGreaterThan(0);
+    expect(at).toBeLessThan(1);
+  });
+
+  it("detrás del último hermano, al final", () => {
+    expect(optimisticOrderIndex(siblings(), null, "c")).toBe(3);
+  });
+
+  it("nunca choca con el puesto de otro hermano", () => {
+    // «referencia + 1» habría caído encima del que ya ocupa ese número, y
+    // `buildTree` desempata por id: el Nodo saldría antes o después según qué
+    // id le tocara, que es la inestabilidad que se venía a quitar.
+    const nodes = siblings();
+    const at = optimisticOrderIndex(nodes, null, "b");
+    expect(nodes.map((node) => node.orderIndex)).not.toContain(at);
+  });
+
+  it("cae en su sitio al ordenar, que es de lo que se trata", () => {
+    const nodes = siblings();
+    const draft = optimisticNode({
+      id: "optimista:1",
+      versionId: "v1",
+      parentId: null,
+      orderIndex: optimisticOrderIndex(nodes, null, "a"),
+    });
+
+    const ordenados = [...nodes, draft]
+      .sort((x, y) => x.orderIndex - y.orderIndex)
+      .map((node) => node.id);
+
+    expect(ordenados).toEqual(["a", "optimista:1", "b", "c"]);
+  });
+
+  it("solo mira a sus hermanos, no a todo el árbol", () => {
+    const nodes = [
+      treeNode("a", null, 0),
+      treeNode("a1", "a", 0),
+      treeNode("a2", "a", 1),
+    ];
+    expect(optimisticOrderIndex(nodes, "a", "a1")).toBeLessThan(1);
+    expect(optimisticOrderIndex(nodes, "a", null)).toBe(2);
+  });
+
+  it("una referencia que ya no está va al final", () => {
+    // Pasa: otro dispositivo la borró mientras se pulsaba.
+    expect(optimisticOrderIndex(siblings(), null, "fantasma")).toBe(3);
+  });
+
+  it("en una lista vacía, el primero", () => {
+    expect(optimisticOrderIndex([], null, null)).toBe(0);
+  });
+});
+
+describe("qué escritura abre el campo de texto", () => {
+  it.each<TreeWrite>(["create", "createSibling", "createQuestion"])(
+    "«%s» sí: el Nodo nace vacío y lo siguiente es escribir en él",
+    (write) => {
+      expect(opensEditor(write)).toBe(true);
+    },
+  );
+
+  it.each<TreeWrite>(["edit", "complete", "reorder", "reparent", "remove"])(
+    "«%s» no",
+    (write) => {
+      expect(opensEditor(write)).toBe(false);
+    },
+  );
+
+  it("completar no abre el campo aunque devuelva su fila", () => {
+    // Era el bug: la pregunta se deducía de «¿devolvió el motor una fila?», y
+    // eso valía solo mientras crear fuera lo único que devolvía algo. Desde
+    // #50 `setCompleted` devuelve la suya, y marcar una tarea como terminada
+    // abría el campo de texto.
+    expect(opensEditor("complete")).toBe(false);
   });
 });

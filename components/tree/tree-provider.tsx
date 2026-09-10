@@ -28,15 +28,16 @@ import {
   serializeCollapsed,
   toggleCollapsed as toggle,
 } from "@/lib/tree/collapsed";
-import { nextOrderIndex } from "@/lib/tree/model";
 import { treeRows, visibleRows, type TreeRow } from "@/lib/tree/rows";
 import {
   applyCreated,
   applyUpdated,
   followUp,
   isOptimistic,
+  opensEditor,
   optimisticId,
   optimisticNode,
+  optimisticOrderIndex,
   withOptimistic,
   withoutSubtree,
   type TreeWrite,
@@ -434,7 +435,11 @@ export function TreeProvider({
       write: TreeWrite,
       perform: () => Promise<TreeNode | void>,
       options?: {
-        optimistic?: { parentId: string | null };
+        optimistic?: {
+          parentId: string | null;
+          /** Detrás de qué hermano nace. Ausente, nace el último. */
+          after?: string;
+        };
         removes?: string;
       },
     ) => {
@@ -459,12 +464,14 @@ export function TreeProvider({
           id: temporaryId,
           versionId,
           parentId: options.optimistic.parentId,
-          // El mismo puesto que le va a dar el motor: el último de sus
-          // hermanos. Si no coincidiera, el Nodo daría un salto al llegar la
-          // respuesta.
-          orderIndex: nextOrderIndex(
+          // El mismo puesto que le va a dar el motor. Que no es siempre el
+          // final: un hermano nace DETRÁS de su referencia. Lo decide
+          // `optimisticOrderIndex`, y de eso depende que el Nodo no dé un salto
+          // medio segundo después de aparecer.
+          orderIndex: optimisticOrderIndex(
             nodesRef.current,
             options.optimistic.parentId,
+            options.optimistic.after ?? null,
           ),
         });
         commit(withOptimistic(nodesRef.current, draft));
@@ -503,7 +510,10 @@ export function TreeProvider({
           commit(nodesRef.current);
         }
 
-        if (created) {
+        // Solo al CREAR, y no cada vez que el motor devuelve una fila: eso
+        // último abría el campo de texto al marcar un Nodo como terminado, que
+        // desde #50 también devuelve la suya. Ver `opensEditor`.
+        if (created && opensEditor(write)) {
           // La selección se mueve del id temporal al real. También cuando se
           // releyó: allí el temporal ya no está en el árbol, así que dejarla
           // apuntándolo sería quedarse sin nada seleccionado justo después de
@@ -575,6 +585,11 @@ export function TreeProvider({
           parentId:
             nodesRef.current.find((node) => node.id === siblingId)?.parentId ??
             null,
+          // Justo detrás de su referencia, que es donde el dominio lo va a
+          // dejar: `createSibling` lo crea el último y después lo reordena.
+          // Sin este `after` el Nodo aparecía al final de la lista y saltaba a
+          // su sitio al llegar la respuesta.
+          after: siblingId,
         },
       }),
     [run, versionId],

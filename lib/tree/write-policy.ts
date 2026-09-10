@@ -74,6 +74,31 @@ export function followUp(write: TreeWrite): FollowUp {
   return REREADS.has(write) ? "reread" : "local";
 }
 
+/** Las que dejan un Nodo NUEVO al que hay que llevar el foco. */
+const CREATES: ReadonlySet<TreeWrite> = new Set<TreeWrite>([
+  "create",
+  "createSibling",
+  "createQuestion",
+]);
+
+/**
+ * ¿Esta escritura deja un Nodo abierto para escribir dentro?
+ *
+ * Solo crear. Un Nodo nuevo nace vacío y lo siguiente que va a pasar es que
+ * alguien teclee en él, así que se selecciona y se abre su campo.
+ *
+ * Existe como pregunta propia porque durante un tiempo la respuesta se dedujo
+ * de otra cosa —«¿devolvió el motor una fila?»— y eso era cierto solo mientras
+ * únicamente crear devolviera algo. En cuanto `setCompleted` empezó a devolver
+ * su fila para poder aplicarla en local (#50), marcar una tarea como terminada
+ * abría el campo de texto: dos preguntas distintas contestadas por el mismo
+ * `if`. Devolver una fila y crear un Nodo no son lo mismo, y ahora tampoco lo
+ * parecen.
+ */
+export function opensEditor(write: TreeWrite): boolean {
+  return CREATES.has(write);
+}
+
 /**
  * Cómo se reconoce un Nodo que todavía no existe en el motor.
  *
@@ -100,11 +125,64 @@ export function isOptimistic(id: string): boolean {
 }
 
 /**
+ * Dónde nace el Nodo optimista, para que no dé un salto al llegar la respuesta.
+ *
+ * Es la mitad de esto que se hizo mal la primera vez, y el síntoma se veía
+ * entero: crear un hermano lo pintaba AL FINAL de la lista y medio segundo
+ * después lo movía a su sitio, justo detrás de la referencia. Un salto es la
+ * forma más clara de decir «esto que te enseñé no era verdad».
+ *
+ * Venía de tratar las tres creaciones como una. No lo son:
+ *
+ *   · Una raíz y un subnodo nacen **los últimos** de sus hermanos, que es lo
+ *     único que sabe hacer el repositorio.
+ *   · Un hermano nace **detrás de su referencia**, porque `createSibling` da un
+ *     segundo paso —`reorder`— para traerlo a su puesto. Escribir la idea es
+ *     encadenar: lo siguiente va después de esto, no al final de todo.
+ *
+ * El puesto de en medio se calcula como el PUNTO MEDIO entre la referencia y el
+ * hermano que la sigue, y no como «referencia + 1»: ese número ya lo ocupa
+ * alguien, y `buildTree` desempata por id, así que el Nodo caería antes o
+ * después según qué id le tocara — inestable, que es justo lo que se venía a
+ * quitar. Un valor fraccionario cae en su sitio sin colisionar y sin mover a
+ * nadie.
+ *
+ * Que no sea entero no importa: este número no se escribe nunca. El Nodo
+ * optimista no llega al motor, y `createSibling` RELEE (ver `followUp`), así
+ * que el orden definitivo lo pone el dominio.
+ *
+ * @param afterSiblingId detrás de quién va, o `null` para el final.
+ */
+export function optimisticOrderIndex(
+  nodes: TreeNode[],
+  parentId: string | null,
+  afterSiblingId: string | null,
+): number {
+  const siblings = nodes
+    .filter((node) => node.parentId === parentId)
+    .sort((a, b) => a.orderIndex - b.orderIndex);
+
+  const last = siblings.at(-1);
+  const atEnd = last === undefined ? 0 : last.orderIndex + 1;
+  if (afterSiblingId === null) return atEnd;
+
+  const at = siblings.findIndex((node) => node.id === afterSiblingId);
+  // La referencia ya no está —la borró otro dispositivo mientras se pulsaba—.
+  // Al final, que es donde el repositorio lo pondría de todas formas.
+  if (at === -1) return atEnd;
+
+  const reference = siblings[at];
+  const next = siblings[at + 1];
+  return next
+    ? (reference.orderIndex + next.orderIndex) / 2
+    : reference.orderIndex + 1;
+}
+
+/**
  * El Nodo que se pinta mientras la escritura viaja.
  *
- * Nace vacío y al final de sus hermanos, que es exactamente lo que va a hacer
- * el motor: si no coincidiera, el Nodo daría un salto al llegar la respuesta —y
- * un salto es la forma más clara de decir «esto que te enseñé no era verdad».
+ * Nace vacío y en el puesto que le va a dar el motor: ver
+ * `optimisticOrderIndex`, que es quien lo calcula.
  *
  * Las fechas son las de este instante y no las del motor. Es lo único que puede
  * discrepar, y no se ve en ninguna parte: la pantalla del árbol no las enseña.
