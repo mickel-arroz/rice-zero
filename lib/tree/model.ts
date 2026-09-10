@@ -251,3 +251,56 @@ export function reorderPlan(
   });
   return plan;
 }
+
+/**
+ * ¿Este texto deja al Nodo sin nada dentro?
+ *
+ * Con `trim`, igual que `planNodeBlur`: un Nodo con una barra espaciadora es un
+ * hueco en el árbol exactamente igual que uno sin nada. Vive aquí y no allí
+ * porque desde aquí lo usan dos reglas —ésta y la de abajo— y allí solo una.
+ */
+export function isBlank(content: string): boolean {
+  return content.trim().length === 0;
+}
+
+/**
+ * Por qué no se puede crear un Nodo a partir de otro.
+ *
+ * Mismo criterio que `REPARENT_RULES`: la regla, no la frase. El texto en
+ * español vive en la capa de servicios (`NODE_ERRORS`), que es de donde también
+ * lo lee la interfaz para apagar el botón ANTES de que se pulse — así el «no
+ * puedes» dicho a la cara y el rechazo del servicio son literalmente el mismo.
+ */
+export const BRANCH_RULES = {
+  unknownSource: "origen-desconocido",
+  blankSource: "origen-sin-texto",
+} as const;
+
+export type BranchRule = (typeof BRANCH_RULES)[keyof typeof BRANCH_RULES];
+
+/**
+ * ¿Se le puede colgar un subnodo a `nodeId`, o crearle un hermano? La regla que
+ * lo impide, o `null`.
+ *
+ * **Un Nodo sin texto no ramifica.** Es lo que impide que el árbol crezca sobre
+ * huecos: colgarle un subnodo a un Nodo que aún no dice nada deja una rama cuyo
+ * origen no se puede leer, y de paso salva al padre del borrado automático
+ * —`planNodeBlur` conserva a los que tienen hijos— así que el hueco se vuelve
+ * permanente justo por haber crecido.
+ *
+ * La regla es «no RAMIFICA», no «no se puede crear vacío». Un Nodo sigue
+ * naciendo vacío y escribiéndose dentro, que es el gesto que el #43 decidió y
+ * el único que hay: prohibir eso dejaría el árbol sin forma de crecer. Lo que
+ * se pide antes de ramificar es haber escrito en lo que ya se creó.
+ *
+ * No mira a la RAÍZ: `createRoot` no parte de ningún Nodo, así que no hay
+ * origen que pueda estar vacío. Una idea suelta nueva siempre se puede empezar.
+ */
+export function branchRejection(
+  nodes: TreeNode[],
+  nodeId: string,
+): BranchRule | null {
+  const node = indexById(nodes).get(nodeId);
+  if (!node) return BRANCH_RULES.unknownSource;
+  return isBlank(node.content) ? BRANCH_RULES.blankSource : null;
+}

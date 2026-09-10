@@ -110,7 +110,7 @@ describe("una lectura vacía con el token recién estrenado", () => {
     expect(calls()).toBe(1);
   });
 
-  it("la ventana se cierra en la primera respuesta, salga como salga", async () => {
+  it("la ventana se cierra al gastar el reintento, no antes", async () => {
     // Con el token ya rodado, una lista vacía es una lista vacía: la Versión
     // sin Nodos y la Búsqueda sin resultados no pueden pagar un viaje de más
     // cada vez que se miran.
@@ -121,6 +121,38 @@ describe("una lectura vacía con el token recién estrenado", () => {
     await store.select("projects"); // una sola: el token ya no está fresco
 
     expect(calls()).toBe(3);
+  });
+
+  it("las tres lecturas del arranque se reintentan, no solo la primera", async () => {
+    // Es el caso que se escapó al primer arreglo y por el que el bug siguió
+    // apareciendo, ahora en `project_versions`: abrir un Proyecto lanza los
+    // Proyectos, las Versiones y el árbol A LA VEZ, y las tres salen dentro de
+    // la misma ventana. Mirando la frescura al VOLVER, la primera en contestar
+    // la cerraba y dejaba a las otras dos sin reintento.
+    const { client, calls } = fakeClient([VACIA, VACIA, VACIA, UNA_FILA]);
+    const store = createNeonRowStore(client);
+
+    const [a, b, c] = await Promise.all([
+      store.select("projects"),
+      store.select("project_versions"),
+      store.select("nodes"),
+    ]);
+
+    // Seis peticiones: las tres que salieron y sus tres reintentos.
+    expect(calls()).toBe(6);
+    // Y la que llegó cuando la sesión ya estaba puesta trae sus filas.
+    expect([a, b, c].some((rows) => rows.length > 0)).toBe(true);
+  });
+
+  it("una respuesta vacía no cierra la ventana: no prueba nada", async () => {
+    // Solo una respuesta CON contenido demuestra que la sesión está puesta en
+    // la conexión. Cerrar con una vacía es lo que dejaba pasar el tropiezo a la
+    // lectura siguiente.
+    const { client, calls } = fakeClient([VACIA, VACIA, UNA_FILA]);
+    const store = createNeonRowStore(client);
+
+    await store.select("projects"); // vacía + reintento vacío → 2
+    expect(calls()).toBe(2);
   });
 
   it("contar también, porque una cuenta a cero se lee igual de mal", async () => {

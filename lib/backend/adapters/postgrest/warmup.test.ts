@@ -12,7 +12,7 @@ import { shouldRetryEmptyRead } from "@/lib/backend/adapters/postgrest/warmup";
  * habría bucle.
  */
 describe("¿se vuelve a preguntar una lectura vacía?", () => {
-  const fresh = { rows: 0, tokenIsFresh: true, retried: false };
+  const fresh = { empty: true, tokenIsFresh: true, retried: false };
 
   it("sí: cero filas con un token recién estrenado es el tropiezo de la sesión", () => {
     // El caso del bug: 200 con cuerpo vacío en la PRIMERA petición, y al
@@ -20,8 +20,8 @@ describe("¿se vuelve a preguntar una lectura vacía?", () => {
     expect(shouldRetryEmptyRead(fresh)).toBe(true);
   });
 
-  it("no, si trajo filas: RLS casó, no hubo tropiezo", () => {
-    expect(shouldRetryEmptyRead({ ...fresh, rows: 1 })).toBe(false);
+  it("no, si trajo algo: RLS casó, no hubo tropiezo", () => {
+    expect(shouldRetryEmptyRead({ ...fresh, empty: false })).toBe(false);
   });
 
   it("no, con el token ya rodado: una lista vacía es una lista vacía", () => {
@@ -36,11 +36,11 @@ describe("¿se vuelve a preguntar una lectura vacía?", () => {
   });
 
   it("las tres condiciones son necesarias a la vez", () => {
-    for (const rows of [0, 3]) {
+    for (const empty of [false, true]) {
       for (const tokenIsFresh of [false, true]) {
         for (const retried of [false, true]) {
-          const esperado = rows === 0 && tokenIsFresh && !retried;
-          expect(shouldRetryEmptyRead({ rows, tokenIsFresh, retried })).toBe(
+          const esperado = empty && tokenIsFresh && !retried;
+          expect(shouldRetryEmptyRead({ empty, tokenIsFresh, retried })).toBe(
             esperado,
           );
         }

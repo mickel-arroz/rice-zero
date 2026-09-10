@@ -101,20 +101,27 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
    */
   async function retryEmptyOnce<T>(
     build: () => Promise<T>,
-    rowsOf: (result: T) => number,
+    isEmpty: (result: T) => boolean,
   ): Promise<T> {
+    // ANTES de mandarla, y no después: abrir un Proyecto lanza tres lecturas a
+    // la vez, y todas salen dentro de la misma ventana. Mirándolo al volver, la
+    // primera en contestar cerraba la ventana y dejaba a las otras dos sin
+    // reintento aunque hubieran salido antes que ella.
+    const tokenIsFresh = client.tokenIsFresh();
     const first = await build();
-    const retry = shouldRetryEmptyRead({
-      rows: rowsOf(first),
-      tokenIsFresh: client.tokenIsFresh(),
-      retried: false,
-    });
 
-    // Se marca SIEMPRE y antes de reintentar: la ventana del tropiezo se cierra
-    // en cuanto vuelve una petición, salga como salga. Sin esto, una cuenta de
-    // verdad vacía reintentaría en cada lectura y no solo en la primera.
+    if (!shouldRetryEmptyRead({ empty: isEmpty(first), tokenIsFresh, retried: false })) {
+      // Solo una respuesta CON contenido prueba que la sesión ya está puesta en
+      // la conexión. Una vacía no prueba nada: es justo la que no sabemos leer.
+      if (!isEmpty(first)) client.markTokenWarm();
+      return first;
+    }
+
+    // Gastado el reintento, se acabó la ventana pase lo que pase. Es lo que
+    // impide que una cuenta de verdad vacía pregunte dos veces para siempre.
+    const second = await build();
     client.markTokenWarm();
-    return retry ? build() : first;
+    return second;
   }
 
   return {
@@ -134,7 +141,7 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
       };
 
       return asRows(
-        await retryEmptyOnce(build, (data) => asRows(data).length),
+        await retryEmptyOnce(build, (data) => asRows(data).length === 0),
       );
     },
 
@@ -159,7 +166,7 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
         return runCount(query, source, filteredId(where));
       };
 
-      return retryEmptyOnce(build, (total) => total);
+      return retryEmptyOnce(build, (total) => total === 0);
     },
 
     async searchNodes(term, limit) {
@@ -167,19 +174,25 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
       // un `%` o un `_` escritos por una persona son texto que quiere
       // encontrar, no comodines que quiera usar. Sin escaparlos, buscar «100%»
       // devolvería medio árbol.
-      const rows = await run(
-        client.data
-          .from("nodes")
-          .select("*, project_versions!inner(id, version_number, label, projects!inner(id, title))")
-          .ilike("content", `%${escapeLike(term)}%`)
-          // Los más recientes primero: entre dos Nodos que dicen lo mismo, el
-          // que se escribió hace un rato es casi siempre el que se busca.
-          .order("updated_at", { ascending: false })
-          .limit(limit),
-        "nodes",
-        null,
+      const build = () =>
+        run(
+          client.data
+            .from("nodes")
+            .select("*, project_versions!inner(id, version_number, label, projects!inner(id, title))")
+            .ilike("content", `%${escapeLike(term)}%`)
+            // Los más recientes primero: entre dos Nodos que dicen lo mismo, el
+            // que se escribió hace un rato es casi siempre el que se busca.
+            .order("updated_at", { ascending: false })
+            .limit(limit),
+          "nodes",
+          null,
+        );
+
+      // También la Búsqueda: una que no encuentra nada y una que no vio nada
+      // por RLS se leen igual desde aquí, y la segunda es un fallo.
+      return asRows(
+        await retryEmptyOnce(build, (data) => asRows(data).length === 0),
       );
-      return asRows(rows);
     },
 
     async insert(table, values) {
@@ -242,14 +255,22 @@ export function createNeonRowStore(client: NeonBrowserClient): RowStore {
     },
 
     async cloneVersion(versionId, label) {
-      const data = await run(
-        client.data.rpc("clone_project_version", {
-          p_version_id: versionId,
-          p_label: label,
-        }),
-        "project_versions",
-        versionId,
-      );
+      // Una RPC también evalúa RLS: sin `auth.uid()` no encuentra la Versión de
+      // origen y devuelve `null`, que el núcleo traduce a «no existe». Con el
+      // token todavía sin estrenar eso es el mismo tropiezo, así que se
+      // reintenta igual que una lectura. Clonar dos veces no duplica nada: el
+      // primer intento no llegó a escribir.
+      const build = () =>
+        run(
+          client.data.rpc("clone_project_version", {
+            p_version_id: versionId,
+            p_label: label,
+          }),
+          "project_versions",
+          versionId,
+        );
+
+      const data = await retryEmptyOnce(build, (row) => row == null);
       return (data as Row | null) ?? null;
     },
   };
