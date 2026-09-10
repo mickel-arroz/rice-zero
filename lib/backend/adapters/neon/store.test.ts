@@ -1,5 +1,7 @@
 /**
- * El tropiezo de la sesión en una LECTURA (#41), visto desde el store de Neon.
+ * El store de Neon por dentro. Dos bloques, y comparten el mismo doble.
+ *
+ * ── 1. El tropiezo de la sesión en una LECTURA (#41) ──────────────────────
  *
  * Reproduce lo que se veía en el navegador: la primera petición al Data API
  * vuelve **200 con cero filas** —RLS no casó porque `auth.uid()` salía nulo en
@@ -9,7 +11,15 @@
  *
  * La decisión de reintentar vive en `postgrest/warmup.ts` y tiene su test allí.
  * Lo que se comprueba AQUÍ es el cableado: que las cuatro lecturas del store
- * pasen por él, cada una con su idea de «vacío».
+ * pasen por él, cada una con la señal que de verdad le llega —vacío en tres,
+ * un error en la RPC de clonar—.
+ *
+ * ── 2. La cuenta viaja sin filas (#49) ────────────────────────────────────
+ *
+ * Que `count` salga como un `HEAD`. No es del mismo Ticket, pero sí del mismo
+ * doble: la propiedad no se ve en lo que `count()` devuelve —el número es el
+ * mismo se traiga el árbol entero o no se traiga nada—, así que hay que mirar
+ * cómo se construyó la consulta, y quien las registra es este doble.
  *
  * ── Por qué este archivo pasaba mientras el bug seguía vivo ───────────────
  *
@@ -30,10 +40,29 @@ import { describe, expect, it } from "vitest";
 
 import { createNeonRowStore } from "@/lib/backend/adapters/neon/store";
 import type { NeonBrowserClient } from "@/lib/backend/adapters/neon/client";
+import type { PostgrestFailure } from "@/lib/backend/adapters/postgrest/errors";
 import type { Row } from "@/lib/backend/adapters/postgrest/store";
 
-/** Una respuesta de PostgREST, ya sin error. */
-type Answer = { rows: Row[]; count?: number };
+/**
+ * Una respuesta de PostgREST: las filas, o el fallo que devolvió el motor.
+ *
+ * `error` existe porque no todas las lecturas frías se ven igual. Tres vuelven
+ * vacías; la RPC de clonar NO puede volver vacía —ver el test de clonar— y solo
+ * se manifiesta como un fallo del motor.
+ */
+type Answer = { rows: Row[]; count?: number; error?: PostgrestFailure };
+
+/**
+ * Las opciones con las que se pidió un `select`.
+ *
+ * Se recogen porque hay una propiedad que NO se ve en la respuesta: que la
+ * cuenta salga como un `HEAD` y no se traiga ni una fila (#49). Desde fuera,
+ * `count()` devuelve el mismo número de las dos maneras.
+ *
+ * La proyección no se recoge: con `head: true` no vuelve ninguna columna, así
+ * que lo que diga ahí no cambia lo que viaja.
+ */
+type SelectOptions = { count?: string; head?: boolean } | undefined;
 
 /**
  * El constructor de consultas, reducido a lo que el store encadena.
@@ -41,17 +70,31 @@ type Answer = { rows: Row[]; count?: number };
  * Es `thenable` y no una promesa: el SDK devuelve un builder que solo sale a la
  * red al esperarlo, y de ahí viene la regla que obliga a que `retryColdRead`
  * reciba una FUNCIÓN — un builder ya esperado no se puede volver a usar.
+ *
+ * @param unaFila si la respuesta trae UNA fila en vez de una lista, que es lo
+ *   que devuelve una función que declara `returns public.project_versions`. Va
+ *   en un objeto y no suelto para que el sitio que lo pasa se lea.
  */
-function builder(answer: () => Answer) {
+function builder(
+  answer: () => Answer,
+  onSelect: (options: SelectOptions) => void,
+  { unaFila = false }: { unaFila?: boolean } = {},
+) {
   const self = {
-    select: () => self,
+    select: (columns?: string, options?: SelectOptions) => {
+      onSelect(options);
+      return self;
+    },
     eq: () => self,
     order: () => self,
     limit: () => self,
     ilike: () => self,
     then: (resolve: (value: unknown) => unknown) => {
-      const { rows, count } = answer();
-      return Promise.resolve({ data: rows, error: null, count }).then(resolve);
+      const { rows, count, error } = answer();
+      const data = unaFila ? (rows[0] ?? null) : rows;
+      return Promise.resolve({ data, error: error ?? null, count }).then(
+        resolve,
+      );
     },
   };
   return self;
@@ -60,29 +103,44 @@ function builder(answer: () => Answer) {
 /**
  * Un cliente que contesta lo que diga `answers`, una respuesta por petición.
  *
- * @returns el cliente y cuántas peticiones se le hicieron, que es la mitad de
- *   lo que hay que afirmar: reintentar de más también es un fallo.
+ * `rpc` contesta por el mismo contador que `from`: clonar una Versión también
+ * es una lectura para este propósito —la RPC evalúa RLS— y comparte el
+ * reintento, así que tiene que compartir también la cuenta de peticiones.
+ *
+ * @returns el cliente, cuántas peticiones se le hicieron —reintentar de más
+ *   también es un fallo— y cómo se pidió cada `select`.
  */
 function fakeClient(answers: Answer[]) {
   let calls = 0;
+  const selects: SelectOptions[] = [];
+
+  const next = () => {
+    const answer = answers[Math.min(calls, answers.length - 1)];
+    calls += 1;
+    return answer;
+  };
+  const record = (options: SelectOptions) => {
+    selects.push(options);
+  };
 
   const client = {
     data: {
-      from: () =>
-        builder(() => {
-          const answer = answers[Math.min(calls, answers.length - 1)];
-          calls += 1;
-          return answer;
-        }),
+      from: () => builder(next, record),
+      rpc: () => builder(next, record, { unaFila: true }),
     },
     forgetToken: () => {},
   } as unknown as NeonBrowserClient;
 
-  return { client, calls: () => calls };
+  return { client, calls: () => calls, selects: () => selects };
 }
 
 const UNA_FILA: Answer = { rows: [{ id: "p1" }], count: 1 };
 const VACIA: Answer = { rows: [], count: 0 };
+/** Lo que contesta el motor cuando RLS le esconde la Versión de origen. */
+const VERSION_OCULTA: Answer = {
+  rows: [],
+  error: { code: "P0002", message: "La Versión no existe o no es tuya." },
+};
 
 describe("una lectura vacía se vuelve a pedir", () => {
   it("y la segunda respuesta es la que vale", async () => {
@@ -157,5 +215,71 @@ describe("una lectura vacía se vuelve a pedir", () => {
       { id: "p1" },
     ]);
     expect(calls()).toBe(2);
+  });
+
+  it("y clonar, que no vuelve vacía: se queja", async () => {
+    // La cuarta lectura, y la única que NO se manifiesta como una lista vacía.
+    // `clone_project_version` es `security invoker`, así que sin `auth.uid()`
+    // no encuentra la Versión de origen — pero ahí no devuelve `null`, sino que
+    // LANZA:
+    //
+    //     if not found then
+    //       raise exception '…' using errcode = 'no_data_found';
+    //
+    // Ese `P0002` es uno de los `NOT_FOUND_CODES` de `errors.ts`, así que llega
+    // al store como `NotFoundError` sobre una Versión que sí estaba. Por eso el
+    // reintento entra por la rama de FALLO y no por la de vacío: la regla de
+    // `warmup.ts` cubre las dos con la misma frase —«falló o volvió vacía»— y
+    // ésta es la que prueba la primera mitad.
+    //
+    // Repetirla es seguro justamente porque el primer intento NO llegó a
+    // escribir: si no vio la Versión de origen, se quedó en el `raise`.
+    const { client, calls } = fakeClient([VERSION_OCULTA, UNA_FILA]);
+
+    const fila = await createNeonRowStore(client).cloneVersion("v1", "copia");
+
+    expect(fila).toEqual({ id: "p1" });
+    expect(calls()).toBe(2);
+  });
+});
+
+/**
+ * La cuenta viaja sin filas (#49).
+ *
+ * La cifra de los diálogos de clonar y borrar salía de
+ * `listByVersion(...).length` —ciento veintiséis Nodos CON su contenido por el
+ * cable para escribir un número en una frase— y hoy sale de un `HEAD`.
+ *
+ * Que el número sea correcto ya lo afirma el contrato compartido, y que una
+ * cuenta a cero se reintente lo afirma el bloque de arriba. Lo que queda sin
+ * cubrir es lo que separa las dos implementaciones, y desde fuera no se ve: las
+ * dos devuelven 126. Así que aquí se mira cómo se CONSTRUYÓ la consulta —
+ * acoplado a la forma del SDK a sabiendas, porque es el único sitio donde la
+ * propiedad es observable sin levantar un servidor.
+ */
+describe("contar no se trae ni una fila", () => {
+  it("la consulta sale como HEAD y la cuenta viene en una cabecera", async () => {
+    // 126 y no cero: con cero habría reintento y dos `select` registrados, y
+    // entonces habría que elegir cuál mirar.
+    const { client, selects } = fakeClient([{ rows: [], count: 126 }]);
+
+    await createNeonRowStore(client).count("nodes", [
+      { column: "version_id", value: "v1" },
+    ]);
+
+    expect(selects()).toHaveLength(1);
+
+    // Las DOS opciones, y ninguna es de estilo:
+    //
+    // `head: true` es la propiedad de #49 — el motor contesta sin cuerpo, así
+    // que no viaja ni una fila. Es lo único que separa esto de volver a
+    // traerse el árbol entero para hacerle `.length`.
+    //
+    // `count: "exact"` es lo que hace que la cifra llegue. Sin él PostgREST no
+    // manda `Content-Range`, y entonces `runCount` aplica su `?? 0` y devuelve
+    // CERO sin fallar: «se lleva 0 Nodos por delante» sobre un árbol de ciento
+    // veintiséis, justo en el diálogo que no se deshace. Un `head` sin `count`
+    // es peor que no haber optimizado nada.
+    expect(selects()[0]).toEqual({ count: "exact", head: true });
   });
 });
