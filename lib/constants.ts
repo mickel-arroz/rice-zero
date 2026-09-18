@@ -1363,7 +1363,8 @@ export const CONNECTION_COPY = {
    */
   blocked: "Sin conexión: no puedes editar hasta reconectar.",
 } as const;
-
+
+
 /**
  * La Búsqueda global, en un objeto propio.
  *
