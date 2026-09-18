@@ -281,8 +281,9 @@ Los modelos NO se configuran por entorno: son `AI_CONFIG.geminiModels` en
 arriba abajo.
 
 Es una lista y no un modelo porque el free tier se congestiona de verdad: el
-2026-09-04, tres de los cuatro Flash de la lista contestaban `503 — This model
-is currently experiencing high demand` a la vez, y una generación se perdía
+2026-09-04, tres de los cuatro Flash que entonces formaban la lista contestaban
+`503 — This model is currently experiencing high demand` a la vez, y una
+generación se perdía
 entera teniendo otros modelos libres. Quién decide si un fallo justifica pasar
 al siguiente es `shouldTryAnotherModel`, y la regla es «¿tiene esto pinta de ser
 culpa DE ESTE modelo?»:
@@ -310,11 +311,22 @@ El último eslabón es Gemma y no otro Flash: es el más capaz de los dos que
 expone la API, no razona —así que es el que más probabilidades tiene de caber en
 lo que quede del presupuesto— y admite salida estructurada, que es lo único que
 lo hacía elegible. Un modelo que no sepa devolver un objeto no es un plan B, es
-un eslabón roto.
+un eslabón roto. Los dos Lite que lo preceden —`gemini-3.5-flash-lite` y
+`gemini-3.1-flash-lite`, los dos del 2026-09-18— están entre los Flash y Gemma
+porque es donde caen en las dos escalas: siguen siendo Gemini, así que degradar
+a uno se parece a lo que el usuario ya recibía, pero son Lite, y el orden baja
+en capacidad.
+
+**Un eslabón nuevo hay que probarlo A SOLAS**, no con `npm run ai:live`: esa
+corrida prueba la cadena, y si el primero contesta —y contesta— los de abajo no
+se ejecutan nunca. Un eslabón puede entrar en la lista sin que ninguna corrida
+lo haya tocado jamás, y el día que haga falta es justo el día en que todo lo de
+arriba está caído.
 
 Ojo al tiempo: `AI_CONFIG.timeoutMs` es el presupuesto de la generación
-**entera**, cadena incluida, no de cada intento — cinco modelos a dos minutos
-cada uno serían diez minutos de peor caso. Un Análisis real tarda ~40 s, así que
+**entera**, cadena incluida, no de cada intento — dos minutos por eslabón serían
+dos minutos por cada modelo de la lista en el peor caso, y peor cuanto más larga.
+Un Análisis real tarda ~40 s, así que
 está en dos minutos, y la ruta que monte el panel tiene que declarar un
 `maxDuration` por encima. Un plan de despliegue que corte sus funciones antes no
 puede servir esta app tal cual.

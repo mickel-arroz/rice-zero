@@ -165,10 +165,10 @@ export const AI_CONFIG = {
    * Los modelos, en orden de preferencia. Se intentan de arriba abajo.
    *
    * Es una LISTA y no un modelo porque el free tier se congestiona de verdad:
-   * el 2026-09-04, tres de los cuatro Flash de esta lista contestaban
-   * `503 — This model is currently experiencing high demand` a la vez, y una
-   * generación se perdía entera por eso teniendo otros modelos libres. Quien
-   * decide si un fallo justifica pasar al siguiente es
+   * el 2026-09-04, tres de los cuatro Flash que entonces formaban esta lista
+   * contestaban `503 — This model is currently experiencing high demand` a la
+   * vez, y una generación se perdía entera por eso teniendo otros modelos
+   * libres. Quien decide si un fallo justifica pasar al siguiente es
    * `shouldTryAnotherModel`, no este archivo.
    *
    * El orden baja en capacidad a propósito: se acepta un Análisis peor antes
@@ -192,23 +192,45 @@ export const AI_CONFIG = {
    * presupuesto— y admite salida estructurada, que es lo único que lo hacía
    * elegible. Un modelo que no sepa devolver un objeto no es un plan B, es un
    * eslabón roto.
+   *
+   * Los dos Lite entraron el 2026-09-18 y entraron AHÍ, entre los Flash y
+   * Gemma, porque es donde caen en las dos escalas a la vez: siguen siendo
+   * Gemini —misma familia, mismo comportamiento ante el schema que los cuatro
+   * de arriba—, así que degradar a uno de ellos se parece más a lo que el
+   * usuario ya venía recibiendo que saltar a un Gemma; y son Lite, que es lo
+   * que les impide estar más arriba, porque el orden baja en capacidad. Entre
+   * ellos manda la versión, que es la misma regla que ordena los Flash.
+   *
+   * Los dos verificados ese día contra el modelo de verdad, A SOLAS y no a
+   * través de la cadena — que no habría bajado hasta ellos ni una vez, que es
+   * justo el problema de probar una cadena por su primer eslabón:
+   *
+   *   · `gemini-3.5-flash-lite` → Análisis completo, pasa el schema, 3,2 s.
+   *   · `gemini-3.1-flash-lite` → Análisis completo, pasa el schema, 3,7 s.
+   *
+   * Los dos dedujeron bien la Intención del árbol de muestra, pero eso es
+   * propina: pasar el schema es el único criterio que hace elegible a un
+   * eslabón.
    */
   geminiModels: [
     "gemini-3.8-flash",
     "gemini-3.7-flash",
     "gemini-3.6-flash",
     "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
     "gemma-4-31b-it",
   ] as const,
 
   /**
    * El presupuesto de tiempo de UNA generación, cadena entera incluida.
    *
-   * Total y no por intento, y es la decisión que hace la cadena viable: cinco
-   * modelos a dos minutos cada uno serían diez minutos de peor caso, muy por
-   * encima de cualquier `maxDuration` de plataforma. Con un presupuesto
-   * compartido, cada intento se lleva lo que queda y el conjunto no puede
-   * pasarse de aquí.
+   * Total y no por intento, y es la decisión que hace la cadena viable: dos
+   * minutos POR ESLABÓN serían dos minutos por cada modelo de `geminiModels`
+   * en el peor caso, muy por encima de cualquier `maxDuration` de plataforma —
+   * y peor cuanto más larga la lista, que es justo lo que no puede pasar. Con
+   * un presupuesto compartido, cada intento se lleva lo que queda y el
+   * conjunto no puede pasarse de aquí, dé igual cuántos eslabones haya.
    *
    * Dos minutos, y el número sale de medir y no de intuir: tres Análisis
    * reales de los árboles de muestra tardaron ~40 s cada uno (2026-09-04,
@@ -1363,7 +1385,6 @@ export const CONNECTION_COPY = {
    */
   blocked: "Sin conexión: no puedes editar hasta reconectar.",
 } as const;
-
 
 /**
  * La Búsqueda global, en un objeto propio.

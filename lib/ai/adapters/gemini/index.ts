@@ -123,8 +123,8 @@ function createSdkCall(): GenerateAnalysisObject {
        * Por `abortSignal` y no por la opción `timeout` del SDK porque
        * `generateObject` no la acepta —la excluye de su firma—, así que el
        * reloj lo pone quien llama. Y el plazo es lo que QUEDA del presupuesto
-       * compartido, no el presupuesto entero: si no, cinco modelos a dos
-       * minutos serían diez minutos de peor caso.
+       * compartido, no el presupuesto entero: si no, el peor caso sería el
+       * presupuesto entero por cada modelo de la cadena.
        *
        * `AbortSignal.timeout` lanza con `name: "TimeoutError"`, que es lo que
        * `errors.ts` reconoce.
@@ -158,11 +158,13 @@ export function createGeminiProvider(
       /**
        * El presupuesto es de la generación entera y no de cada intento.
        *
-       * Es lo que hace viable una cadena de cinco modelos: cada uno se lleva lo
-       * que queda, y el conjunto no puede pasarse de `timeoutMs`. Con un plazo
-       * por intento, el peor caso serían cinco veces el plazo — muy por encima
-       * de cualquier `maxDuration` de plataforma, y el usuario vería el corte
-       * de la plataforma en vez del nuestro.
+       * Es lo que hace viable una cadena larga: cada eslabón se lleva lo que
+       * queda, y el conjunto no puede pasarse de `timeoutMs` por muchos que
+       * sean. Con un plazo por intento, el peor caso sería ese plazo por cada
+       * modelo de la lista — muy por encima de cualquier `maxDuration` de
+       * plataforma, y el usuario vería el corte de la plataforma en vez del
+       * nuestro. Añadir un eslabón no puede costar tiempo de pared, y por esto
+       * no lo cuesta.
        */
       const deadline = Date.now() + AI_CONFIG.timeoutMs;
 
