@@ -33,7 +33,17 @@ _Avoid_: rama cerrada, nodos tachados
 
 **Nodo plegado**:
 Nodo con hijos cuyo subárbol está oculto en la vista. Es preferencia de quien mira, no del árbol: no viaja entre dispositivos ni cambia lo que la IA recibe. Por eso un Nodo plegado sigue contando, y un Nodo completado no.
+
+Un Nodo completado con hijos nace plegado: el plegado se deriva de la marca, no se guarda, así que marcarlo lo pliega en el acto, en Registro y en Canvas. Desplegarlo a mano es una excepción de quien mira que se recuerda igual que un plegado; desmarcar el Nodo la olvida, de modo que volver a completarlo lo vuelve a plegar.
 _Avoid_: colapsado, contraído, cerrado
+
+**Limpieza**:
+Borrado de una sola vez, en la Versión abierta, de todo Nodo que esté completado **él y cada uno de sus descendientes por su propia marca**. Se lleva los subárboles enteros más altos que cumplan eso, raíces incluidas, y puede dejar la Versión vacía. No es el Subárbol completado: un subnodo pendiente bajo un padre completado se pinta tachado y no viaja a la IA, pero salva de la Limpieza a ese padre y a todos sus ancestros. Ver ADR 0007.
+_Avoid_: borrar completados, purga, borrar tachados
+
+**Propuesta de Nodos**:
+Lo que la IA devuelve cuando se le pide desde la Vista Registro, con un texto libre, que haga crecer el árbol: hasta 5 nuevas raíces con sus subárboles, 25 Nodos en total y 3 niveles como máximo. Se ve antes de entrar y no se edita; solo se añade entera, se regenera o se descarta. Nunca toca un Nodo existente: todo lo que trae entra como raíz nueva. La IA la escribe viendo el árbol sin el Subárbol completado, igual que un Análisis, pero no es un Análisis ni queda en el Historial.
+_Avoid_: nodos con IA, generación, sugerencias
 
 ### Vistas
 
@@ -48,7 +58,7 @@ _Avoid_: outliner, vista lista, vista simple
 **Contenedor**:
 El marco que rodea a toda pantalla posterior al inicio de sesión: una tarjeta flotante de esquinas redondeadas, con margen arriba, abajo y a la derecha, y dentro una columna de ancho máximo único. Lo decide un solo sitio (`components/layout/app-frame.tsx`) y lo monta el Shell envolviendo a la pantalla, así que ninguna pantalla pone su propio ancho ni su propio relleno. No incluye la navegación: eso es el Shell.
 
-En escritorio es además **donde vive el scroll**: el marco mide exactamente la ventana y no se mueve nunca, y lo que se desplaza es su contenido por dentro. La página, por tanto, no se desplaza. En móvil al revés — la que se desplaza es la página y el Contenedor se sale por abajo a propósito.
+En escritorio es además **donde vive el scroll**: el marco mide exactamente la ventana y no se mueve nunca, y lo que se desplaza es su contenido por dentro. La página, por tanto, no se desplaza. En móvil al revés — la que se desplaza es la página, y el Contenedor crece con su contenido: mide como mínimo el alto visible bajo la cabecera y se cierra abajo con borde, esquinas y margen (por encima del área segura del gesto de inicio), así que al final del scroll se ve que la tarjeta termina. Antes se salía por abajo a propósito, y se leía como cortado.
 _Avoid_: layout, wrapper, marco, contenedor post-login
 
 **Shell**:
