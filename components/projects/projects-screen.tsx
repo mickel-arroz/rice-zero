@@ -17,6 +17,7 @@ import { EditProjectDialog } from "@/components/projects/edit-project-dialog";
 import { ProjectCard } from "@/components/projects/project-card";
 import { useProjects } from "@/components/projects/projects-provider";
 import { GlobalSearch } from "@/components/search/global-search";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CONNECTION_COPY, PROJECTS_COPY } from "@/lib/constants";
 
 /**
@@ -33,18 +34,18 @@ function CardSkeleton({ lines }: { lines: string[] }) {
   return (
     <div className="flex flex-col gap-3.5 rounded-[20px] border border-border bg-card p-5">
       <div className="flex items-center justify-between">
-        <span className="size-[22px] rounded-lg bg-accent" />
-        <span className="h-2.5 w-14 rounded-full bg-accent" />
+        <Skeleton className="size-[22px] rounded-lg" />
+        <Skeleton className="h-2.5 w-14 rounded-full" />
       </div>
       <div className="flex flex-col gap-2">
-        <span className="h-4 w-1/2 rounded-full bg-accent" />
+        <Skeleton className="h-4 w-1/2 rounded-full" />
         {lines.map((width) => (
-          <span key={width} className="h-3 rounded-full bg-accent" style={{ width }} />
+          <Skeleton key={width} className="h-3 rounded-full" style={{ width }} />
         ))}
       </div>
       <div className="mt-auto flex gap-3 border-t border-border pt-3">
-        <span className="h-2.5 w-[74px] rounded-full bg-accent" />
-        <span className="h-2.5 w-16 rounded-full bg-accent" />
+        <Skeleton className="h-2.5 w-[74px] rounded-full" />
+        <Skeleton className="h-2.5 w-16 rounded-full" />
       </div>
     </div>
   );

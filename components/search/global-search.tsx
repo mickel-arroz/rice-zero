@@ -7,6 +7,7 @@ import { AlertIcon } from "@/components/icons/alert-icon";
 import { CloseIcon } from "@/components/icons/close-icon";
 import { SearchIcon } from "@/components/icons/search-icon";
 import { LABEL_CLASS, STRUCK_CLASS } from "@/components/layout/site-chrome";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { NodeSearchHit } from "@/lib/backend/ports";
 import { ROUTES, SEARCH_COPY, TREE_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
@@ -165,10 +166,7 @@ export function GlobalSearch({ projectCount }: { projectCount: number }) {
           className="flex flex-col gap-2.5"
         >
           {[0, 1, 2].map((row) => (
-            <span
-              key={row}
-              className="h-[74px] rounded-2xl border border-border bg-accent/40"
-            />
+            <Skeleton key={row} className="h-[74px] rounded-2xl" />
           ))}
         </div>
       ) : null}

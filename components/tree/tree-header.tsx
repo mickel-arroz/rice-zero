@@ -9,6 +9,7 @@ import { ChevronLeftIcon } from "@/components/icons/chevron-left-icon";
 import { useProjects } from "@/components/projects/projects-provider";
 import { useTree } from "@/components/tree/tree-provider";
 import { ViewSwitch } from "@/components/tree/view-switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { VersionPicker } from "@/components/versions/version-picker";
 import {
   CONNECTION_COPY,
@@ -51,7 +52,7 @@ export function TreeHeader({
    */
   search?: React.ReactNode;
 }) {
-  const { projects, status: projectsStatus } = useProjects();
+  const { projects } = useProjects();
   const tree = useTree();
 
   const project =
@@ -116,10 +117,9 @@ export function TreeHeader({
         ) : (
           // Mientras la lista de Proyectos viaja no se inventa un título: se
           // deja su hueco, del alto que va a ocupar.
-          <span
-            className="w-52 rounded-lg bg-accent lg:order-first lg:col-start-1 lg:row-start-1"
+          <Skeleton
+            className="w-52 rounded-lg lg:order-first lg:col-start-1 lg:row-start-1"
             style={{ height: 29 }}
-            aria-hidden={projectsStatus === "loading"}
           />
         )}
 

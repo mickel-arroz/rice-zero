@@ -13,6 +13,7 @@ import { PencilIcon } from "@/components/icons/pencil-icon";
 import { TrashIcon } from "@/components/icons/trash-icon";
 import { VersionsIcon } from "@/components/icons/versions-icon";
 import { LABEL_CLASS } from "@/components/layout/site-chrome";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CloneVersionDialog } from "@/components/versions/clone-version-dialog";
 import { DeleteVersionDialog } from "@/components/versions/delete-version-dialog";
 import { useVersions } from "@/components/versions/versions-provider";
@@ -121,10 +122,9 @@ export function VersionPicker({ projectId }: { projectId: string }) {
   // que va a ocupar, igual que el título en `TreeHeader`.
   if (!current) {
     return (
-      <span
-        aria-label={VERSIONS_COPY.loading}
-        className="block h-8 w-40 rounded-full bg-accent"
-      />
+      <span aria-busy="true" aria-label={VERSIONS_COPY.loading}>
+        <Skeleton className="h-8 w-40 rounded-full" />
+      </span>
     );
   }
 

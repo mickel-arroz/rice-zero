@@ -48,6 +48,7 @@ import { fire } from "@/components/tree/fire";
 import { NodeToolbar } from "@/components/tree/node-toolbar";
 import { useTree } from "@/components/tree/tree-provider";
 import { TreeEmpty, TreeError } from "@/components/tree/tree-states";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CANVAS_COPY, DOT_PATTERN } from "@/lib/constants";
 import { NODE_ERRORS } from "@/lib/services/nodes";
 import { layoutForest, treeEdges, type NodeBox } from "@/lib/tree/layout";
@@ -154,8 +155,10 @@ function CanvasSkeleton() {
     <div
       aria-busy="true"
       aria-label={CANVAS_COPY.loading}
-      className={`${VIEWPORT_CLASS} bg-accent/40`}
-    />
+      className={VIEWPORT_CLASS}
+    >
+      <Skeleton className="absolute inset-0" />
+    </div>
   );
 }
 

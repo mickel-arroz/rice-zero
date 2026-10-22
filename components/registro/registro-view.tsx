@@ -6,6 +6,7 @@ import { INDENT, ROW_HEIGHT, NodeRow } from "@/components/registro/node-row";
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
 import { TreeEmpty, TreeError } from "@/components/tree/tree-states";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 
 /**
@@ -27,7 +28,7 @@ function RowSkeleton({ depth }: { depth: number }) {
   return (
     <li className="flex items-stretch" style={{ height: ROW_HEIGHT }}>
       <span className="shrink-0" style={{ width: (depth + 1) * INDENT }} />
-      <span className="my-1 flex-1 rounded-2xl bg-accent" />
+      <Skeleton className="my-1 flex-1 rounded-2xl" />
     </li>
   );
 }

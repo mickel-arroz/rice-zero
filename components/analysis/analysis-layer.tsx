@@ -27,6 +27,7 @@ import {
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
 import { ErrorCard } from "@/components/ui/error-card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ANALYSIS_COPY } from "@/lib/constants";
 import {
   ANALYSIS_INPUT_LIMITS,
@@ -361,16 +362,12 @@ function ResultSkeleton() {
       aria-label={ANALYSIS_COPY.loading}
       className="flex flex-col gap-3"
     >
-      <Bar className="w-24" />
-      <Bar className="h-8 w-40" />
-      <Bar className="w-full" />
-      <Bar className="w-4/5" />
+      <Skeleton className="h-3 w-24 rounded-md" />
+      <Skeleton className="h-8 w-40 rounded-md" />
+      <Skeleton className="h-3 w-full rounded-md" />
+      <Skeleton className="h-3 w-4/5 rounded-md" />
     </div>
   );
-}
-
-function Bar({ className }: { className: string }) {
-  return <span className={`h-3 rounded-md bg-accent ${className}`} />;
 }
 
 /**
