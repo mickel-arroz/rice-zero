@@ -25,6 +25,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject } from "ai";
 
 import {
+  chainExhaustedError,
   GEMINI_API_KEY_ENV,
   normalizeGeminiError,
   shouldTryAnotherModel,
@@ -168,8 +169,12 @@ export function createGeminiProvider(
        */
       const deadline = Date.now() + AI_CONFIG.timeoutMs;
 
-      /** El último fallo clasificado, para poder rendirse diciendo por qué. */
-      let last: AnalysisError | null = null;
+      /**
+       * Cada fallo clasificado, en orden, para poder rendirse diciendo por qué.
+       * Todos y no solo el último: si la cadena entera cayó por cuota, eso es
+       * lo que hay que decir, y el último solo sabe lo suyo.
+       */
+      const failures: AnalysisError[] = [];
 
       for (const model of AI_CONFIG.geminiModels) {
         const remaining = deadline - Date.now();
@@ -182,13 +187,13 @@ export function createGeminiProvider(
          * igual que cualquier otra. Una llamada de cuota tirada a cambio de
          * nada.
          *
-         * El fallo que sale es un timeout y no `last`, y la diferencia importa:
+         * El fallo que sale es un timeout y no el último visto, y la diferencia importa:
          * si se acabó el reloj, eso es lo que pasó — decir «high demand»
          * porque fue el último error visto mandaría a mirar al sitio
-         * equivocado. `last` viaja en `cause`.
+         * equivocado. El último fallo viaja en `cause`.
          */
         if (remaining < AI_CONFIG.minAttemptMs) {
-          throw new AnalysisTimeoutError({ cause: last });
+          throw new AnalysisTimeoutError({ cause: failures.at(-1) ?? null });
         }
 
         try {
@@ -215,18 +220,20 @@ export function createGeminiProvider(
            */
           return { analysis: analysisSchema.parse(raw), model };
         } catch (error) {
-          last = normalizeGeminiError(error);
+          const failure = normalizeGeminiError(error);
+          failures.push(failure);
 
           // Y aquí está la cadena entera: si el fallo no tiene pinta de ser
           // culpa DE ESTE modelo, cambiar de modelo no arregla nada, así que se
           // sale con el error honesto en vez de quemar la lista.
-          if (!shouldTryAnotherModel(last)) throw last;
+          if (!shouldTryAnotherModel(failure)) throw failure;
         }
       }
 
-      // La lista se agotó. `last` está puesto salvo que la lista viniera vacía,
-      // y eso no es un fallo del modelo sino configuración nuestra.
-      throw last ?? new AnalysisConfigError(NO_MODELS);
+      // La lista se agotó. Hay fallos salvo que la lista viniera vacía, y eso
+      // no es un fallo del modelo sino configuración nuestra.
+      const [first, ...rest] = failures;
+      throw first ? chainExhaustedError([first, ...rest]) : new AnalysisConfigError(NO_MODELS);
     },
   };
 }

@@ -55,6 +55,15 @@ const TOO_MANY_REQUESTS = 429;
 const CONFIG_STATUSES = new Set([401, 403, 404]);
 
 /**
+ * De los de arriba, los que señalan a la API key y no al modelo.
+ *
+ * Aparte porque el remedio es otro: un 404 se arregla en `AI_CONFIG`, un 401 o
+ * un 403 en `.env.local`. Con un mensaje común, «revisa el modelo configurado
+ * y la API key», quien tenía la key mal tenía una pista falsa de cada dos.
+ */
+const CREDENTIAL_STATUSES = new Set([401, 403]);
+
+/**
  * El código ambiguo.
  *
  * Un 400 de Gemini puede ser nuestra petición mal armada o el árbol del
@@ -199,6 +208,13 @@ export function normalizeGeminiError(error: unknown): AnalysisError {
         { cause: error },
       );
     }
+    if (error.statusCode !== undefined && CREDENTIAL_STATUSES.has(error.statusCode)) {
+      return new AnalysisConfigError(
+        `La API key de Gemini no es válida o no tiene permiso (${error.statusCode}). Revisa ${GEMINI_API_KEY_ENV}.`,
+        GEMINI_API_KEY_ENV,
+        { cause: error },
+      );
+    }
     if (error.statusCode !== undefined && CONFIG_STATUSES.has(error.statusCode)) {
       return new AnalysisConfigError(
         `Gemini rechazó la petición con un ${error.statusCode}. Revisa el modelo configurado y la API key.`,
@@ -248,7 +264,7 @@ export const GEMINI_API_KEY_ENV = "GEMINI_API_KEY";
  *   · `configuracion` — aquí caen el 404 del modelo retirado (el caso que el
  *     ticket anticipaba, y que ya pasó con `gemini-2.5-flash`) y también el 401
  *     de una API key mala. Que la key mala pase al siguiente es un coste
- *     asumido: son cuatro rechazos de ~300 ms antes del error honesto. No
+ *     asumido: un rechazo de ~300 ms por modelo antes del error honesto. No
  *     pasarla habría roto el caso del modelo retirado, que es el que importa.
  *   · `timeout` — pasa, pero apenas significa nada: si un intento agotó el
  *     reloj, el presupuesto compartido ya casi no da para otro y la cadena se
@@ -282,4 +298,44 @@ const ADVANCES_MODEL = new Set<AnalysisErrorKind>([
  */
 export function shouldTryAnotherModel(error: AnalysisError): boolean {
   return ADVANCES_MODEL.has(error.kind);
+}
+
+/**
+ * El error con el que se rinde la cadena cuando todos los modelos fallaron.
+ *
+ * Recibe TODOS los fallos, en el orden en que se probaron, y no solo el último:
+ * el último cuenta qué le pasó al último modelo, no a la cadena. Lo que la persona
+ * necesita saber es si hay una causa común —cuota, o credenciales— porque cada
+ * una tiene su remedio, y esa pregunta solo se contesta mirando la lista
+ * entera. Sin causa común no se inventa una: sale el último, como siempre.
+ *
+ * Pura y sobre errores YA clasificados, igual que `shouldTryAnotherModel`: es
+ * lo que deja probar la política sin red.
+ *
+ * @param failures nunca vacía: la cadena solo llega aquí tras fallar al menos
+ *   una vez.
+ */
+export function chainExhaustedError(
+  failures: readonly [AnalysisError, ...AnalysisError[]],
+): AnalysisError {
+  const last = failures[failures.length - 1];
+
+  // Toda la cadena por cuota: el plazo es el del PRIMER modelo que se libere.
+  // Un 429 sin plazo no anula los demás —no dice nada de cuándo vuelven
+  // ellos—, así que se ignora; solo si ninguno lo dijo sale sin cuenta atrás.
+  const quota = failures.filter(
+    (failure): failure is QuotaExceededError => failure instanceof QuotaExceededError,
+  );
+  if (quota.length === failures.length) {
+    const known = quota
+      .map((failure) => failure.retryAfterSeconds)
+      .filter((seconds): seconds is number => seconds !== null);
+    return new QuotaExceededError(known.length > 0 ? Math.min(...known) : null, {
+      cause: last,
+    });
+  }
+
+  // Las credenciales no necesitan rama: cada 401/403 ya sale con su mensaje
+  // de API key, así que si todos lo son, el último ya dice lo correcto.
+  return last;
 }

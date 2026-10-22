@@ -94,6 +94,29 @@ describe("el adaptador de Gemini", () => {
     expect(provider.models.length).toBeGreaterThan(0);
   });
 
+  /**
+   * El orden es el de `docs/research/google-ai-studio-models.md` (#60): los
+   * Flash vigentes, los Lite, el preview y Gemma como último recurso.
+   * `gemma-4-26b-a4b-it` se probó en vivo el 2026-10-22 y agotó los dos
+   * minutos sin contestar, así que no entra.
+   */
+  it("prueba los modelos vigentes en su orden, con Gemma al final", () => {
+    expect(AI_CONFIG.geminiModels).toEqual([
+      "gemini-3.8-flash",
+      "gemini-3.6-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-3-flash-preview",
+      "gemma-4-31b-it",
+    ]);
+  });
+
+  /** Deprecados el 2026-10-08: redirigen a 3.8 y 3.6, que ya están delante. */
+  it("no gasta intentos en los deprecados que redirigen a otro de la cadena", () => {
+    expect(AI_CONFIG.geminiModels).not.toContain("gemini-3.7-flash");
+    expect(AI_CONFIG.geminiModels).not.toContain("gemini-3.5-flash");
+  });
+
   it("devuelve el Análisis validado que dio el modelo", async () => {
     const { provider } = respondingWith(sampleAnalysis());
     const { analysis } = await provider.analyze(REQUEST);
@@ -357,6 +380,83 @@ describe("el adaptador de Gemini", () => {
     it("la API key mala sale como configuración, no como red", async () => {
       const { provider } = failingWith(apiError(401, "API key not valid"));
       await expect(provider.analyze(REQUEST)).rejects.toThrow(AnalysisConfigError);
+    });
+  });
+
+  /**
+   * Con la cadena entera caída, lo único que ve la persona es un mensaje, y
+   * tiene que mandarla al sitio correcto: esperar, o arreglar la key. Antes un
+   * 401 decía «revisa el modelo configurado y la API key» — dos pistas, una
+   * falsa — y nada impedía que una cuota agotada acabara igual.
+   */
+  describe("cuando toda la cadena falla, el mensaje dice qué hacer", () => {
+    it("por cuota: que espere y reintente, no que revise la API key", async () => {
+      const { provider } = failingWith(apiError(429, "Resource has been exhausted"));
+
+      const error = await provider.analyze(REQUEST).catch((e) => e);
+
+      expect(error).toBeInstanceOf(QuotaExceededError);
+      expect(error.message).toMatch(/vuelve a intentarlo/i);
+      expect(error.message).not.toMatch(/api key/i);
+    });
+
+    /** El plazo más corto de la cadena: es cuándo vuelve a haber un modelo libre. */
+    it("por cuota, con el plazo del primer modelo que se libere", async () => {
+      const delays = [60, 45, 30, 50, 20, 40, 55];
+      let call = 0;
+      const provider = createGeminiProvider(async () => {
+        const seconds = delays[call++ % delays.length];
+        throw new APICallError({
+          message: "HTTP 429",
+          url: "https://generativelanguage.googleapis.com",
+          requestBodyValues: {},
+          statusCode: 429,
+          responseHeaders: { "retry-after": String(seconds) },
+        });
+      });
+
+      const error = await provider.analyze(REQUEST).catch((e) => e);
+
+      expect(error).toBeInstanceOf(QuotaExceededError);
+      expect((error as QuotaExceededError).retryAfterSeconds).toBe(
+        Math.min(...delays.slice(0, provider.models.length)),
+      );
+    });
+
+    it.each([401, 403])("por credenciales (%i): que la API key es inválida", async (status) => {
+      const { provider } = failingWith(apiError(status, "API key not valid"));
+
+      const error = await provider.analyze(REQUEST).catch((e) => e);
+
+      expect(error).toBeInstanceOf(AnalysisConfigError);
+      expect((error as AnalysisConfigError).key).toBe("GEMINI_API_KEY");
+      expect(error.message).toMatch(/api key.*no es válida/i);
+      expect(error.message).not.toMatch(/modelo/i);
+    });
+
+    it("por modelos retirados: el mensaje genérico de siempre", async () => {
+      const { provider } = failingWith(apiError(404));
+
+      const error = await provider.analyze(REQUEST).catch((e) => e);
+
+      expect(error).toBeInstanceOf(AnalysisConfigError);
+      expect(error.message).toMatch(/revisa el modelo configurado y la API key/i);
+    });
+
+    /**
+     * Mezclas: ni «toda por cuota» ni «toda por credenciales», así que no se
+     * puede afirmar ninguna de las dos. Sale el último fallo, como siempre.
+     */
+    it("por fallos mezclados: el último, sin inventarse una causa común", async () => {
+      let call = 0;
+      const provider = createGeminiProvider(async () => {
+        call += 1;
+        throw call < provider.models.length ? apiError(429) : highDemand();
+      });
+
+      const error = await provider.analyze(REQUEST).catch((e) => e);
+
+      expect(error).toBeInstanceOf(AnalysisNetworkError);
     });
   });
 

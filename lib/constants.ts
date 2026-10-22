@@ -211,14 +211,29 @@ export const AI_CONFIG = {
    * Los dos dedujeron bien la Intención del árbol de muestra, pero eso es
    * propina: pasar el schema es el único criterio que hace elegible a un
    * eslabón.
+   *
+   * El 2026-10-22 (#60) la cadena se depuró contra
+   * `docs/research/google-ai-studio-models.md`:
+   *
+   *   · Fuera `gemini-3.7-flash` y `gemini-3.5-flash`. Deprecados el
+   *     2026-10-08, Google los redirige a `3.8` y `3.6`, que ya van delante:
+   *     en el mejor caso repetían un modelo que acababa de fallar, y en el
+   *     peor se comían presupuesto de tiempo.
+   *   · Dentro `gemini-3-flash-preview`, detrás de los Lite y delante de
+   *     Gemma. Es un Flash de verdad, no una redirección, aunque Google lo
+   *     llame legacy. Probado a solas ese día: pasa el schema. Ojo: la
+   *     investigación lo ponía delante de los Lite; el orden que manda es el
+   *     del PRD (#58), que lo deja detrás.
+   *   · `gemma-4-26b-a4b-it` NO entra. Probado a solas ese día, agotó los dos
+   *     minutos sin contestar, y un eslabón que necesita el presupuesto entero
+   *     no puede ser el último.
    */
   geminiModels: [
     "gemini-3.8-flash",
-    "gemini-3.7-flash",
     "gemini-3.6-flash",
-    "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
+    "gemini-3-flash-preview",
     "gemma-4-31b-it",
   ] as const,
 

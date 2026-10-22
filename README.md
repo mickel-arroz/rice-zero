@@ -315,7 +315,16 @@ un eslabón roto. Los dos Lite que lo preceden —`gemini-3.5-flash-lite` y
 `gemini-3.1-flash-lite`, los dos del 2026-09-18— están entre los Flash y Gemma
 porque es donde caen en las dos escalas: siguen siendo Gemini, así que degradar
 a uno se parece a lo que el usuario ya recibía, pero son Lite, y el orden baja
-en capacidad.
+en capacidad. Detrás de ellos va `gemini-3-flash-preview` (#60), una reserva más
+antes de Gemma. Salieron `gemini-3.7-flash` y `gemini-3.5-flash`: deprecados
+el 2026-10-08, Google los redirige a otros eslabones de la propia cadena. `gemma-4-26b-a4b-it` se probó
+a solas y agotó los dos minutos sin contestar, así que no entra. Fuente:
+`docs/research/google-ai-studio-models.md`.
+
+Si la cadena entera falla, el mensaje busca una causa común: todo cuota (429)
+dice que se espere, con el plazo del primer modelo que se libere; una API key
+rechazada (401/403) dice que la key no es válida. Sin causa común sale el último
+fallo, como siempre.
 
 **Un eslabón nuevo hay que probarlo A SOLAS**, no con `npm run ai:live`: esa
 corrida prueba la cadena, y si el primero contesta —y contesta— los de abajo no
