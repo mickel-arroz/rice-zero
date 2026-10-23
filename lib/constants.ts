@@ -1429,3 +1429,42 @@ export const SEARCH_COPY = {
   capped: (limit: number) =>
     `Se enseñan los ${limit} más recientes. Afina la palabra para ver menos y mejores.`,
 } as const;
+
+/**
+ * La Propuesta de Nodos, en un objeto propio.
+ *
+ * Aparte de `ANALYSIS_COPY` aunque las dos sean IA: la Propuesta no es un
+ * Análisis ni entra en el Historial (`CONTEXT.md`), y una copia compartida
+ * acabaría llamando «Análisis» a algo que no lo es. Los topes llegan como
+ * parámetro y no se importan: viven con su schema en `lib/ai/proposal.ts`.
+ */
+export const PROPOSAL_COPY = {
+  /** El botón de la Vista Registro, al lado de «Nodo raíz». */
+  open: "Proponer Nodos",
+  label: "IA",
+  title: "Proponer Nodos",
+  close: "Cerrar",
+  /** Con la Propuesta delante, cerrar es descartarla: no se guarda en ningún sitio. */
+  discard: "Descartar y cerrar",
+  requestField: "Qué quieres que crezca",
+  requestPlaceholder: "Ej.: ideas para la parte de compartir, pensando en el móvil",
+  hint: (roots: number) =>
+    `La IA lee el árbol sin lo completado y propone hasta ${roots} raíces nuevas. Nada entra en el árbol hasta que pulses «Añadir».`,
+  submit: "Proponer",
+  loading: "Proponiendo…",
+  loadingLabel: "Proponiendo Nodos",
+  preview: "Vista previa",
+  previewLabel: "Nodos propuestos",
+  summary: (roots: number, nodes: number) =>
+    `${roots} ${roots === 1 ? "raíz" : "raíces"} · ${nodes} ${nodes === 1 ? "Nodo" : "Nodos"}`,
+  appendNote:
+    "Entra entera al final del árbol, como raíces nuevas. No toca ningún Nodo que ya tengas.",
+  regenerate: "Regenerar",
+  append: (nodes: number) => `Añadir ${nodes} ${nodes === 1 ? "Nodo" : "Nodos"}`,
+  appending: "Añadiendo…",
+  /** Se cortó a medias: lo que entró se queda, y volver a añadir lo duplicaría. */
+  partial: (created: number, total: number) =>
+    `Entraron ${created} de ${total} Nodos antes del fallo. Revisa el árbol: volver a añadir duplicaría lo que ya entró.`,
+  errorTitle: "No se pudo proponer.",
+  retry: "Reintentar",
+} as const;

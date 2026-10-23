@@ -19,6 +19,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AnalysisProvider } from "@/lib/ai/port";
+import { proposalSchema } from "@/lib/ai/proposal";
 import { analysisSchema, INTENT_KINDS } from "@/lib/ai/schema";
 import { SAMPLE_TREES } from "@/lib/ai/testing/samples";
 import { serializeTree } from "@/lib/tree/serialize";
@@ -145,6 +146,47 @@ export function describeAnalysisContract(harness: AnalysisContractHarness): void
         });
 
         expect(model.trim().length).toBeGreaterThan(0);
+        expect(provider.models).toContain(model);
+      });
+    });
+
+    /**
+     * La otra cosa que se le pide a la IA: hacer crecer el árbol.
+     *
+     * Mismo criterio que arriba: propiedades y no textos. Lo que la IA
+     * proponga es calidad del modelo; que lo que devuelve sea una Propuesta
+     * válida y diga quién la escribió es contrato.
+     */
+    describe("propone Nodos", () => {
+      const REQUEST = "Ideas para compartir el resultado con el equipo";
+
+      it("devuelve una Propuesta que pasa el schema", async () => {
+        const { proposal } = await harness.provider().propose({
+          serializedTree: serializeTree(SAMPLE_TREES.feature),
+          request: REQUEST,
+        });
+        expect(proposalSchema.safeParse(proposal).success).toBe(true);
+      });
+
+      /**
+       * Un árbol vacío SÍ se puede hacer crecer, a diferencia de analizarlo:
+       * empezar una Versión pidiéndole a la IA las primeras ramas es justo el
+       * uso que no tiene otra puerta.
+       */
+      it("propone también sobre un árbol vacío", async () => {
+        const { proposal } = await harness.provider().propose({
+          serializedTree: "",
+          request: REQUEST,
+        });
+        expect(proposal.roots.length).toBeGreaterThan(0);
+      });
+
+      it("y devuelve el modelo que la escribió", async () => {
+        const provider = harness.provider();
+        const { model } = await provider.propose({
+          serializedTree: serializeTree(SAMPLE_TREES.feature),
+          request: REQUEST,
+        });
         expect(provider.models).toContain(model);
       });
     });

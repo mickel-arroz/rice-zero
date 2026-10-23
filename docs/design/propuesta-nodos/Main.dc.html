@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Vista Registro con Proponer Nodos</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:"Ndot57";src:url('../../../app/fonts/Ndot57-Regular.woff2') format("woff2")}
+body{margin:0}
+a{color:#6b6b6b}a:hover{color:#e7000b}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #fafafa; color: #171717; font-family: Iosevka, ui-monospace, Consolas, monospace; display: flex; gap: 0; padding: 16px 16px 16px 0">
+  <nav style="width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 24px 20px">
+    <div style="font-family: Ndot57, monospace; font-size: 22px; letter-spacing: 0.04em; height: 78px">RICE(0)</div>
+    <div style="height: 44px; display: flex; align-items: center; padding: 0 14px; border-radius: 12px; font-size: 13px; color: #6b6b6b">Inicio</div>
+    <div style="height: 38px; display: flex; align-items: center; padding: 0 14px; border-radius: 12px; font-size: 13px; background: #ebebeb">Cuaderno de recetas</div>
+  </nav>
+  <main style="flex: 1; border: 1px solid #dcdcdc; border-radius: 20px; background: #ffffff; padding: 40px 48px; display: flex; flex-direction: column; overflow: hidden">
+    <div style="max-width: 1024px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #6b6b6b">
+        <span>‹ Proyectos</span>
+        <span style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase">✓ Guardado</span>
+      </div>
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 24px; align-items: center">
+        <h1 style="margin: 0; font-family: Ndot57, monospace; font-weight: 400; font-size: 48px; line-height: 1; letter-spacing: 0.02em">Cuaderno de recetas</h1>
+        <div style="display: flex; gap: 12px; align-items: center">
+          <div style="display: flex; border: 1px solid #dcdcdc; border-radius: 999px; padding: 3px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase">
+            <span style="padding: 6px 12px; border-radius: 999px; background: #171717; color: #fafafa">Registro</span>
+            <span style="padding: 6px 12px; color: #6b6b6b">Canvas</span>
+          </div>
+          <span style="height: 34px; display: flex; align-items: center; padding: 0 14px 0 12px; border-radius: 999px; background: #e7000b; color: #fafafa; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase">Analizar</span>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; font-size: 12px; color: #6b6b6b">
+          <span style="border: 1px solid #dcdcdc; border-radius: 999px; padding: 6px 12px; color: #171717">v1 · Principal</span>
+          <span>7 Nodos</span>
+        </div>
+        <div style="height: 40px; border: 1px solid #dcdcdc; border-radius: 999px; display: flex; align-items: center; padding: 0 16px; font-size: 12px; color: #6b6b6b">Buscar en la Versión</div>
+      </div>
+
+      <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+        <sc-for list="{{rows}}" as="row" hint-placeholder-count="7">
+          <li style="display: flex; height: 58px; align-items: center">
+            <span style="flex-shrink: 0; width: {{row.gutter}}; display: flex; justify-content: flex-end; padding-right: 8px; box-sizing: border-box">
+              <span style="width: {{row.dot}}; height: {{row.dot}}; border-radius: 50%; background: {{row.dotColor}}"></span>
+            </span>
+            <span style="flex: 1; height: 50px; border: 1px solid #dcdcdc; border-radius: 16px; display: flex; align-items: center; padding: 0 14px; font-size: 14px; color: {{row.color}}; text-decoration: {{row.deco}}">{{row.text}}</span>
+          </li>
+        </sc-for>
+      </ul>
+
+      <div style="display: flex; gap: 10px; margin-top: 6px">
+        <button type="button" style="flex: 1; height: 50px; border: 1px dashed #dcdcdc; border-radius: 16px; background: transparent; display: flex; align-items: center; gap: 8px; font: inherit; font-size: 13px; color: #6b6b6b; padding: 0">
+          <span style="width: 22px; display: flex; justify-content: center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12"></path><path d="M6 12h12"></path></svg>
+          </span>
+          Nodo raíz
+        </button>
+        <button type="button" class="mk" style="height: 50px; border: 1px dashed #e7000b; border-radius: 16px; background: transparent; display: flex; align-items: center; gap: 8px; padding: 0 18px; font: inherit; font-size: 13px; color: #e7000b; outline: 2px solid #e7000b; outline-offset: 4px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2.2"></circle><circle cx="6" cy="18.5" r="2.2"></circle><circle cx="18" cy="18.5" r="2.2"></circle><path d="M12 7.2v3.3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 0 6 13.5v2.8"></path><path d="M12 7.2v3.3a1.5 1.5 0 0 0 1.5 1.5h3a1.5 1.5 0 0 1 1.5 1.5v2.8"></path></svg>
+          Proponer Nodos
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mk = (depth, text, done) => ({
+      text,
+      gutter: ((depth + 1) * 22 + 7) + 'px',
+      dot: depth === 0 ? '8px' : '6px',
+      dotColor: depth === 0 ? '#171717' : '#a3a3a3',
+      color: done ? '#6b6b6b' : '#171717',
+      deco: done ? 'line-through' : 'none'
+    });
+    return {
+      rows: [
+        mk(0, 'Recetas por temporada'),
+        mk(1, 'Filtro por mes'),
+        mk(1, 'Etiquetas de ingredientes', true),
+        mk(0, 'Lista de la compra'),
+        mk(1, 'Sumar cantidades repetidas'),
+        mk(0, 'Compartir una receta'),
+        mk(1, 'Enlace público de solo lectura')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

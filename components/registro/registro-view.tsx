@@ -2,6 +2,7 @@
 
 import { useBlocked } from "@/components/connection/connection-provider";
 import { PlusIcon } from "@/components/icons/plus-icon";
+import { ProposeButton } from "@/components/proposal/propose-button";
 import { INDENT, ROW_HEIGHT, NodeRow } from "@/components/registro/node-row";
 import { fire } from "@/components/tree/fire";
 import { useTree } from "@/components/tree/tree-provider";
@@ -24,7 +25,7 @@ import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 
 /** La silueta de una fila mientras el árbol viaja. Con su sangría, para que la
  *  forma que aparece sea la forma que se queda. */
-function RowSkeleton({ depth }: { depth: number }) {
+export function RowSkeleton({ depth }: { depth: number }) {
   return (
     <li className="flex items-stretch" style={{ height: ROW_HEIGHT }}>
       <span className="shrink-0" style={{ width: (depth + 1) * INDENT }} />
@@ -39,7 +40,11 @@ export function RegistroView() {
 
   if (tree.status === "loading") {
     return (
-      <ul aria-busy="true" aria-label={TREE_COPY.loading} className="flex flex-col">
+      <ul
+        aria-busy="true"
+        aria-label={TREE_COPY.loading}
+        className="flex flex-col"
+      >
         {[0, 1, 2, 2, 1, 0].map((depth, index) => (
           <RowSkeleton key={index} depth={depth} />
         ))}
@@ -48,7 +53,8 @@ export function RegistroView() {
   }
 
   if (tree.status === "error") return <TreeError />;
-  if (tree.rows.length === 0) return <TreeEmpty />;
+  if (tree.rows.length === 0)
+    return <TreeEmpty extra={<ProposeButton look="cta" />} />;
 
   return (
     <>
@@ -104,25 +110,31 @@ export function RegistroView() {
 
           Es la única pieza del Registro que se aparta del boceto a propósito.
           Su Ticket —#40— no pide coincidir con él, y lo dibujado allí centraba
-          el par icono+texto. */}
-      <button
-        type="button"
-        onClick={() => fire(tree.createRoot())}
-        disabled={blocked}
-        title={blocked ? CONNECTION_COPY.blocked : undefined}
-        className={`mt-1.5 flex h-12.5 items-center gap-2 rounded-2xl border border-dashed border-border text-[13px] text-muted-foreground transition-colors disabled:opacity-35 ${
-          blocked ? "" : "hover:border-primary hover:text-primary"
-        }`}
-      >
-        {/* `items-center` del botón lo centra en alto; esta caja, en ancho. */}
-        <span
-          className="flex shrink-0 items-center justify-center"
-          style={{ width: INDENT }}
+          el par icono+texto.
+
+          La Propuesta de Nodos va al lado (#67) por la misma razón: lo que
+          trae entra como raíces nuevas al final, justo aquí. */}
+      <div className="mt-1.5 flex gap-2.5">
+        <button
+          type="button"
+          onClick={() => fire(tree.createRoot())}
+          disabled={blocked}
+          title={blocked ? CONNECTION_COPY.blocked : undefined}
+          className={`flex h-12.5 min-w-0 flex-1 items-center gap-2 rounded-2xl border border-dashed border-border text-[13px] text-muted-foreground transition-colors disabled:opacity-35 ${
+            blocked ? "" : "hover:border-primary hover:text-primary"
+          }`}
         >
-          <PlusIcon width={16} height={16} />
-        </span>
-        {TREE_COPY.newRoot}
-      </button>
+          {/* `items-center` del botón lo centra en alto; esta caja, en ancho. */}
+          <span
+            className="flex shrink-0 items-center justify-center"
+            style={{ width: INDENT }}
+          >
+            <PlusIcon width={16} height={16} />
+          </span>
+          {TREE_COPY.newRoot}
+        </button>
+        <ProposeButton look="row" />
+      </div>
     </>
   );
 }

@@ -44,6 +44,7 @@ export type TreeWrite =
   | "create"
   | "createSibling"
   | "createQuestion"
+  | "createProposal"
   | "edit"
   | "complete"
   | "reorder"
@@ -66,6 +67,10 @@ export type FollowUp = "local" | "reread";
 const REREADS: ReadonlySet<TreeWrite> = new Set<TreeWrite>([
   "createSibling",
   "createQuestion",
+  // Hasta 25 Nodos de golpe y no devuelve ninguno: el árbol de después solo
+  // lo sabe el motor. Y no abre el campo de ninguno (no está en `CREATES`):
+  // lo que entra ya viene escrito.
+  "createProposal",
   "reorder",
   "reparent",
 ]);

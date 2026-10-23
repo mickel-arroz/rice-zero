@@ -1,0 +1,17 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-22T12:00:00Z" },
+  "title": "Propuesta de Nodos",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 900, "title": "1 · Vista Registro: el botón" },
+    "Pedir.dc.html": { "x": 1520, "y": 0, "w": 1440, "h": 900, "title": "2 · Pedir" },
+    "Cargando.dc.html": { "x": 0, "y": 1020, "w": 1440, "h": 900, "title": "3 · Cargando (esqueleto compartido)" },
+    "Propuesta.dc.html": { "x": 1520, "y": 1020, "w": 1440, "h": 900, "title": "4 · Vista previa" },
+    "Movil.dc.html": { "x": 3040, "y": 1020, "w": 390, "h": 844, "title": "5 · Vista previa en móvil" }
+  },
+  "order": ["Main.dc.html", "Pedir.dc.html", "Cargando.dc.html", "Propuesta.dc.html", "Movil.dc.html"],
+  "notes": {},
+  "designSystems": []
+}

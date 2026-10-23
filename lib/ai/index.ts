@@ -19,5 +19,6 @@
 export * from "@/lib/ai/errors";
 export * from "@/lib/ai/port";
 export * from "@/lib/ai/prompt";
+export * from "@/lib/ai/proposal";
 export * from "@/lib/ai/render";
 export * from "@/lib/ai/schema";

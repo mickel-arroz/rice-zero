@@ -23,6 +23,7 @@ import "server-only";
 
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateObject } from "ai";
+import type { z } from "zod";
 
 import {
   chainExhaustedError,
@@ -35,8 +36,14 @@ import {
   AnalysisTimeoutError,
   type AnalysisError,
 } from "@/lib/ai/errors";
-import type { AnalysisOutcome, AnalysisProvider } from "@/lib/ai/port";
-import { buildAnalysisPrompt, type AnalysisPromptInput } from "@/lib/ai/prompt";
+import type { AnalysisOutcome, AnalysisProvider, ProposalOutcome } from "@/lib/ai/port";
+import {
+  buildAnalysisPrompt,
+  buildProposalPrompt,
+  type AnalysisPromptInput,
+  type ProposalPromptInput,
+} from "@/lib/ai/prompt";
+import { proposalSchema } from "@/lib/ai/proposal";
 import { analysisSchema } from "@/lib/ai/schema";
 import { AI_CONFIG } from "@/lib/constants";
 
@@ -63,7 +70,37 @@ export type GenerateAnalysisObject = (
   prompt: string,
   model: string,
   timeoutMs: number,
+  /** Qué se pide: decide el schema que viaja como contrato de salida. */
+  output: GeminiOutput,
 ) => Promise<unknown>;
+
+/**
+ * Las dos cosas que se le piden al modelo, con el schema de cada una.
+ *
+ * Un mapa y no un segundo adaptador: la cadena de modelos, el presupuesto de
+ * tiempo y la clasificación de fallos son los mismos para las dos, y lo único
+ * que cambia es la forma de la respuesta. Copiar el bucle por una forma nueva
+ * sería copiar justo la parte difícil.
+ */
+const OUTPUTS = {
+  analysis: {
+    schema: analysisSchema,
+    name: "Analisis",
+    description:
+      "El Análisis de un árbol de ideas: Intención, resumen, preguntas, Spec y Tickets con Checks.",
+  },
+  proposal: {
+    schema: proposalSchema,
+    name: "PropuestaDeNodos",
+    description:
+      "Nodos nuevos para un árbol de ideas: hasta 5 raíces, 25 Nodos y 3 niveles.",
+  },
+} as const;
+
+export type GeminiOutput = keyof typeof OUTPUTS;
+
+/** Lo que devuelve, ya validado, cada uno de los `OUTPUTS`. */
+type Parsed<O extends GeminiOutput> = z.infer<(typeof OUTPUTS)[O]["schema"]>;
 
 /**
  * La API key, o un error que dice cuál falta.
@@ -100,7 +137,9 @@ export function requireApiKey(raw: string | undefined): string {
 function createSdkCall(): GenerateAnalysisObject {
   let google: ReturnType<typeof createGoogleGenerativeAI> | null = null;
 
-  return async (prompt, model, timeoutMs) => {
+  return async (prompt, model, timeoutMs, output) => {
+    const target = OUTPUTS[output];
+
     google ??= createGoogleGenerativeAI({
       apiKey: requireApiKey(process.env.GEMINI_API_KEY),
     });
@@ -114,10 +153,9 @@ function createSdkCall(): GenerateAnalysisObject {
        * de bloqueos no se puede expresar en JSON Schema—, así que el modelo no
        * se entera de esas reglas y hay que seguir comprobándolas al volver.
        */
-      schema: analysisSchema,
-      schemaName: "Analisis",
-      schemaDescription:
-        "El Análisis de un árbol de ideas: Intención, resumen, preguntas, Spec y Tickets con Checks.",
+      schema: target.schema,
+      schemaName: target.name,
+      schemaDescription: target.description,
       prompt,
       maxRetries: AI_CONFIG.maxRetries,
       /**
@@ -154,86 +192,113 @@ export function createGeminiProvider(
     async analyze(request: AnalysisPromptInput): Promise<AnalysisOutcome> {
       // Se ensambla UNA vez, fuera del bucle: el prompt no depende del modelo,
       // y rearmarlo por intento invitaría a que algún día sí dependiera.
-      const prompt = buildAnalysisPrompt(request);
+      const { value, model } = await runChain(
+        generate,
+        buildAnalysisPrompt(request),
+        "analysis",
+      );
+      return { analysis: value, model };
+    },
 
-      /**
-       * El presupuesto es de la generación entera y no de cada intento.
-       *
-       * Es lo que hace viable una cadena larga: cada eslabón se lleva lo que
-       * queda, y el conjunto no puede pasarse de `timeoutMs` por muchos que
-       * sean. Con un plazo por intento, el peor caso sería ese plazo por cada
-       * modelo de la lista — muy por encima de cualquier `maxDuration` de
-       * plataforma, y el usuario vería el corte de la plataforma en vez del
-       * nuestro. Añadir un eslabón no puede costar tiempo de pared, y por esto
-       * no lo cuesta.
-       */
-      const deadline = Date.now() + AI_CONFIG.timeoutMs;
-
-      /**
-       * Cada fallo clasificado, en orden, para poder rendirse diciendo por qué.
-       * Todos y no solo el último: si la cadena entera cayó por cuota, eso es
-       * lo que hay que decir, y el último solo sabe lo suyo.
-       */
-      const failures: AnalysisError[] = [];
-
-      for (const model of AI_CONFIG.geminiModels) {
-        const remaining = deadline - Date.now();
-
-        /**
-         * Se para ANTES de llamar si no queda tiempo útil.
-         *
-         * Sin esto, la cadena podía lanzar una petición con 200 ms de
-         * presupuesto: garantizada a morir por timeout, y contada por Google
-         * igual que cualquier otra. Una llamada de cuota tirada a cambio de
-         * nada.
-         *
-         * El fallo que sale es un timeout y no el último visto, y la diferencia importa:
-         * si se acabó el reloj, eso es lo que pasó — decir «high demand»
-         * porque fue el último error visto mandaría a mirar al sitio
-         * equivocado. El último fallo viaja en `cause`.
-         */
-        if (remaining < AI_CONFIG.minAttemptMs) {
-          throw new AnalysisTimeoutError({ cause: failures.at(-1) ?? null });
-        }
-
-        try {
-          const raw = await generate(prompt, model, remaining);
-
-          /**
-           * El `.parse` DENTRO del `try`, y a sabiendas de que el SDK ya validó
-           * contra el mismo schema.
-           *
-           * La redundancia es la decisión. El puerto promete que lo que cruza
-           * esta frontera cumple el contrato, y el ADR 0003 promete que un
-           * Análisis que no valida no se persiste nunca: las dos promesas son
-           * nuestras, así que la comprobación que las sostiene tiene que ser
-           * código nuestro y no un detalle interno del SDK que un cambio de
-           * versión puede relajar. De paso es lo que hace que el doble de test
-           * pase por la misma frontera que el modelo de verdad.
-           *
-           * Dentro del `try` para que un fallo de validación salga por
-           * `normalizeGeminiError` igual que un JSON corrupto — el mismo
-           * camino, que es literalmente el criterio del ticket. Y para que la
-           * cadena lo VEA: una respuesta malformada no pasa al siguiente
-           * modelo, y esa decisión no se puede tomar si el error se escapa por
-           * fuera del bucle.
-           */
-          return { analysis: analysisSchema.parse(raw), model };
-        } catch (error) {
-          const failure = normalizeGeminiError(error);
-          failures.push(failure);
-
-          // Y aquí está la cadena entera: si el fallo no tiene pinta de ser
-          // culpa DE ESTE modelo, cambiar de modelo no arregla nada, así que se
-          // sale con el error honesto en vez de quemar la lista.
-          if (!shouldTryAnotherModel(failure)) throw failure;
-        }
-      }
-
-      // La lista se agotó. Hay fallos salvo que la lista viniera vacía, y eso
-      // no es un fallo del modelo sino configuración nuestra.
-      const [first, ...rest] = failures;
-      throw first ? chainExhaustedError([first, ...rest]) : new AnalysisConfigError(NO_MODELS);
+    async propose(request: ProposalPromptInput): Promise<ProposalOutcome> {
+      const { value, model } = await runChain(
+        generate,
+        buildProposalPrompt(request),
+        "proposal",
+      );
+      return { proposal: value, model };
     },
   };
+}
+
+/**
+ * La cadena de modelos, de punta a punta, para cualquiera de los `OUTPUTS`.
+ *
+ * Es el bucle que vivía dentro de `analyze`, sacado tal cual para que la
+ * Propuesta de Nodos herede sus reglas sin copiarlas: mismo orden de modelos,
+ * mismo presupuesto compartido y misma frontera de validación.
+ */
+async function runChain<O extends GeminiOutput>(
+  generate: GenerateAnalysisObject,
+  prompt: string,
+  output: O,
+): Promise<{ value: Parsed<O>; model: string }> {
+  /**
+   * El presupuesto es de la generación entera y no de cada intento.
+   *
+   * Es lo que hace viable una cadena larga: cada eslabón se lleva lo que
+   * queda, y el conjunto no puede pasarse de `timeoutMs` por muchos que
+   * sean. Con un plazo por intento, el peor caso sería ese plazo por cada
+   * modelo de la lista — muy por encima de cualquier `maxDuration` de
+   * plataforma, y el usuario vería el corte de la plataforma en vez del
+   * nuestro. Añadir un eslabón no puede costar tiempo de pared, y por esto
+   * no lo cuesta.
+   */
+  const deadline = Date.now() + AI_CONFIG.timeoutMs;
+
+  /**
+   * Cada fallo clasificado, en orden, para poder rendirse diciendo por qué.
+   * Todos y no solo el último: si la cadena entera cayó por cuota, eso es
+   * lo que hay que decir, y el último solo sabe lo suyo.
+   */
+  const failures: AnalysisError[] = [];
+
+  for (const model of AI_CONFIG.geminiModels) {
+    const remaining = deadline - Date.now();
+
+    /**
+     * Se para ANTES de llamar si no queda tiempo útil.
+     *
+     * Sin esto, la cadena podía lanzar una petición con 200 ms de
+     * presupuesto: garantizada a morir por timeout, y contada por Google
+     * igual que cualquier otra. Una llamada de cuota tirada a cambio de
+     * nada.
+     *
+     * El fallo que sale es un timeout y no el último visto, y la diferencia importa:
+     * si se acabó el reloj, eso es lo que pasó — decir «high demand»
+     * porque fue el último error visto mandaría a mirar al sitio
+     * equivocado. El último fallo viaja en `cause`.
+     */
+    if (remaining < AI_CONFIG.minAttemptMs) {
+      throw new AnalysisTimeoutError({ cause: failures.at(-1) ?? null });
+    }
+
+    try {
+      const raw = await generate(prompt, model, remaining, output);
+
+      /**
+       * El `.parse` DENTRO del `try`, y a sabiendas de que el SDK ya validó
+       * contra el mismo schema.
+       *
+       * La redundancia es la decisión. El puerto promete que lo que cruza
+       * esta frontera cumple el contrato, y el ADR 0003 promete que un
+       * Análisis que no valida no se persiste nunca: las dos promesas son
+       * nuestras, así que la comprobación que las sostiene tiene que ser
+       * código nuestro y no un detalle interno del SDK que un cambio de
+       * versión puede relajar. De paso es lo que hace que el doble de test
+       * pase por la misma frontera que el modelo de verdad.
+       *
+       * Dentro del `try` para que un fallo de validación salga por
+       * `normalizeGeminiError` igual que un JSON corrupto — el mismo
+       * camino, que es literalmente el criterio del ticket. Y para que la
+       * cadena lo VEA: una respuesta malformada no pasa al siguiente
+       * modelo, y esa decisión no se puede tomar si el error se escapa por
+       * fuera del bucle.
+       */
+      return { value: OUTPUTS[output].schema.parse(raw) as Parsed<O>, model };
+    } catch (error) {
+      const failure = normalizeGeminiError(error);
+      failures.push(failure);
+
+      // Y aquí está la cadena entera: si el fallo no tiene pinta de ser
+      // culpa DE ESTE modelo, cambiar de modelo no arregla nada, así que se
+      // sale con el error honesto en vez de quemar la lista.
+      if (!shouldTryAnotherModel(failure)) throw failure;
+    }
+  }
+
+  // La lista se agotó. Hay fallos salvo que la lista viniera vacía, y eso
+  // no es un fallo del modelo sino configuración nuestra.
+  const [first, ...rest] = failures;
+  throw first ? chainExhaustedError([first, ...rest]) : new AnalysisConfigError(NO_MODELS);
 }

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Proponer Nodos: vista previa</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#6b6b6b}a:hover{color:#e7000b}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; box-sizing: border-box; background: #ececec; color: #171717; font-family: Iosevka, ui-monospace, Consolas, monospace; display: flex; align-items: center; justify-content: center; padding: 24px">
+  <div role="dialog" aria-label="Proponer Nodos" style="width: 560px; max-height: 852px; box-sizing: border-box; background: #ffffff; border: 1px solid #dcdcdc; border-radius: 24px; padding: 24px; display: flex; flex-direction: column; gap: 20px">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <p style="margin: 0; display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #e7000b"></span><span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.18em; color: #6b6b6b">IA</span></p>
+        <h2 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.01em">Proponer Nodos</h2>
+      </div>
+      <button type="button" aria-label="Descartar y cerrar" style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid #dcdcdc; background: transparent; display: flex; align-items: center; justify-content: center; color: #171717; padding: 0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>
+      </button>
+    </div>
+
+    <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #6b6b6b; padding: 12px 14px; border-radius: 16px; background: #fafafa; border: 1px solid #dcdcdc">«Que se pueda planificar la semana: menú por días y lista de la compra que salga sola»</p>
+
+    <div style="display: flex; justify-content: space-between; align-items: baseline">
+      <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.18em; color: #6b6b6b">Vista previa</span>
+      <span style="font-size: 12px; color: #6b6b6b">2 raíces · 7 Nodos · gemini-3.8-flash</span>
+    </div>
+
+    <ul class="mk" aria-label="Nodos propuestos" style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; overflow-y: auto; outline: 2px solid #e7000b; outline-offset: 6px; border-radius: 8px">
+      <sc-for list="{{rows}}" as="row" hint-placeholder-count="7">
+        <li style="display: flex; min-height: 44px; align-items: center">
+          <span style="flex-shrink: 0; width: {{row.gutter}}; display: flex; justify-content: flex-end; padding-right: 8px; box-sizing: border-box">
+            <span style="width: {{row.dot}}; height: {{row.dot}}; border-radius: 50%; background: {{row.dotColor}}"></span>
+          </span>
+          <span style="flex: 1; margin: 3px 0; border: 1px dashed #dcdcdc; border-radius: 14px; padding: 10px 14px; font-size: 13px; line-height: 1.5">{{row.text}}</span>
+        </li>
+      </sc-for>
+    </ul>
+
+    <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #6b6b6b">Entra entera al final del árbol, como raíces nuevas. No toca ningún Nodo que ya tengas.</p>
+
+    <div style="display: flex; gap: 10px">
+      <button type="button" style="flex: 1; height: 52px; border: 1px solid #dcdcdc; border-radius: 999px; background: transparent; color: #171717; font: inherit; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase">Regenerar</button>
+      <button type="button" style="flex: 1; height: 52px; border: 0; border-radius: 999px; background: #e7000b; color: #fafafa; font: inherit; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase">Añadir 7 Nodos</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const mk = (depth, text) => ({
+      text,
+      gutter: ((depth + 1) * 22 + 7) + 'px',
+      dot: depth === 0 ? '8px' : '6px',
+      dotColor: depth === 0 ? '#171717' : '#a3a3a3'
+    });
+    return {
+      rows: [
+        mk(0, 'Menú semanal'),
+        mk(1, 'Asignar una receta a cada día'),
+        mk(1, 'Repetir la semana anterior'),
+        mk(2, 'Avisar si una receta se repite dos días seguidos'),
+        mk(0, 'Lista de la compra automática'),
+        mk(1, 'Sacar los ingredientes del menú semanal'),
+        mk(1, 'Marcar lo que ya hay en casa')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

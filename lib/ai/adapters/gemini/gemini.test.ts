@@ -490,3 +490,51 @@ describe("el adaptador de Gemini", () => {
     });
   });
 });
+
+/**
+ * La Propuesta de Nodos, por la MISMA cadena.
+ *
+ * No se repite aquí todo lo de arriba —el presupuesto, cada fallo mapeado—:
+ * `propose` y `analyze` comparten el bucle, y lo que hay que afirmar es que de
+ * verdad lo comparten. Que la Propuesta pide su propio schema, salta de modelo
+ * igual y se rechaza igual cuando no lo cumple.
+ */
+describe("la Propuesta de Nodos sobre Gemini", () => {
+  const PROPOSAL = { roots: [{ text: "Menú semanal", children: [] }] };
+  const ASK = { serializedTree: REQUEST.serializedTree, request: "Planificar la semana" };
+
+  it("devuelve la Propuesta validada y el modelo que la escribió", async () => {
+    const { provider } = respondingWith(PROPOSAL);
+    const { proposal, model } = await provider.propose(ASK);
+    expect(proposal).toEqual(PROPOSAL);
+    expect(model).toBe(provider.models[0]);
+  });
+
+  it("pide la Propuesta, con el árbol y el pedido en el prompt", async () => {
+    const { provider, generate } = respondingWith(PROPOSAL);
+    await provider.propose(ASK);
+
+    const [prompt, , , output] = generate.mock.calls[0];
+    expect(output).toBe("proposal");
+    expect(prompt).toContain(ASK.serializedTree);
+    expect(prompt).toContain("Planificar la semana");
+  });
+
+  it("y el Análisis sigue pidiendo el Análisis", async () => {
+    const { provider, generate } = respondingWith(sampleAnalysis());
+    await provider.analyze(REQUEST);
+    expect(generate.mock.calls[0][3]).toBe("analysis");
+  });
+
+  it("un modelo saturado pasa al siguiente, igual que en el Análisis", async () => {
+    const { provider } = failingFirst(1, highDemand(), PROPOSAL);
+    const { model } = await provider.propose(ASK);
+    expect(model).toBe(provider.models[1]);
+  });
+
+  it("una Propuesta fuera de los topes sale como malformada", async () => {
+    const six = { roots: Array.from({ length: 6 }, () => ({ text: "R", children: [] })) };
+    const { provider } = respondingWith(six);
+    await expect(provider.propose(ASK)).rejects.toThrow(MalformedAnalysisError);
+  });
+});

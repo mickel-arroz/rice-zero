@@ -15,6 +15,7 @@
  * sustancia propia, y por eso no van de propina dentro del adaptador de Gemini.
  */
 
+import { PROPOSAL_LIMITS } from "@/lib/ai/proposal";
 import { INTENT_KINDS } from "@/lib/ai/schema";
 
 export type AnalysisPromptInput = {
@@ -150,4 +151,64 @@ ${serializedTree}
   ];
 
   return blocks.join("\n\n");
+}
+
+export type ProposalPromptInput = {
+  /** La salida de `serializeTree`: el árbol SIN el Subárbol completado. */
+  serializedTree: string;
+  /** Lo que el usuario quiere que crezca, en sus palabras. */
+  request: string;
+};
+
+const REQUEST_TAG = "pedido";
+
+/**
+ * Las reglas de la Propuesta. Constantes, como las del Análisis.
+ *
+ * Los topes se le DICEN al modelo además de comprobarse a la vuelta: el schema
+ * rechaza una Propuesta de 26 Nodos, pero rechazarla es gastar una llamada de
+ * cuota para nada. Mejor que no la escriba.
+ */
+const PROPOSAL_RULES = `Qué tienes que devolver
+
+Nodos NUEVOS para el árbol de ideas de arriba, que respondan al pedido. Entran
+todos como raíces nuevas al final del árbol: no puedes editar, mover ni colgar
+nada de un Nodo que ya exista, así que no lo intentes.
+
+Los límites, que no se negocian:
+- Entre 1 y ${PROPOSAL_LIMITS.roots} raíces.
+- Como mucho ${PROPOSAL_LIMITS.nodes} Nodos en total, raíces incluidas.
+- Como mucho ${PROPOSAL_LIMITS.depth} niveles: raíz, hijo y nieto.
+
+Cada Nodo es una idea concreta en una línea, no un párrafo. No repitas lo que el
+árbol ya dice: complétalo. Si el árbol está vacío, el pedido es todo lo que hay.
+
+Escribe en el idioma del pedido, no en el de este prompt. Sin preámbulo ni
+cierre: solo los Nodos.`;
+
+/**
+ * El prompt de una Propuesta de Nodos.
+ *
+ * Pura, como `buildAnalysisPrompt`, y con el mismo cuidado con lo que viene de
+ * fuera: el pedido y el árbol van entre etiquetas.
+ */
+export function buildProposalPrompt({
+  serializedTree,
+  request,
+}: ProposalPromptInput): string {
+  const tree = serializedTree.trim() ? serializedTree : "(el árbol está vacío)";
+
+  return [
+    `Lo que pide la persona dueña del árbol:
+
+<${REQUEST_TAG}>
+${request.trim()}
+</${REQUEST_TAG}>`,
+    `El árbol tal como está ahora:
+
+<${TREE_TAG}>
+${tree}
+</${TREE_TAG}>`,
+    PROPOSAL_RULES,
+  ].join("\n\n");
 }

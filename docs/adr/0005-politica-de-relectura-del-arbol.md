@@ -34,6 +34,8 @@ Lo que cambia filas sin nombrarlas son las que reparten puestos entre hermanos:
   fuera «crear» y «crear un hermano» parecen lo mismo.
 - `reparent` mueve un Nodo de una lista de hermanos a otra.
 - `createQuestion` crea dos Nodos —la pregunta y el hueco para contestarla— y solo devuelve uno.
+- `createProposal` (#67) crea hasta 25 Nodos de una Propuesta de Nodos y no devuelve ninguno. Si se
+  corta a medias, relee igual antes de avisar: lo que ya entró tiene que verse.
 
 Ninguna de ellas devuelve las filas que tocó de paso. Deducirlas en la pantalla sería reimplementar
 el plan del dominio (`reorderPlan`) en un segundo sitio, y dos copias de una regla de orden

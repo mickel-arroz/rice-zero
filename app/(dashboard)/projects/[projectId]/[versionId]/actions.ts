@@ -29,6 +29,7 @@ import {
   InvalidAnalysisInputError,
   SessionRequiredError,
   type AnalysisPromptInput,
+  type ProposalPromptInput,
 } from "@/lib/ai";
 import { requestSession } from "@/lib/auth/session";
 import { canAct } from "@/lib/backend/ports";
@@ -37,6 +38,10 @@ import {
   ANALYSIS_INPUT_LIMITS,
   type GenerateAnalysisResult,
 } from "@/lib/services/analyses";
+import {
+  requireProposableRequest,
+  type GenerateProposalResult,
+} from "@/lib/services/proposals";
 
 /**
  * Exige que lo que llegó por el cable se pueda analizar.
@@ -108,6 +113,31 @@ export async function generateAnalysis(
     // texto que devolvió el modelo es el árbol de una persona masticado, y no
     // tiene por qué acabar en el log de la plataforma. Lo que se pierda de
     // diagnóstico lo compensan `kind` e `issues`, que sí viajan.
+    return { ok: false, failure: describeAnalysisFailure(error) };
+  }
+}
+
+/**
+ * Pide una Propuesta de Nodos. Tampoco persiste nada, y aquí ni siquiera
+ * después: la Propuesta no se guarda nunca (`CONTEXT.md` → Propuesta de Nodos).
+ *
+ * Las mismas dos puertas que `generateAnalysis` —sesión y entrada— y por lo
+ * mismo: es un POST público que gasta el free tier compartido.
+ */
+export async function generateProposal(
+  request: ProposalPromptInput,
+): Promise<GenerateProposalResult> {
+  try {
+    if (!canAct(await requestSession())) throw new SessionRequiredError();
+
+    requireProposableRequest(request);
+
+    const { proposal, model } = await getAnalysisProvider().propose({
+      serializedTree: request.serializedTree,
+      request: request.request,
+    });
+    return { ok: true, model, proposal };
+  } catch (error) {
     return { ok: false, failure: describeAnalysisFailure(error) };
   }
 }

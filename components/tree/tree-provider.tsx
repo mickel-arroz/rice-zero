@@ -18,8 +18,9 @@ import {
   planNodeSave,
 } from "@/components/tree/autosave";
 import { fire } from "@/components/tree/fire";
+import type { Proposal } from "@/lib/ai/proposal";
 import type { TreeNode } from "@/lib/backend/ports";
-import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
+import { CONNECTION_COPY, PROPOSAL_COPY, TREE_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { nodeService } from "@/lib/services/nodes";
 import {
@@ -28,6 +29,7 @@ import {
   serializeCollapsed,
   toggleCollapsed as toggle,
 } from "@/lib/tree/collapsed";
+import { PartialProposalError, proposalCreations } from "@/lib/tree/proposal";
 import { treeRows, visibleRows, type TreeRow } from "@/lib/tree/rows";
 import {
   applyCreated,
@@ -162,6 +164,15 @@ type TreeContextValue = {
    * 40 ya manda dar a mano — editar el árbol y regenerar.
    */
   createQuestion(question: string): Promise<void>;
+  /**
+   * Una Propuesta de Nodos, entera, como raíces nuevas al final del árbol.
+   *
+   * Aquí y dentro de un solo `run` por lo mismo que `createQuestion`: se espera
+   * al Autoguardado pendiente, se relee una vez al final, y el pie de la
+   * cabecera cuenta el guardado como cualquier otro. Qué se escribe y en qué
+   * orden lo decide `proposalCreations`; esto solo lo ejecuta.
+   */
+  appendProposal(proposal: Proposal): Promise<void>;
   createChild(parentId: string): Promise<void>;
   createSibling(siblingId: string): Promise<void>;
   /** Mueve un Nodo entre sus hermanos. El destino se recorta al rango. */
@@ -566,6 +577,45 @@ export function TreeProvider({
     [run, versionId],
   );
 
+  const appendProposal = useCallback(
+    (proposal: Proposal) =>
+      run("createProposal", async () => {
+        // La clave local de cada paso, traducida al id que le dio el motor.
+        // En serie y no en paralelo: un hijo necesita el id de su padre, y los
+        // hermanos tienen que nacer en orden para quedar en orden.
+        const ids = new Map<string, string>();
+        const plan = proposalCreations(proposal);
+        try {
+          for (const step of plan) {
+            let created: TreeNode;
+            if (step.parentKey === null) {
+              created = await nodeService().createRoot(versionId, step.content);
+            } else {
+              // Un padre sin id no se arregla creando el hijo como raíz: eso
+              // metería en el árbol una forma que nadie propuso. El plan
+              // garantiza el orden; si un día no lo hace, que se vea.
+              const parentId = ids.get(step.parentKey);
+              if (!parentId) throw new Error(`Sin padre para ${step.key}`);
+              created = await nodeService().createChild(versionId, parentId, step.content);
+            }
+            ids.set(step.key, created.id);
+          }
+        } catch (error) {
+          if (ids.size === 0) throw error;
+          // Ya entró algo. El `catch` de `run` no relee, así que se relee
+          // aquí: la pantalla tiene que enseñar lo que de verdad quedó, no el
+          // árbol de antes de pulsar.
+          commit(await nodeService().list(versionId));
+          throw new PartialProposalError(
+            PROPOSAL_COPY.partial(ids.size, plan.length),
+            ids.size,
+            { cause: error },
+          );
+        }
+      }),
+    [commit, run, versionId],
+  );
+
   const createChild = useCallback(
     (parentId: string) =>
       run("create", () => nodeService().createChild(versionId, parentId), {
@@ -801,6 +851,7 @@ export function TreeProvider({
       setText,
       createRoot,
       createQuestion,
+      appendProposal,
       createChild,
       createSibling,
       setCompleted,
@@ -824,6 +875,7 @@ export function TreeProvider({
       setText,
       createRoot,
       createQuestion,
+      appendProposal,
       createChild,
       createSibling,
       setCompleted,

@@ -19,7 +19,8 @@
  * `AnalysisOutcome`.
  */
 
-import type { AnalysisPromptInput } from "@/lib/ai/prompt";
+import type { AnalysisPromptInput, ProposalPromptInput } from "@/lib/ai/prompt";
+import type { Proposal } from "@/lib/ai/proposal";
 import type { Analysis } from "@/lib/ai/schema";
 
 /**
@@ -56,4 +57,19 @@ export type AnalysisProvider = {
    */
   readonly models: readonly string[];
   analyze(request: AnalysisPromptInput): Promise<AnalysisOutcome>;
+  /**
+   * Una Propuesta de Nodos para el árbol, a partir de lo que pidió el usuario.
+   *
+   * Misma frontera que `analyze`: entra el árbol ya serializado —sin el
+   * Subárbol completado, que es cosa de `serializeTree`— y sale validada contra
+   * su schema, con el modelo que la escribió. Los fallos son los mismos
+   * `AnalysisError`: la llamada es la misma, solo cambia lo que se pide.
+   */
+  propose(request: ProposalPromptInput): Promise<ProposalOutcome>;
+};
+
+/** Una Propuesta y el modelo que la escribió. Ver `AnalysisOutcome`. */
+export type ProposalOutcome = {
+  proposal: Proposal;
+  model: string;
 };

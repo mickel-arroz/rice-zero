@@ -69,6 +69,27 @@ Cierra: #52 · #53 · #54
 > Versión, con el historial dentro. La vuelta al Proyecto es navegación hacia
 > arriba y no un «atrás» del navegador.
 
+### `propuesta-nodos/` — Ticket #67
+
+Artboards: Vista Registro · Pedir · Cargando · Vista previa · Vista previa en móvil.
+Medidas: diálogo 560 / radio 24; filas de la vista previa con el `INDENT` 22 del Registro.
+
+Aprobado el 2026-10-22 y traído aquí el mismo día, antes de borrar el artifact.
+Cierra: **#67**
+
+> El botón vive al lado de «Nodo raíz», al final de la lista, porque lo que
+> trae la Propuesta entra ahí: como raíces nuevas, al final. Por eso no está en
+> el Canvas.
+
+> La vista previa pinta las filas con borde PUNTEADO y sin casilla ni campo:
+> todavía no existen y no se editan. Cerrar es descartar —la Propuesta no se
+> guarda, no hay nada que confirmar— y «Regenerar» repite el mismo pedido.
+
+> Una desviación hecha al implementar: con la Versión vacía el Registro pinta
+> el estado vacío y no la lista, así que la puerta se repite allí, debajo de
+> «Primer Nodo». Una Versión sin nada es donde más sirve pedir las primeras
+> ramas.
+
 ## Por qué están en el repo y no solo en los Tickets
 
 El Spec fija la regla de cierre: *«lo puramente visual no se automatiza; se

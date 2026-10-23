@@ -12,8 +12,9 @@
  * el falso, más de lo que pase en la suite será mérito del contrato.
  */
 
-import type { AnalysisOutcome, AnalysisProvider } from "@/lib/ai/port";
-import type { AnalysisPromptInput } from "@/lib/ai/prompt";
+import type { AnalysisOutcome, AnalysisProvider, ProposalOutcome } from "@/lib/ai/port";
+import type { AnalysisPromptInput, ProposalPromptInput } from "@/lib/ai/prompt";
+import { PROPOSAL_LIMITS, proposalSchema, type Proposal } from "@/lib/ai/proposal";
 import { analysisSchema, type Analysis, type IntentKind } from "@/lib/ai/schema";
 
 /**
@@ -143,6 +144,31 @@ export function fakeAnalysisProvider(): AnalysisProvider {
       } satisfies Analysis);
 
       return { analysis, model: FAKE_MODEL };
+    },
+
+    /**
+     * Una raíz con el pedido y un hijo por cada trozo separado por comas.
+     *
+     * Del PEDIDO y no del árbol: así sale algo también de un árbol vacío, y la
+     * E2E puede afirmar qué Nodos entran sabiendo solo lo que escribió.
+     */
+    async propose({ request }: ProposalPromptInput): Promise<ProposalOutcome> {
+      const parts = request
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .slice(0, PROPOSAL_LIMITS.nodes - 1);
+
+      const proposal = proposalSchema.parse({
+        roots: [
+          {
+            text: request.trim() || "Propuesta",
+            children: parts.length > 1 ? parts.map((part) => ({ text: part, children: [] })) : [],
+          },
+        ],
+      } satisfies Proposal);
+
+      return { proposal, model: FAKE_MODEL };
     },
   };
 }

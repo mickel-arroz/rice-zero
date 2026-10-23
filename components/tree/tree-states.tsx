@@ -41,6 +41,7 @@ export function TreeError() {
 
 export function TreeEmpty({
   readOnlyOnMobile = false,
+  extra,
 }: {
   /**
    * Esconde la llamada a crear por debajo de `lg` y explica por qué.
@@ -53,6 +54,11 @@ export function TreeEmpty({
    * puede saber haría parpadear la pantalla al hidratar.
    */
   readOnlyOnMobile?: boolean;
+  /**
+   * Otra salida debajo de «Primer Nodo». La pone la Vista Registro —la puerta
+   * de la Propuesta de Nodos— y no el Canvas, por eso llega de fuera.
+   */
+  extra?: React.ReactNode;
 }) {
   const { createRoot } = useTree();
   // Este botón escribe igual que cualquier otro, y era el único de la pantalla
@@ -81,6 +87,8 @@ export function TreeEmpty({
         <PlusIcon />
         {TREE_COPY.firstNode}
       </button>
+
+      {extra}
 
       {/* Sin esto, en un teléfono el recuadro vacío se quedaría sin salida: la
           Versión no tiene Nodos y aquí no se puede crear ninguno. */}
