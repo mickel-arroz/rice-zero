@@ -24,10 +24,13 @@ import { CONNECTION_COPY, PROPOSAL_COPY, TREE_COPY } from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import { nodeService } from "@/lib/services/nodes";
 import {
-  collapsedKey,
-  parseCollapsed,
-  serializeCollapsed,
-  toggleCollapsed as toggle,
+  emptyFolds,
+  foldedIds,
+  pruneExpanded,
+  readFolds,
+  toggleFold,
+  writeFolds,
+  type Folds,
 } from "@/lib/tree/collapsed";
 import type { CleanupPlan } from "@/lib/tree/cleanup";
 import { PartialProposalError, proposalCreations } from "@/lib/tree/proposal";
@@ -128,7 +131,11 @@ type TreeContextValue = {
    */
   visibleRows: TreeRow[];
   nodes: TreeNode[];
-  /** Los Nodos plegados. Preferencia del navegador: ver `lib/tree/collapsed.ts`. */
+  /**
+   * Los Nodos que se ven plegados: los plegados a mano y los completados con
+   * hijos que no se desplegaron a mano. Derivado, no guardado: ver
+   * `lib/tree/collapsed.ts`.
+   */
   collapsedIds: ReadonlySet<string>;
   /** Pliega el Nodo, o lo despliega. */
   toggleCollapsed(id: string): void;
@@ -837,34 +844,30 @@ export function TreeProvider({
    * HTML distinto del primer repintado. El árbol no se pinta en servidor —llega
    * por `fetch` después de hidratar— así que ese arranque vacío no se ve nunca.
    */
-  const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(
-    () => new Set<string>(),
-  );
+  const [folds, setFolds] = useState<Folds>(emptyFolds);
 
   useEffect(() => {
     // Cambiar de Versión trae OTRO plegado, no el de antes: cada Versión es un
     // árbol completo e independiente.
     try {
-      setCollapsedIds(
-        parseCollapsed(window.localStorage.getItem(collapsedKey(versionId))),
-      );
+      setFolds(readFolds(window.localStorage, versionId));
     } catch {
       // Un navegador con el almacenamiento denegado —modo privado de algunos, o
       // una política de la empresa— no puede impedir mirar el árbol. Sin
-      // plegado guardado se abre entero, que es el estado por defecto.
-      setCollapsedIds(new Set<string>());
+      // excepciones guardadas se abre como dicta la regla: los completados con
+      // hijos, plegados; el resto, abierto.
+      setFolds(emptyFolds());
     }
   }, [versionId]);
 
-  const toggleCollapsed = useCallback(
-    (id: string) => {
-      setCollapsedIds((current) => {
-        const next = toggle(current, id);
+  /** Cambia las excepciones y las guarda. */
+  const updateFolds = useCallback(
+    (change: (current: Folds) => Folds) => {
+      setFolds((current) => {
+        const next = change(current);
+        if (next === current) return current;
         try {
-          window.localStorage.setItem(
-            collapsedKey(versionId),
-            serializeCollapsed(next),
-          );
+          writeFolds(window.localStorage, versionId, next);
         } catch {
           // No poder guardarlo no puede impedir plegarlo: la pantalla obedece
           // igual y lo que se pierde es que sobreviva a la recarga.
@@ -876,7 +879,22 @@ export function TreeProvider({
   );
 
   const rows = useMemo(() => treeRows(state.nodes), [state.nodes]);
+  const collapsedIds = useMemo(() => foldedIds(rows, folds), [rows, folds]);
   const visible = useMemo(() => visibleRows(rows, collapsedIds), [rows, collapsedIds]);
+
+  const toggleCollapsed = useCallback(
+    (id: string) => {
+      const row = rows.find((candidate) => candidate.node.id === id);
+      if (row) updateFolds((current) => toggleFold(current, row));
+    },
+    [rows, updateFolds],
+  );
+
+  // Un Nodo desmarcado olvida su desplegado manual, se desmarcara aquí o en
+  // otro dispositivo: por eso se mira el árbol y no el botón.
+  useEffect(() => {
+    updateFolds((current) => pruneExpanded(current, rows));
+  }, [rows, updateFolds]);
 
   const value = useMemo(
     () => ({
