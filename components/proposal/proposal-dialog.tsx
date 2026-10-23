@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 
@@ -10,8 +11,13 @@ import {
   CTA_PRIMARY_CLASS,
   CTA_SECONDARY_CLASS,
   LABEL_CLASS,
+  PILL_PRIMARY_CLASS,
 } from "@/components/layout/site-chrome";
 import { Field } from "@/components/projects/field";
+import {
+  proposalFailure,
+  type ProposalFailureView,
+} from "@/components/proposal/failure";
 import { INDENT } from "@/components/registro/node-row";
 import { RowSkeleton } from "@/components/registro/registro-view";
 import { useTree } from "@/components/tree/tree-provider";
@@ -23,7 +29,12 @@ import {
   PROPOSAL_LIMITS,
   type Proposal,
 } from "@/lib/ai/proposal";
-import { CONNECTION_COPY, PROPOSAL_COPY } from "@/lib/constants";
+import {
+  ANALYSIS_COPY,
+  CONNECTION_COPY,
+  PROPOSAL_COPY,
+  ROUTES,
+} from "@/lib/constants";
 import { errorMessage } from "@/lib/errors";
 import {
   PROPOSAL_INPUT_LIMITS,
@@ -42,14 +53,20 @@ import {
  * hace verdad que «no se persiste»: no hay ningún sitio más donde quede.
  */
 
+/**
+ * Lo que se enseña de un fallo. Pedir falla con la taxonomía de la IA —título,
+ * cuerpo, pista—; añadir falla en el backend y basta su mensaje.
+ */
+type PhaseError = ProposalFailureView | string;
+
 type Phase =
-  | { kind: "asking"; error: string | null }
+  | { kind: "asking"; error: PhaseError | null }
   | { kind: "loading" }
   | {
       kind: "preview";
       proposal: Proposal;
       model: string;
-      error: string | null;
+      error: PhaseError | null;
       /**
        * «Añadir» se cortó a medias: parte ya está en el árbol, así que no se
        * puede volver a añadir sin duplicarla. Ver `PartialProposalError`.
@@ -125,8 +142,8 @@ export function ProposalDialog({ onClose }: { onClose: () => void }) {
       // intacto: reintentar es volver a pulsar, sin teclear nada otra vez.
       setPhase(
         previous
-          ? { ...previous, error: errorMessage(cause) }
-          : { kind: "asking", error: errorMessage(cause) },
+          ? { ...previous, error: proposalFailure(cause) }
+          : { kind: "asking", error: proposalFailure(cause) },
       );
     }
   }
@@ -189,7 +206,7 @@ export function ProposalDialog({ onClose }: { onClose: () => void }) {
           <p className="text-xs leading-relaxed text-muted-foreground">
             {PROPOSAL_COPY.hint(PROPOSAL_LIMITS.roots)}
           </p>
-          {phase.error ? <InlineError message={phase.error} /> : null}
+          {phase.error ? <InlineError error={phase.error} /> : null}
           <button
             type="submit"
             disabled={request.trim().length === 0 || blocked}
@@ -297,7 +314,7 @@ function Preview({
         {PROPOSAL_COPY.appendNote}
       </p>
 
-      {error ? <InlineError message={error} /> : null}
+      {error ? <InlineError error={error} /> : null}
 
       {/* En el teléfono «Añadir» va arriba, donde llega el pulgar; en
           escritorio, a la derecha, que es donde se lee la acción principal. */}
@@ -306,6 +323,7 @@ function Preview({
           type="button"
           onClick={onRegenerate}
           disabled={busy || blocked}
+          title={blocked ? CONNECTION_COPY.blocked : undefined}
           className={`${CTA_SECONDARY_CLASS} flex-1 disabled:opacity-45`}
         >
           {PROPOSAL_COPY.regenerate}
@@ -324,14 +342,48 @@ function Preview({
   );
 }
 
-function InlineError({ message }: { message: string }) {
+/**
+ * El fallo, dentro del diálogo y no en un toast: aquí no hay hoja que se cierre
+ * y esconda lo que pasó, y lo que se pidió sigue arriba para volver a mandarlo.
+ * Lo que se dice es lo mismo que en `AnalysisToast`.
+ */
+function InlineError({ error }: { error: PhaseError }) {
+  if (typeof error === "string") {
+    return (
+      <p
+        role="alert"
+        className="flex items-start gap-2 text-[13px] leading-relaxed text-primary"
+      >
+        <AlertIcon width={16} height={16} className="mt-0.5 shrink-0" />
+        {error}
+      </p>
+    );
+  }
+
   return (
-    <p
-      role="alert"
-      className="flex items-start gap-2 text-[13px] leading-relaxed text-primary"
-    >
-      <AlertIcon width={16} height={16} className="mt-0.5 shrink-0" />
-      {message}
-    </p>
+    <div role="alert" className="flex items-start gap-2">
+      <AlertIcon width={16} height={16} className="mt-0.5 shrink-0 text-primary" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <p className="text-[13px] leading-snug font-bold text-pretty text-primary">
+          {error.title}
+        </p>
+        <p className="text-xs leading-relaxed text-pretty text-muted-foreground">
+          {error.message}
+        </p>
+        {error.hint ? (
+          <p className="text-[11px] leading-relaxed text-pretty text-muted-foreground">
+            {error.hint}
+          </p>
+        ) : null}
+        {error.login ? (
+          <Link
+            href={ROUTES.login}
+            className={`${PILL_PRIMARY_CLASS} mt-0.5 self-start`}
+          >
+            {ANALYSIS_COPY.goToLogin}
+          </Link>
+        ) : null}
+      </div>
+    </div>
   );
 }

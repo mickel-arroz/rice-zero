@@ -1467,4 +1467,16 @@ export const PROPOSAL_COPY = {
     `Entraron ${created} de ${total} Nodos antes del fallo. Revisa el árbol: volver a añadir duplicaría lo que ya entró.`,
   errorTitle: "No se pudo proponer.",
   retry: "Reintentar",
+  /**
+   * Los títulos de `ANALYSIS_COPY.failures` que nombran al Análisis. El resto
+   * —cuota, API key, red, sesión— se dicen igual: es la MISMA IA fallando por lo
+   * mismo, y llamarlo distinto aquí haría pensar que es otro problema.
+   */
+  failures: {
+    malformada: "La IA devolvió algo que no es una Propuesta",
+    entrada: "Esto no se puede proponer",
+  } as const,
+  /** El cuerpo de `malformada`: el de la clase habla de «un Análisis válido». */
+  malformedMessage:
+    "La respuesta no cumple los topes de una Propuesta. Regenerar suele bastar.",
 } as const;
