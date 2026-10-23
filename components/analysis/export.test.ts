@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { fileStamp, masterExport, ticketExport } from "@/components/analysis/export";
+import {
+  fileSlug,
+  fileStamp,
+  masterExport,
+  ticketExport,
+} from "@/components/analysis/export";
 import { adornedAnalysis, sampleAnalysis } from "@/lib/ai/testing/samples";
 import { renderMasterPrompt, renderTicketPrompt } from "@/lib/ai";
 import type { Analysis } from "@/lib/backend/ports";
@@ -37,6 +42,29 @@ describe("fileStamp", () => {
   });
 });
 
+describe("fileSlug", () => {
+  it.each([
+    ["un nombre normal", "Tienda", "tienda"],
+    ["varias palabras", "Tienda online", "tienda-online"],
+    ["tildes y eñes", "Diseño Gráfico Año", "diseno-grafico-ano"],
+    ["mayúsculas acentuadas", "ÁRBOL ÑANDÚ", "arbol-nandu"],
+    ["una mayúscula que se descompone al bajar", "İstanbul", "istanbul"],
+    ["signos y espacios", "  ¡Mi app! (v2) — beta  ", "mi-app-v2-beta"],
+    ["guiones de más", "--a__b--", "a-b"],
+  ])("%s", (_caso, name, slug) => {
+    expect(fileSlug(name)).toBe(slug);
+  });
+
+  it.each([
+    ["vacío", ""],
+    ["solo espacios", "   "],
+    ["solo signos", "¿¡!?…"],
+    ["solo emoji", "🚀✨"],
+  ])("un nombre que se queda en nada cae en rice0: %s", (_caso, name) => {
+    expect(fileSlug(name)).toBe("rice0");
+  });
+});
+
 describe("masterExport", () => {
   /**
    * El criterio de aceptación literal del ticket, hecho aserción: «el `.md`
@@ -52,17 +80,23 @@ describe("masterExport", () => {
   it("no añade ni una línea a lo que escribe el renderer", () => {
     const analysis = stored(new Date(2026, 8, 5, 14, 32));
 
-    expect(masterExport(analysis).text).toBe(renderMasterPrompt(analysis.content));
+    expect(masterExport(analysis, "Tienda").text).toBe(renderMasterPrompt(analysis.content));
   });
 
   it("tampoco lo hace cuando el contenido traía adorno del modelo", () => {
     const analysis = { ...stored(new Date(2026, 8, 5, 14, 32)), content: adornedAnalysis() };
 
-    expect(masterExport(analysis).text).toBe(renderMasterPrompt(analysis.content));
+    expect(masterExport(analysis, "Tienda").text).toBe(renderMasterPrompt(analysis.content));
   });
 
-  it("nombra el archivo con el sello del Análisis", () => {
-    expect(masterExport(stored(new Date(2026, 8, 5, 14, 32))).filename).toBe(
+  it("nombra el archivo por el Proyecto, con el sello del Análisis", () => {
+    expect(
+      masterExport(stored(new Date(2026, 8, 5, 14, 32)), "Diseño Gráfico").filename,
+    ).toBe("diseno-grafico-master-2026-09-05-1432.md");
+  });
+
+  it("sin nombre que sirva, el archivo sigue llamándose rice0", () => {
+    expect(masterExport(stored(new Date(2026, 8, 5, 14, 32)), "¡!").filename).toBe(
       "rice0-master-2026-09-05-1432.md",
     );
   });
@@ -72,7 +106,7 @@ describe("ticketExport", () => {
   it("no añade ni una línea a lo que escribe el renderer", () => {
     const analysis = stored(new Date(2026, 8, 5, 14, 32));
 
-    expect(ticketExport(analysis, "t2").text).toBe(
+    expect(ticketExport(analysis, "Tienda", "t2").text).toBe(
       renderTicketPrompt(analysis.content, "t2"),
     );
   });
@@ -86,11 +120,23 @@ describe("ticketExport", () => {
   it("nombra el archivo por el Ticket, para que dos no se pisen", () => {
     const analysis = stored(new Date(2026, 8, 5, 14, 32));
 
-    expect(ticketExport(analysis, "t1").filename).toBe("rice0-t1-2026-09-05-1432.md");
-    expect(ticketExport(analysis, "t3").filename).toBe("rice0-t3-2026-09-05-1432.md");
+    expect(ticketExport(analysis, "Mi App", "t1").filename).toBe(
+      "mi-app-t1-2026-09-05-1432.md",
+    );
+    expect(ticketExport(analysis, "Mi App", "t3").filename).toBe(
+      "mi-app-t3-2026-09-05-1432.md",
+    );
+  });
+
+  it("sin nombre que sirva, el Ticket también cae en rice0", () => {
+    expect(
+      ticketExport(stored(new Date(2026, 8, 5, 14, 32)), "  ", "t1").filename,
+    ).toBe("rice0-t1-2026-09-05-1432.md");
   });
 
   it("un Ticket que no existe es un fallo de quien llama, no un archivo vacío", () => {
-    expect(() => ticketExport(stored(new Date(2026, 8, 5, 14, 32)), "t99")).toThrow();
+    expect(() =>
+      ticketExport(stored(new Date(2026, 8, 5, 14, 32)), "Tienda", "t99"),
+    ).toThrow();
   });
 });

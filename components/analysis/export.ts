@@ -34,8 +34,37 @@ export type PromptExport = {
   text: string;
 };
 
-/** El prefijo de todo lo que sale de aquí, para reconocerlo en Descargas. */
-const PREFIX = "rice0";
+/**
+ * El nombre de reserva, para cuando el del Proyecto no deja nada usable.
+ *
+ * Era el prefijo de TODO lo exportado hasta #61; desde entonces el archivo se
+ * llama como el Proyecto, que es lo que se busca en Descargas.
+ */
+const FALLBACK = "rice0";
+
+/**
+ * El nombre del Proyecto, apto para un archivo: `Diseño Gráfico` →
+ * `diseno-grafico`.
+ *
+ * Minúsculas, sin diacríticos —y aquí la `ñ` SÍ cae a `n`, al revés que en la
+ * Búsqueda (`lib/tree/search.ts`): allí se compara lo que la persona lee, y
+ * aquí se escribe un nombre que tiene que sobrevivir a cualquier sistema de
+ * archivos y a cualquier terminal—, lo no alfanumérico colapsado a un guion y
+ * sin guiones en los extremos. Lo que se queda en nada cae en `rice0`: un
+ * archivo que empieza por `-master-` no se encuentra en Descargas.
+ */
+export function fileSlug(projectName: string): string {
+  // Minúsculas ANTES de quitar marcas: `İ` baja a `i` más un punto combinante,
+  // y quitado después partiría `İstanbul` en `i-stanbul`.
+  const slug = projectName
+    .toLowerCase()
+    .normalize("NFD")
+    // Todo el bloque de diacríticos, virgulilla incluida: la `ñ` queda en `n`.
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || FALLBACK;
+}
 
 function pad(value: number): string {
   return String(value).padStart(2, "0");
@@ -59,10 +88,14 @@ export function fileStamp(date: Date): string {
   return `${day}-${pad(date.getHours())}${pad(date.getMinutes())}`;
 }
 
-/** El Análisis entero, para pegar en un agente de código. */
-export function masterExport(analysis: Analysis): PromptExport {
+/**
+ * El Análisis entero, para pegar en un agente de código.
+ *
+ * @param projectName el nombre del Proyecto tal cual; el slug lo hace esto.
+ */
+export function masterExport(analysis: Analysis, projectName: string): PromptExport {
   return {
-    filename: `${PREFIX}-master-${fileStamp(analysis.createdAt)}.md`,
+    filename: `${fileSlug(projectName)}-master-${fileStamp(analysis.createdAt)}.md`,
     text: renderMasterPrompt(analysis.content),
   };
 }
@@ -79,9 +112,13 @@ export function masterExport(analysis: Analysis): PromptExport {
  * @throws si el Ticket no existe. Lo lanza el renderer, y es lo correcto: un
  *   `.md` en blanco en la carpeta de Descargas no delata el bug de quien llamó.
  */
-export function ticketExport(analysis: Analysis, ticketId: string): PromptExport {
+export function ticketExport(
+  analysis: Analysis,
+  projectName: string,
+  ticketId: string,
+): PromptExport {
   return {
-    filename: `${PREFIX}-${ticketId}-${fileStamp(analysis.createdAt)}.md`,
+    filename: `${fileSlug(projectName)}-${ticketId}-${fileStamp(analysis.createdAt)}.md`,
     text: renderTicketPrompt(analysis.content, ticketId),
   };
 }

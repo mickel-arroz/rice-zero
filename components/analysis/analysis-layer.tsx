@@ -94,8 +94,15 @@ export function AnalysisLayer() {
  * quedaría a varias pantallas del sitio donde se descubre que hace falta.
  *
  * @param backHref a dónde sube el botón de la esquina: el Proyecto.
+ * @param projectName cómo se llaman los `.md` que se descargan desde aquí.
  */
-export function AnalysisPanelBody({ backHref }: { backHref: string }) {
+export function AnalysisPanelBody({
+  backHref,
+  projectName,
+}: {
+  backHref: string;
+  projectName: string;
+}) {
   const { view, status } = useAnalysis();
   // El pie desaparece con la lista delante: «Regenerar» sobre un Historial es
   // una acción sobre la Versión y no sobre lo que se está mirando, y ofrecerla
@@ -110,9 +117,9 @@ export function AnalysisPanelBody({ backHref }: { backHref: string }) {
 
   return (
     <>
-      <PanelHeader backHref={backHref} />
+      <PanelHeader backHref={backHref} projectName={projectName} />
       <div className="flex-1 overflow-y-auto px-6 pb-6">
-        <PanelContent />
+        <PanelContent projectName={projectName} />
       </div>
       {footer ? <GuidelinesFooter /> : null}
     </>
@@ -140,7 +147,13 @@ export function AnalysisPanelBody({ backHref }: { backHref: string }) {
  * que seguir siendo la Intención, y una barra de acciones por delante la
  * empujaría fuera de la vista.
  */
-function PanelHeader({ backHref }: { backHref: string }) {
+function PanelHeader({
+  backHref,
+  projectName,
+}: {
+  backHref: string;
+  projectName: string;
+}) {
   const { analysis, view, analyses, now, openHistory, closeHistory } =
     useAnalysis();
   const history = view === "history";
@@ -217,7 +230,7 @@ function PanelHeader({ backHref }: { backHref: string }) {
         <div className="flex items-center justify-between gap-2.5 border-t border-border pt-3 pb-3.5">
           <span className={LABEL_CLASS}>{ANALYSIS_COPY.masterPrompt}</span>
           <PromptActions
-            build={() => masterExport(analysis)}
+            build={() => masterExport(analysis, projectName)}
             copyLabel={ANALYSIS_COPY.copyMaster}
             downloadLabel={ANALYSIS_COPY.downloadMaster}
           />
@@ -230,7 +243,7 @@ function PanelHeader({ backHref }: { backHref: string }) {
 }
 
 /** Los cuatro estados del panel, explícitos. Es un criterio del ticket. */
-function PanelContent() {
+function PanelContent({ projectName }: { projectName: string }) {
   const { status, analysis, loadError, reload, view } = useAnalysis();
   const tree = useTree();
 
@@ -285,7 +298,7 @@ function PanelContent() {
     return (
       <div className="flex flex-col gap-6">
         <PastNotice />
-        <AnalysisResult analysis={analysis} />
+        <AnalysisResult analysis={analysis} projectName={projectName} />
       </div>
     );
   }

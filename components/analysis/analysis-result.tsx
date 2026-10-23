@@ -29,7 +29,14 @@ import { ANALYSIS_COPY, CONNECTION_COPY } from "@/lib/constants";
  * visual. Dos representaciones del mismo objeto, ninguna de las dos
  * autoritativa sobre la otra.
  */
-export function AnalysisResult({ analysis }: { analysis: Analysis }) {
+export function AnalysisResult({
+  analysis,
+  projectName,
+}: {
+  analysis: Analysis;
+  /** Para el nombre del `.md` de cada Ticket. */
+  projectName: string;
+}) {
   // La ENTIDAD y no solo su contenido, desde #17: exportar un Ticket Prompt
   // necesita la fecha del Análisis para el nombre del `.md`, y ésa vive en la
   // fila, no dentro del objeto que devolvió la IA.
@@ -67,6 +74,7 @@ export function AnalysisResult({ analysis }: { analysis: Analysis }) {
           <TicketCard
             key={ticket.id}
             analysis={analysis}
+            projectName={projectName}
             ticket={ticket}
             byId={byId}
           />
@@ -272,11 +280,13 @@ function Spec({ spec }: { spec: AnalysisContent["spec"] }) {
  */
 function TicketCard({
   analysis,
+  projectName,
   ticket,
   byId,
 }: {
   /** El Análisis entero: hace falta para exportar este Ticket suelto. */
   analysis: Analysis;
+  projectName: string;
   ticket: Ticket;
   /** El índice ya hecho, de `AnalysisResult`. Solo para nombrar los bloqueos. */
   byId: Map<string, Ticket>;
@@ -326,7 +336,7 @@ function TicketCard({
       <div className="flex items-center justify-between gap-2.5 border-t border-border pt-3.5">
         <span className={LABEL_CLASS}>{ANALYSIS_COPY.ticketPrompt}</span>
         <PromptActions
-          build={() => ticketExport(analysis, ticket.id)}
+          build={() => ticketExport(analysis, projectName, ticket.id)}
           copyLabel={ANALYSIS_COPY.copyTicket(ticket.id)}
           downloadLabel={ANALYSIS_COPY.downloadTicket(ticket.id)}
         />

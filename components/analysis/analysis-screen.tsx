@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { AnalysisPanelBody } from "@/components/analysis/analysis-layer";
 import { useAnalysis } from "@/components/analysis/analysis-provider";
+import { useProjects } from "@/components/projects/projects-provider";
 import { ANALYSIS_COPY, ROUTES } from "@/lib/constants";
 
 /**
@@ -37,6 +38,12 @@ export function AnalysisScreen({
   versionId: string;
 }) {
   const { openPanel, closePanel } = useAnalysis();
+  const { projects } = useProjects();
+
+  // Con la lista aún sin cargar el nombre es «», y `fileSlug` lo convierte en
+  // `rice0`: descargar en ese instante da el nombre de siempre, no uno roto.
+  const projectName =
+    projects.find((project) => project.id === projectId)?.title ?? "";
 
   /**
    * Estar en esta ruta ES tener el panel abierto.
@@ -61,7 +68,10 @@ export function AnalysisScreen({
       aria-label={ANALYSIS_COPY.label}
       className="-mx-2 flex flex-1 flex-col"
     >
-      <AnalysisPanelBody backHref={ROUTES.version(projectId, versionId)} />
+      <AnalysisPanelBody
+        backHref={ROUTES.version(projectId, versionId)}
+        projectName={projectName}
+      />
     </main>
   );
 }

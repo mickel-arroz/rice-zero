@@ -150,7 +150,10 @@ test("generar un Análisis, leerlo y exportar el Master Prompt", async ({ page }
   const descarga = page.waitForEvent("download");
   await panel.getByRole("button", { name: ANALYSIS_COPY.downloadMaster }).click();
   const archivo = await descarga;
-  expect(archivo.suggestedFilename()).toMatch(/^rice0-master-\d{4}-\d{2}-\d{2}-\d{4}\.md$/);
+  // Se llama como el Proyecto —«E2E analisis xxxxxx»—, no `rice0` (#61).
+  expect(archivo.suggestedFilename()).toMatch(
+    /^e2e-analisis-[a-z0-9]+-master-\d{4}-\d{2}-\d{2}-\d{4}\.md$/,
+  );
 });
 
 test("el Ticket Prompt se exporta suelto, con su propio contexto", async ({ page }) => {
@@ -172,7 +175,7 @@ test("el Ticket Prompt se exporta suelto, con su propio contexto", async ({ page
 
   const descarga = page.waitForEvent("download");
   await panel.getByRole("button", { name: ANALYSIS_COPY.downloadTicket("t1") }).click();
-  expect((await descarga).suggestedFilename()).toMatch(/^rice0-t1-/);
+  expect((await descarga).suggestedFilename()).toMatch(/^e2e-analisis-[a-z0-9]+-t1-/);
 });
 
 test("el Historial guarda los dos, y el vigente es el nuevo", async ({ page }) => {
