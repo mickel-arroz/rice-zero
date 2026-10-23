@@ -1,0 +1,23 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-23T12:00:00Z" },
+  "title": "Contenedor cerrado en móvil",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 390, "h": 844, "title": "Proyectos · final del scroll" },
+    "PocoContenido.dc.html": { "x": 470, "y": 0, "w": 390, "h": 844, "title": "Poco contenido" },
+    "RegistroScroll.dc.html": { "x": 0, "y": 964, "w": 390, "h": 844, "title": "A · Registro desplazando" },
+    "RegistroFinal.dc.html": { "x": 470, "y": 964, "w": 390, "h": 844, "title": "A · Registro al final" },
+    "RegistroB.dc.html": { "x": 940, "y": 964, "w": 390, "h": 844, "title": "B · barra flotante dentro" }
+  },
+  "order": ["Main.dc.html", "PocoContenido.dc.html", "RegistroScroll.dc.html", "RegistroFinal.dc.html", "RegistroB.dc.html"],
+  "notes": {
+    "t-marco": { "x": 0, "y": -260, "text": "La tarjeta se cierra", "kind": "title1", "maxW": 860 },
+    "t-barra": { "x": 0, "y": 704, "text": "La barra de acciones del Nodo", "kind": "title1", "maxW": 1330 },
+    "n-margen": { "x": 940, "y": 0, "w": 380, "text": "Margen inferior = 12 px + env(safe-area-inset-bottom). Alto mínimo = 100dvh − cabecera (69) − 12 arriba − margen inferior. La página sigue siendo la que se desplaza; escritorio no cambia." },
+    "n-a": { "x": 1410, "y": 964, "w": 380, "text": "A (recomendada): la barra sigue sangrando de borde a borde y gana las esquinas de abajo de la tarjeta (20). Se pega a 12 px + área segura del borde inferior, que es justo donde cae el cierre de la tarjeta: al llegar al final, barra y cierre coinciden." },
+    "n-b": { "x": 1410, "y": 1300, "w": 380, "text": "B: la barra pasa a ser una tarjeta flotante dentro del relleno, con sus cuatro esquinas. Bajo ella siempre se ve una franja de tarjeta vacía antes del cierre." }
+  },
+  "designSystems": []
+}

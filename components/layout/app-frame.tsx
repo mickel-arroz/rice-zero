@@ -61,13 +61,39 @@ const APP_MEASURE = 1024;
  * borde. En escritorio no sangra —ahí la barra es una pastilla que se centra—,
  * de ahí el `lg:` que lo devuelve todo a cero.
  *
+ * Desde #62 cancela también el `1px` del borde y ya no devuelve el relleno: la
+ * barra va de borde a borde ENCIMA de los bordes laterales de la tarjeta, que
+ * es lo que la deja ser su cierre al final del scroll. Ver
+ * `APP_FRAME_BLEED_BOTTOM`.
+ *
  * Existe como constante EXPORTADA y no escrito a mano en cada sitio porque
  * antes lo estaba: valía `-mx-6 px-6` calibrado contra el `px-6` que llevaba
  * entonces la pantalla del árbol, y el día que el relleno se mudó aquí los dos
  * números dejaron de cuadrar en silencio — la pastilla se salía 8 px de la
  * tarjeta por cada lado y nada falló, solo se veía mal.
  */
-export const APP_FRAME_BLEED = "-mx-4 px-4 lg:mx-0 lg:px-0";
+export const APP_FRAME_BLEED = "-mx-[calc(1rem+1px)] lg:mx-0";
+
+/**
+ * Lo mismo por abajo: cancelar el relleno inferior del contenedor Y su borde.
+ *
+ * Desde #62 la tarjeta se cierra en el teléfono, y la barra de acciones del
+ * Nodo es ese cierre (boceto `docs/design/contenedor-movil/`, variante A): al
+ * llegar al final del scroll se monta ENCIMA del borde inferior, con sus mismas
+ * esquinas, en vez de quedarse flotando 20 px por encima de él. Por eso el `1px`
+ * —el del borde— va dentro, y por eso también en `APP_FRAME_BLEED`: la barra
+ * pisa los bordes laterales, no se mete entre ellos.
+ */
+export const APP_FRAME_BLEED_BOTTOM = "-mb-[calc(1.25rem+1px)] lg:mb-0";
+
+/**
+ * Lo que la barra se separa del borde de la ventana en móvil: el margen del
+ * contenedor más el área segura del gesto de inicio. Es la MISMA distancia que
+ * el contenedor deja bajo su cierre, y por eso al final del scroll barra y
+ * cierre coinciden sin calcular nada.
+ */
+export const APP_FRAME_GAP_BOTTOM =
+  "bottom-[calc(0.75rem+env(safe-area-inset-bottom))] lg:bottom-0";
 
 /**
  * ── El canalón en móvil: 3.5rem ───────────────────────────────────────────
@@ -99,13 +125,20 @@ export function AppFrame({
     // NO, porque en escritorio la separación con la sidebar la hace el propio
     // ancho de la sidebar —que por eso perdió su borde derecho: dos bordes
     // pegados se leen como un trazo de 2 px, no como dos elementos.
+    //
+    // Abajo, en móvil, el margen suma el área segura del gesto de inicio: el
+    // cierre de la tarjeta tiene que quedar por encima de la barrita del
+    // iPhone, no debajo del pulgar que la busca. Ver `APP_FRAME_GAP_BOTTOM`.
     <div
-      className={`flex flex-1 flex-col p-3 pb-0 lg:min-h-0 lg:p-4 lg:pl-0 ${className}`}
+      className={`flex flex-1 flex-col p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:min-h-0 lg:p-4 lg:pb-4 lg:pl-0 ${className}`}
     >
-      {/* La tarjeta. En móvil se sale por abajo de la pantalla a propósito:
-          sin barra lateral que la enmarque, cerrarla por abajo dejaría una
-          franja de fondo bajo el contenido con la que el pulgar tropieza. De
-          ahí que abajo no tenga ni borde ni esquinas.
+      {/* La tarjeta. En móvil se cierra abajo —borde, esquinas y margen—
+          desde #62. Antes se salía por abajo de la pantalla a propósito, para
+          que no quedara una franja de fondo con la que el pulgar tropezara, y
+          lo que se leía era una interfaz cortada. El alto mínimo lo pone el
+          shell (`min-h-dvh` en `dashboard-nav.tsx`) y llega hasta aquí por la
+          cadena de `flex-1`: con poco contenido la tarjeta llena la pantalla
+          visible bajo la cabecera en vez de quedarse a media altura.
 
           ── Y SIN FONDO ────────────────────────────────────────────────────
 
@@ -150,7 +183,7 @@ export function AppFrame({
           el `auto` del hijo. Los diálogos son `fixed` —no los recorta ningún
           `overflow` de un ancestro— y el menú de la cuenta vive en la barra
           lateral, fuera de esta caja. */}
-      <div className="flex flex-1 flex-col rounded-t-[20px] border border-b-0 border-border lg:min-h-0 lg:overflow-hidden lg:rounded-[20px] lg:border-b">
+      <div className="flex flex-1 flex-col rounded-[20px] border border-border lg:min-h-0 lg:overflow-hidden">
         {/* El que se desplaza, con el relleno dentro.
 
             El relleno viene con él y no se queda en el marco: así la barra cae
@@ -161,7 +194,7 @@ export function AppFrame({
             Y es este y no la columna de medida de más abajo: esa está centrada
             y limitada a 1024, así que en una pantalla ancha su barra aparecería
             en mitad del contenedor en vez de pegada al borde. */}
-        <div className="flex flex-1 flex-col px-4 py-5 lg:min-h-0 lg:overflow-y-auto lg:px-8 lg:py-7">
+        <div className="flex flex-1 flex-col px-4 py-5 lg:min-h-0 lg:scroll-pb-[var(--node-bar,0px)] lg:overflow-y-auto lg:px-8 lg:py-7">
           <div
             className="mx-auto flex w-full flex-1 flex-col"
             style={{ maxWidth: `${APP_MEASURE}px` }}

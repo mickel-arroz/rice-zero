@@ -12,7 +12,12 @@ import { SubnodeIcon } from "@/components/icons/subnode-icon";
 import { TrashIcon } from "@/components/icons/trash-icon";
 import type { IconComponent } from "@/components/icons/types";
 import { fire } from "@/components/tree/fire";
-import { APP_FRAME_BLEED } from "@/components/layout/app-frame";
+import {
+  APP_FRAME_BLEED,
+  APP_FRAME_BLEED_BOTTOM,
+  APP_FRAME_GAP_BOTTOM,
+} from "@/components/layout/app-frame";
+import { usePublishedHeight } from "@/components/tree/use-published-height";
 import { useTree } from "@/components/tree/tree-provider";
 import { CONNECTION_COPY, TREE_COPY } from "@/lib/constants";
 import { NODE_ERRORS } from "@/lib/services/nodes";
@@ -96,7 +101,12 @@ const WRAPPER_CLASS = {
   // El sangrado NO se escribe aquí: lo publica el Contenedor, que es
   // quien pone el relleno que hay que cancelar. Escrito a mano valía `-mx-6
   // px-6`, calibrado contra un `px-6` que ya no está donde estaba.
-  flow: `sticky bottom-0 z-30 mt-2 pt-3 pb-6 lg:pb-8 ${APP_FRAME_BLEED}`,
+  //
+  // En el teléfono, desde #62, la barra ES el cierre de la tarjeta: se pega a
+  // la misma distancia del borde que el Contenedor deja bajo su cierre, y al
+  // final del scroll se monta sobre él. Por eso allí no lleva `pb`: lo que
+  // queda debajo es el margen del Contenedor, no relleno de la barra.
+  flow: `sticky z-30 mt-2 pt-3 lg:pb-8 ${APP_FRAME_GAP_BOTTOM} ${APP_FRAME_BLEED} ${APP_FRAME_BLEED_BOTTOM}`,
   floating: "pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 lg:p-4",
 } as const;
 
@@ -152,6 +162,10 @@ export function NodeActions({
   // toca el árbol, y dejar a la persona con una barra que no se puede quitar
   // encima de la pantalla sería castigarla por quedarse sin conexión.
   const blocked = useBlocked();
+  // La del Registro ocupa el borde de abajo de lo que se desplaza, y lo que se
+  // enfoque o crezca tiene que quedar por ENCIMA de ella. La del Canvas flota
+  // sobre un lienzo que no se desplaza así: no reserva nada.
+  const bar = usePublishedHeight<HTMLDivElement>("--node-bar", !floating);
   const id = row.node.id;
   // Un Nodo sin texto no ramifica. Se decide con la MISMA función que usa el
   // servicio para rechazarlo, así que el botón apagado y el rechazo del
@@ -239,6 +253,7 @@ export function NodeActions({
     // sola en escritorio, donde la sidebar se come 260 px por la izquierda. Un
     // `fixed` se centraría respecto a la ventana y quedaría descuadrado.
     <div
+      ref={bar}
       className={`${WRAPPER_CLASS[floating ? "floating" : "flow"]} ${className}`}
       // La barra NO se lleva el foco del campo que está abierto.
       //
@@ -256,7 +271,9 @@ export function NodeActions({
     >
       <div
         className={`pointer-events-auto border border-border bg-card p-4 shadow-popover lg:mx-auto lg:w-fit lg:max-w-full lg:rounded-full lg:p-2.5 ${
-          floating ? "rounded-3xl" : "rounded-t-3xl"
+          // Abajo, las esquinas de la tarjeta: es su cierre. El 20 tiene que
+          // cuadrar con el `rounded-[20px]` de la tarjeta en `app-frame.tsx`.
+          floating ? "rounded-3xl" : "rounded-t-3xl rounded-b-[20px]"
         }`}
       >
         {/* Cuatro columnas: son siete acciones más «Quitar», que son dos filas

@@ -137,6 +137,25 @@ body {
   }
 }
 
+/* ── Y sitio para la barra de acciones del Nodo, abajo ──────────────────────
+   El mismo problema por el otro borde: la barra del Registro es `sticky` abajo,
+   y el Nodo recién creado —que nace al final, con el foco dentro— quedaba
+   debajo de ella. Su alto no es fijo, así que lo publica ella misma en
+   `--node-bar` (ver `use-published-height.ts`); sin barra vale 0.
+
+   En el teléfono se suma la distancia a la que la barra flota del borde —el
+   margen del Contenedor más el área segura, `APP_FRAME_GAP_BOTTOM`—, porque eso
+   también queda tapado para quien mira. En escritorio la barra va pegada al
+   borde y lo que se desplaza es el Contenedor, que lo reserva él mismo
+   (`app-frame.tsx`). */
+@media (width < 64rem) {
+  html {
+    scroll-padding-bottom: calc(
+      var(--node-bar, 0px) + 0.75rem + env(safe-area-inset-bottom)
+    );
+  }
+}
+
 /* ── La barra de scroll, en toda la app ─────────────────────────────────────
    Fina, sin flechas y del color del tema, como la de Chrome en Android: la
    referencia que se pidió. Se aplica a `*` y no a `html` porque los scrolls que

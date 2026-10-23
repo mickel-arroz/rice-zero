@@ -110,6 +110,31 @@ Cierra: **#66**
 > se lleva. Las filas marcadas «se va» del artboard 1 son el caso del ADR 0007:
 > «Catálogo» se queda por su hijo pendiente; «Fichas», bajo él, se va.
 
+### `contenedor-movil/` — Ticket #62
+
+Artboards: Proyectos al final del scroll · Poco contenido · A · Registro
+desplazando · A · Registro al final · B · barra flotante dentro.
+Medidas: radio 20, margen inferior 12 + `env(safe-area-inset-bottom)`, alto
+mínimo `100dvh` en el shell.
+
+Aprobado el 2026-10-23 con la **variante A**, y traído aquí el mismo día antes
+de borrar el artifact. B se queda como la alternativa descartada.
+Cierra: **#62**
+
+> La tarjeta se cierra en el teléfono con borde, esquinas y margen por encima
+> del área segura. La página sigue siendo la que se desplaza, y escritorio no
+> cambia.
+
+> A: la barra de acciones del Nodo sigue sangrando de borde a borde y gana las
+> esquinas de abajo de la tarjeta. Se pega a la misma distancia del borde que
+> el Contenedor deja bajo su cierre, así que al final del scroll barra y cierre
+> coinciden sin calcular nada.
+
+> Se pidió junto a este ticket: el Nodo recién creado, que nace al final con
+> el foco dentro, quedaba debajo de la barra. La barra publica su alto en
+> `--node-bar`, lo que se desplaza lo reserva con `scroll-padding-bottom`, y el
+> campo se mantiene a la vista mientras crece.
+
 ## Por qué están en el repo y no solo en los Tickets
 
 El Spec fija la regla de cierre: *«lo puramente visual no se automatiza; se

@@ -170,9 +170,20 @@ export function DashboardNav({
     // regla del dashboard, así que vive con el dashboard.
     //
     // Solo en `lg`: en el teléfono la página se desplaza entera y debe hacerlo
-    // —la cabecera es `sticky` y el Contenedor se sale por abajo a propósito—,
-    // y un alto fijo con el teclado en pantalla abierto es la receta clásica
-    // para que un campo quede debajo de él.
+    // —la cabecera es `sticky` y el Contenedor crece con su contenido—, y un
+    // alto fijo con el teclado en pantalla abierto es la receta clásica para
+    // que un campo quede debajo de él.
+    //
+    // ── `min-h-dvh`: en el teléfono, un SUELO y no un alto ──────────────────
+    //
+    // Desde #62 el Contenedor se cierra abajo, y con poco contenido ese cierre
+    // quedaba a media pantalla. Un mínimo de ventana aquí baja por la cadena de
+    // `flex-1` —columna, Contenedor, tarjeta— y la tarjeta llena lo visible
+    // bajo la cabecera sin que nadie reste a mano el alto de la cabecera.
+    // `dvh` y no `vh`: `100vh` en el móvil mide la ventana CON la barra del
+    // navegador escondida, así que con la barra a la vista el cierre caía
+    // debajo de ella. En escritorio el `lg:h-dvh` de al lado es el mismo
+    // número, así que el mínimo no cambia nada allí.
     //
     // La franja de conexión es hermana de esto y va en flujo, así que cuando
     // aparece la suma pasa de la ventana y la página gana su desplazamiento por
@@ -184,7 +195,7 @@ export function DashboardNav({
     // vertical — el alto de ventana se ignoraba y `flex-grow` estiraba el shell
     // hasta el alto del contenido. Con `flex-none` el basis vuelve a `auto`, el
     // `h-dvh` pasa a ser el alto de verdad, y ya no hay nada que crezca.
-    <div className="relative z-10 flex flex-1 lg:h-dvh lg:flex-none lg:overflow-hidden">
+    <div className="relative z-10 flex min-h-dvh flex-1 lg:h-dvh lg:flex-none lg:overflow-hidden">
       {/* ── Sidebar de escritorio ──────────────────────────────────── */}
       <aside
         // Por debajo de `lg` la navegación es el menú de la cabecera, no esta

@@ -287,6 +287,19 @@ function Checkbox({
   );
 }
 
+/**
+ * Deja a la vista la caja del Nodo que se está escribiendo.
+ *
+ * La CAJA y no el campo: el campo vive dentro con relleno y borde por debajo,
+ * y trayendo solo el campo esos píxeles se quedaban bajo la barra de acciones.
+ * `nearest` no mueve nada si ya se ve entera, así que teclear dentro de una
+ * caja a la vista no hace bailar la página. Lo que tapa la barra lo descuenta
+ * el `scroll-padding` (ver `globals.css` y `use-published-height.ts`).
+ */
+function keepInView(field: HTMLTextAreaElement) {
+  (field.parentElement ?? field).scrollIntoView({ block: "nearest" });
+}
+
 export function NodeRow({
   row,
   selected,
@@ -355,6 +368,10 @@ export function NodeRow({
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.max(el.scrollHeight, BOX_HEIGHT - 20)}px`;
+    // Y si al crecer se mete bajo la barra de acciones o sale por abajo, la
+    // página lo sigue: escribir no puede obligar a desplazarse a mano para ver
+    // lo que se escribe.
+    if (editing && el === document.activeElement) keepInView(el);
   }, [text, editing]);
 
   // Al abrir el campo, el cursor va al final y no al principio: se entra a
@@ -363,8 +380,14 @@ export function NodeRow({
     if (!editing) return;
     const el = area.current;
     if (!el) return;
+    // El desplazamiento propio de `focus()` se deja hacer —es el único que sabe
+    // del teclado del teléfono— y DESPUÉS se corrige: no promete respetar el
+    // `scroll-padding`, y un Nodo recién creado nace al final de la lista,
+    // justo debajo de la barra de acciones, que aparece en el mismo render
+    // porque crear también selecciona.
     el.focus();
     el.setSelectionRange(el.value.length, el.value.length);
+    keepInView(el);
   }, [editing]);
 
   const empty = text.trim().length === 0;
