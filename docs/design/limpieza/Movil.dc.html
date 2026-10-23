@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Limpieza en móvil</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:"Ndot57";src:url('../../../app/fonts/Ndot57-Regular.woff2') format("woff2")}
+body{margin:0}
+a{color:#6b6b6b}a:hover{color:#e7000b}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #fafafa; color: #171717; font-family: Iosevka, ui-monospace, Consolas, monospace">
+  <div style="position: absolute; inset: 12px 12px 0; background: #ffffff; border: 1px solid #dcdcdc; border-radius: 20px; padding: 16px 12px; display: flex; flex-direction: column; gap: 6px">
+    <div style="height: 46px; border: 1px solid #dcdcdc; border-radius: 16px; display: flex; align-items: center; padding: 0 14px; font-size: 14px">Tienda online</div>
+    <div style="height: 46px; margin-left: 22px; border: 1px solid #dcdcdc; border-radius: 16px; display: flex; align-items: center; padding: 0 14px; font-size: 14px; color: #6b6b6b; text-decoration: line-through">Catálogo</div>
+    <div style="height: 46px; margin-left: 22px; border: 1px solid #dcdcdc; border-radius: 16px; display: flex; align-items: center; padding: 0 14px; font-size: 14px">Carrito</div>
+    <div style="display: flex; gap: 8px; margin-top: 6px">
+      <div style="flex: 1; height: 50px; border: 1px dashed #dcdcdc; border-radius: 16px; display: flex; align-items: center; padding: 0 12px; font-size: 13px; color: #6b6b6b">+ Nodo raíz</div>
+      <div style="height: 50px; border: 1px dashed #e7000b; border-radius: 16px; display: flex; align-items: center; padding: 0 12px; font-size: 13px; color: #e7000b">Proponer</div>
+      <div style="height: 50px; border: 1px dashed #dcdcdc; border-radius: 16px; display: flex; align-items: center; gap: 6px; padding: 0 12px; font-size: 13px; color: #6b6b6b">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4l6 6"></path><path d="M17 7l-7 7"></path><path d="M10 14l-5 1 1 4 4 1 1-5z"></path></svg>
+        <span style="font-family: Ndot57, monospace; font-size: 15px; color: #e7000b">4</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="position: absolute; inset: 0; background: rgb(250 250 250 / 0.8)"></div>
+
+  <section aria-label="Limpieza" style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 18px; background: #ffffff; border-top: 1px solid #dcdcdc; border-radius: 24px 24px 0 0; padding: 24px; box-shadow: 0 14px 34px rgb(0 0 0 / 0.16)">
+    <div style="margin: -8px auto 0; width: 36px; height: 4px; border-radius: 999px; background: #dcdcdc"></div>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <span style="width: 8px; height: 8px; border-radius: 999px; background: #e7000b"></span>
+        <span style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #6b6b6b">Limpieza</span>
+        <h2 style="margin: 0; font-size: 22px; font-weight: 700">¿Limpiar lo terminado de v1?</h2>
+      </div>
+      <button type="button" aria-label="Cerrar" style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 999px; border: 1px solid #dcdcdc; background: transparent; padding: 0; color: #171717">✕</button>
+    </div>
+    <p style="margin: 0; font-size: 13px; line-height: 1.625; color: #6b6b6b">Se borran los subárboles terminados del todo. Un Nodo completado que tenga algo pendiente debajo se queda. No se puede deshacer.</p>
+    <div style="display: flex; align-items: center; gap: 16px; border: 1px solid #dcdcdc; border-radius: 18px; padding: 16px">
+      <div style="width: 72px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px">
+        <span style="font-family: Ndot57, monospace; font-size: 44px; line-height: 1; color: #e7000b">4</span>
+        <span style="font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #6b6b6b; text-align: center">Nodos se van</span>
+      </div>
+      <ul style="list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px">
+        <li style="font-weight: 700">Fichas de producto</li>
+        <li style="padding-left: 14px; color: #6b6b6b">Fotos en alta</li>
+        <li style="font-weight: 700">Blog</li>
+        <li style="padding-left: 14px; color: #6b6b6b">Portada</li>
+      </ul>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <button type="button" style="height: 52px; border: 0; border-radius: 999px; background: #e7000b; color: #ffffff; font: inherit; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase">Limpiar</button>
+      <button type="button" style="height: 52px; border: 1px solid #dcdcdc; border-radius: 999px; background: transparent; color: #171717; font: inherit; font-size: 15px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase">Cancelar</button>
+    </div>
+  </section>
+
+  <span style="position: absolute; left: 24px; top: 250px; background: #e7000b; color: #ffffff; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px">En el teléfono: solo icono + cifra</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

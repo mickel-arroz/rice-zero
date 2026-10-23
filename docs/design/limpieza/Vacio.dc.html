@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Nada que limpiar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:"Ndot57";src:url('../../../app/fonts/Ndot57-Regular.woff2') format("woff2")}
+body{margin:0}
+a{color:#6b6b6b}a:hover{color:#e7000b}
+</style>
+</helmet>
+<div style="width: 900px; height: 320px; box-sizing: border-box; background: #ffffff; color: #171717; font-family: Iosevka, ui-monospace, Consolas, monospace; padding: 40px; display: flex; flex-direction: column; gap: 36px">
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #6b6b6b">Plan vacío: nada terminado del todo</span>
+    <div style="display: flex; gap: 10px; align-items: center">
+      <div style="flex: 1; height: 50px; border: 1px dashed #dcdcdc; border-radius: 16px; display: flex; align-items: center; padding: 0 14px; font-size: 13px; color: #6b6b6b">+ Nodo raíz</div>
+      <div style="height: 50px; border: 1px dashed #e7000b; border-radius: 16px; display: flex; align-items: center; padding: 0 18px; font-size: 13px; color: #e7000b">Proponer Nodos</div>
+      <button type="button" disabled title="Nada que limpiar: ningún subárbol está terminado del todo" style="height: 50px; border: 1px dashed #dcdcdc; border-radius: 16px; background: transparent; display: flex; align-items: center; gap: 8px; padding: 0 18px; font: inherit; font-size: 13px; color: #6b6b6b; opacity: 0.35; outline: 2px solid #e7000b; outline-offset: 4px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4l6 6"></path><path d="M17 7l-7 7"></path><path d="M10 14l-5 1 1 4 4 1 1-5z"></path></svg>
+        Limpiar
+      </button>
+      <span style="font-size: 12px; color: #6b6b6b; width: 190px">Apagado, sin cifra. Al pasar por encima: «Nada que limpiar».</span>
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #6b6b6b">Sin conexión</span>
+    <div style="display: flex; gap: 10px; align-items: center">
+      <div style="flex: 1; height: 50px; border: 1px dashed #dcdcdc; border-radius: 16px; display: flex; align-items: center; padding: 0 14px; font-size: 13px; color: #6b6b6b; opacity: 0.35">+ Nodo raíz</div>
+      <div style="height: 50px; border: 1px dashed #e7000b; border-radius: 16px; display: flex; align-items: center; padding: 0 18px; font-size: 13px; color: #e7000b; opacity: 0.35">Proponer Nodos</div>
+      <button type="button" disabled title="Sin conexión" style="height: 50px; border: 1px dashed #dcdcdc; border-radius: 16px; background: transparent; display: flex; align-items: center; gap: 8px; padding: 0 18px; font: inherit; font-size: 13px; color: #6b6b6b; opacity: 0.35">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4l6 6"></path><path d="M17 7l-7 7"></path><path d="M10 14l-5 1 1 4 4 1 1-5z"></path></svg>
+        Limpiar
+        <span style="font-family: Ndot57, monospace; font-size: 15px; color: #e7000b">4</span>
+      </button>
+      <span style="font-size: 12px; color: #6b6b6b; width: 190px">Bloqueado como el resto de la edición; la cifra se sigue viendo.</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":900,"height":320}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

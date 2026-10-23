@@ -80,9 +80,10 @@ function indexById(nodes: TreeNode[]): Map<string, TreeNode> {
  * Uno solo para todo el módulo. Antes había tres formas distintas de
  * preguntar «¿quiénes cuelgan de X?» —una por función—, y tres formas de
  * agrupar son tres sitios donde el orden de los hermanos puede divergir sin
- * que ningún test lo note.
+ * que ningún test lo note. Se exporta por lo mismo: la Limpieza
+ * (`cleanup.ts`) recorre el árbol y no debe traer una cuarta.
  */
-function childrenByParent(nodes: TreeNode[]): Map<string | null, TreeNode[]> {
+export function childrenByParent(nodes: TreeNode[]): Map<string | null, TreeNode[]> {
   const children = new Map<string | null, TreeNode[]>();
   for (const node of [...nodes].sort(bySiblingOrder)) {
     const siblings = children.get(node.parentId);

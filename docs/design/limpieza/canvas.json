@@ -1,0 +1,16 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-22T21:50:00Z" },
+  "title": "Limpieza de la Versión",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 900, "title": "1 · Vista Registro: el botón" },
+    "Confirmar.dc.html": { "x": 1520, "y": 0, "w": 1440, "h": 900, "title": "2 · Confirmar con la cifra" },
+    "Movil.dc.html": { "x": 0, "y": 1020, "w": 390, "h": 844, "title": "3 · Confirmar en móvil" },
+    "Vacio.dc.html": { "x": 470, "y": 1020, "w": 900, "h": 320, "title": "4 · Nada que limpiar / sin conexión" }
+  },
+  "order": ["Main.dc.html", "Confirmar.dc.html", "Movil.dc.html", "Vacio.dc.html"],
+  "notes": {},
+  "designSystems": []
+}

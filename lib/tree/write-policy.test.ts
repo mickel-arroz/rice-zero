@@ -27,7 +27,7 @@ describe("qué se relee y qué no", () => {
     expect(followUp("createProposal")).toBe("reread");
   });
 
-  it.each<TreeWrite>(["create", "edit", "complete", "remove"])(
+  it.each<TreeWrite>(["create", "edit", "complete", "remove", "cleanup"])(
     "«%s» se resuelve en local: solo cambia la fila que se tocó",
     (write) => {
       expect(followUp(write)).toBe("local");
@@ -247,7 +247,7 @@ describe("qué escritura abre el campo de texto", () => {
     },
   );
 
-  it.each<TreeWrite>(["edit", "complete", "reorder", "reparent", "remove", "createProposal"])(
+  it.each<TreeWrite>(["edit", "complete", "reorder", "reparent", "remove", "createProposal", "cleanup"])(
     "«%s» no",
     (write) => {
       expect(opensEditor(write)).toBe(false);

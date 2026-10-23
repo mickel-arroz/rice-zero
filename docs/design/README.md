@@ -90,6 +90,26 @@ Cierra: **#67**
 > «Primer Nodo». Una Versión sin nada es donde más sirve pedir las primeras
 > ramas.
 
+### `limpieza/` — Ticket #66
+
+Artboards: Vista Registro · Confirmar · Confirmar en móvil · Nada que limpiar / sin conexión.
+Medidas: botón de 50 de alto en la fila de «Nodo raíz»; el diálogo es el de borrado de siempre.
+
+Aprobado el 2026-10-22 y traído aquí el mismo día, antes de borrar el artifact.
+Cierra: **#66**
+
+> El botón cierra la fila de «Nodo raíz» y «Proponer Nodos»: los tres editan
+> la Versión entera, no un Nodo. Lleva la cifra del plan al lado, y en el
+> teléfono solo icono y cifra, porque los tres no caben con texto.
+
+> Con nada que limpiar se queda apagado, sin cifra, y no se esconde: un botón
+> que aparece y desaparece al marcar completados movería a sus vecinos. Nunca
+> abre un diálogo de cero.
+
+> La lista del diálogo pone en negrita cada subárbol que se va y debajo lo que
+> se lleva. Las filas marcadas «se va» del artboard 1 son el caso del ADR 0007:
+> «Catálogo» se queda por su hijo pendiente; «Fichas», bajo él, se va.
+
 ## Por qué están en el repo y no solo en los Tickets
 
 El Spec fija la regla de cierre: *«lo puramente visual no se automatiza; se

@@ -1480,3 +1480,28 @@ export const PROPOSAL_COPY = {
   malformedMessage:
     "La respuesta no cumple los topes de una Propuesta. Regenerar suele bastar.",
 } as const;
+
+/**
+ * La Limpieza de la Versión (#66). La regla, en el ADR 0007.
+ *
+ * Su propio bloque y no dentro de `TREE_COPY` porque no es borrar UN Nodo: el
+ * cuerpo tiene que decir qué se queda —lo completado con algo pendiente
+ * debajo—, que es justo lo que alguien no esperaría.
+ */
+export const CLEANUP_COPY = {
+  /** El botón de la Vista Registro, al lado de «Proponer Nodos». */
+  open: "Limpiar",
+  /** Con el plan vacío: apagado, y esto al pasar por encima. */
+  nothing: "Nada que limpiar",
+  /** El nombre del botón cuando en el teléfono solo se ven icono y cifra. */
+  openLabel: (n: number) => `Limpiar ${n} ${n === 1 ? "Nodo completado" : "Nodos completados"}`,
+  label: "Limpieza",
+  title: "¿Limpiar lo terminado de esta Versión?",
+  body: "Se borran los subárboles terminados del todo. Un Nodo completado que tenga algo pendiente debajo se queda. No se puede deshacer.",
+  /** El pie de la cifra grande. */
+  falls: (n: number) => (n === 1 ? "Nodo se va" : "Nodos se van"),
+  submit: "Limpiar",
+  pending: "Limpiando",
+  cancel: "Cancelar",
+  close: "Cerrar",
+} as const;

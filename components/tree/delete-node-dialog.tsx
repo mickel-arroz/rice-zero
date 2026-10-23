@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { useBlocked } from "@/components/connection/connection-provider";
+import { FallenList } from "@/components/tree/fallen-list";
 import { useTree } from "@/components/tree/tree-provider";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import type { TreeNode } from "@/lib/backend/ports";
@@ -21,12 +22,8 @@ import { subtreeRows } from "@/lib/tree/rows";
  * La cuenta la hace el dominio sobre el árbol que ya está en pantalla: no
  * cuesta una consulta, y es exactamente el mismo recorrido que hará el motor.
  *
- * La anatomía la pone `ConfirmDeleteDialog`; lo de aquí es la lista y el orden.
+ * La anatomía la pone `ConfirmDeleteDialog`; la lista, `FallenList`.
  */
-
-/** Cuántas bajas se enumeran antes de resumir. Más que esto es una pared. */
-const PREVIEW_LIMIT = 6;
-
 export function DeleteNodeDialog({
   node,
   onClose,
@@ -40,32 +37,14 @@ export function DeleteNodeDialog({
   // Las dos cifras salen del MISMO árbol que está en pantalla y del mismo
   // dominio que aplicará el motor: la cuenta no puede discrepar de la lista.
   const total = useMemo(() => countDescendants(nodes, node.id), [nodes, node.id]);
-  const subtree = useMemo(() => subtreeRows(nodes, node.id), [nodes, node.id]);
-  const base = subtree[0]?.depth ?? 0;
+  const bajas = useMemo(() => {
+    const subtree = subtreeRows(nodes, node.id);
+    const base = subtree[0]?.depth ?? 0;
+    // Sangría relativa al Nodo que se poda.
+    return subtree.map((row) => ({ node: row.node, depth: row.depth - base }));
+  }, [nodes, node.id]);
 
   const title = TREE_COPY.nodeLabel(textOf(node));
-
-  /** Las bajas, con su sangría relativa al Nodo que se poda. */
-  const bajas = (
-    <ul className="flex min-w-0 flex-1 flex-col gap-0.5">
-      {subtree.slice(0, PREVIEW_LIMIT).map((row) => (
-        <li
-          key={row.node.id}
-          className={`truncate text-xs ${
-            row.node.id === node.id ? "font-bold" : "text-muted-foreground"
-          }`}
-          style={{ paddingLeft: (row.depth - base) * 14 }}
-        >
-          {textOf(row.node).trim() || TREE_COPY.nodePlaceholder}
-        </li>
-      ))}
-      {subtree.length > PREVIEW_LIMIT ? (
-        <li className="text-xs text-muted-foreground">
-          {TREE_COPY.andMore(subtree.length - PREVIEW_LIMIT)}
-        </li>
-      ) : null}
-    </ul>
-  );
 
   return (
     <ConfirmDeleteDialog
@@ -79,7 +58,7 @@ export function DeleteNodeDialog({
           : {
               count: total,
               label: TREE_COPY.deleteFalls,
-              detail: bajas,
+              detail: <FallenList rows={bajas} />,
               // El cuerpo ya dice qué se lleva; aquí va la lista de las bajas.
               below: true,
             }

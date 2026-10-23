@@ -1,5 +1,6 @@
 "use client";
 
+import { CleanupButton } from "@/components/cleanup/cleanup-button";
 import { useBlocked } from "@/components/connection/connection-provider";
 import { PlusIcon } from "@/components/icons/plus-icon";
 import { ProposeButton } from "@/components/proposal/propose-button";
@@ -113,7 +114,8 @@ export function RegistroView() {
           el par icono+texto.
 
           La Propuesta de Nodos va al lado (#67) por la misma razón: lo que
-          trae entra como raíces nuevas al final, justo aquí. */}
+          trae entra como raíces nuevas al final, justo aquí. La Limpieza
+          (#66) cierra la fila: también edita la Versión entera. */}
       <div className="mt-1.5 flex gap-2.5">
         <button
           type="button"
@@ -134,6 +136,7 @@ export function RegistroView() {
           {TREE_COPY.newRoot}
         </button>
         <ProposeButton look="row" />
+        <CleanupButton />
       </div>
     </>
   );

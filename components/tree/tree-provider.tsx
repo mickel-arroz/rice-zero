@@ -29,6 +29,7 @@ import {
   serializeCollapsed,
   toggleCollapsed as toggle,
 } from "@/lib/tree/collapsed";
+import type { CleanupPlan } from "@/lib/tree/cleanup";
 import { PartialProposalError, proposalCreations } from "@/lib/tree/proposal";
 import { treeRows, visibleRows, type TreeRow } from "@/lib/tree/rows";
 import {
@@ -181,6 +182,14 @@ type TreeContextValue = {
   /** Da el Nodo por terminado, o lo devuelve a pendiente. */
   setCompleted(nodeId: string, completed: boolean): Promise<void>;
   remove(nodeId: string): Promise<void>;
+  /**
+   * La Limpieza: borra las raíces de subárbol que da `cleanupPlan`.
+   *
+   * Recibe el MISMO plan cuya cifra enseñó el diálogo, y no lo
+   * recalcula aquí: si lo hiciera, lo confirmado y lo borrado serían dos
+   * cálculos, que es justo lo que el ADR 0007 prohíbe.
+   */
+  cleanUp(plan: CleanupPlan): Promise<void>;
 };
 
 const TreeContext = createContext<TreeContextValue | null>(null);
@@ -439,7 +448,7 @@ export function TreeProvider({
    * @param perform la escritura. Devuelve la fila que el motor confirmó,
    *   cuando la hay.
    * @param options `optimistic` dice dónde nacería el Nodo si esta escritura
-   *   crea uno; `removes`, qué Nodo desaparece —con su subárbol— si lo borra.
+   *   crea uno; `removes`, qué Nodos desaparecen —con su subárbol— si borra.
    */
   const run = useCallback(
     async (
@@ -451,7 +460,7 @@ export function TreeProvider({
           /** Detrás de qué hermano nace. Ausente, nace el último. */
           after?: string;
         };
-        removes?: string;
+        removes?: string[];
       },
     ) => {
       // El portazo, por si el clic ya iba de camino cuando se cayó la red. Va
@@ -516,7 +525,12 @@ export function TreeProvider({
           // La cascada del motor se lleva el subárbol, y aquí se reproduce sin
           // volver a preguntar: `on delete cascade` sobre `parent_id` es
           // exactamente «y todo lo que cuelgue».
-          commit(withoutSubtree(nodesRef.current, options.removes));
+          commit(
+            options.removes.reduce(
+              (current, id) => withoutSubtree(current, id),
+              nodesRef.current,
+            ),
+          );
         } else {
           commit(nodesRef.current);
         }
@@ -678,7 +692,7 @@ export function TreeProvider({
         async () => {
           await nodeService().remove(nodeId);
         },
-        { removes: nodeId },
+        { removes: [nodeId] },
       );
       // Después del borrado y no antes: si la escritura falla, el Nodo sigue
       // ahí y quitarle la selección solo habría escondido sus acciones.
@@ -686,6 +700,40 @@ export function TreeProvider({
       setEditingId((current) => (current === nodeId ? null : current));
     },
     [run],
+  );
+
+  const cleanUp = useCallback(
+    async (plan: CleanupPlan) => {
+      try {
+        await run(
+          "cleanup",
+          async () => {
+            // En serie, como la Propuesta: si uno falla, se sabe cuántos se fueron.
+            let removed = 0;
+            try {
+              for (const id of plan.roots) {
+                await nodeService().remove(id);
+                removed += 1;
+              }
+            } catch (error) {
+              // Ya se fue algo. El `catch` de `run` no relee y `removes` no se
+              // aplica, así que se relee aquí: la pantalla tiene que enseñar lo
+              // que de verdad quedó, no el árbol de antes de pulsar.
+              if (removed > 0) commit(await nodeService().list(versionId));
+              throw error;
+            }
+          },
+          { removes: plan.roots },
+        );
+      } finally {
+        // Lo seleccionado puede haberse ido con un subárbol, también cuando el
+        // fallo llegó a medias: se suelta si ya no está.
+        const alive = new Set(nodesRef.current.map((node) => node.id));
+        setSelectedId((current) => (current && alive.has(current) ? current : null));
+        setEditingId((current) => (current && alive.has(current) ? current : null));
+      }
+    },
+    [commit, run, versionId],
   );
 
   /* ── Selección ──────────────────────────────────────────────────────── */
@@ -858,6 +906,7 @@ export function TreeProvider({
       moveTo,
       reparent,
       remove,
+      cleanUp,
     }),
     [
       state,
@@ -882,6 +931,7 @@ export function TreeProvider({
       moveTo,
       reparent,
       remove,
+      cleanUp,
     ],
   );
 

@@ -49,7 +49,12 @@ export type TreeWrite =
   | "complete"
   | "reorder"
   | "reparent"
-  | "remove";
+  | "remove"
+  // La Limpieza: varios borrados de una vez. En local como «remove»: lo que
+  // se va es la cascada de cada raíz del plan, y eso se sabe sin preguntar.
+  // La excepción es el fallo a medias: ahí `cleanUp` relee por su cuenta,
+  // como `appendProposal`, porque solo el motor sabe qué alcanzó a irse.
+  | "cleanup";
 
 /**
  * `local` — el árbol de después se deduce aquí, con lo que devolvió el motor.
