@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Brújula: exploración o rumbo. */
+/** Brújula: exploración o rumbo. Trazo de Lucide `compass`. */
 export function CompassIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,8 +15,8 @@ export function CompassIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="m15.2 8.8-1.9 4.5-4.5 1.9 1.9-4.5z" />
+      <circle cx="12" cy="12" r="10" />
+      <path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z" />
     </svg>
   );
 }

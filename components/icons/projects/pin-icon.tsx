@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Chincheta de mapa: algo con lugar. */
+/** Chincheta de mapa: algo con lugar. Trazo de Lucide `map-pin`. */
 export function PinIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,8 +15,8 @@ export function PinIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <path d="M12 21s6-5.3 6-9.8A6 6 0 0 0 6 11.2C6 15.7 12 21 12 21z" />
-      <circle cx="12" cy="11" r="2.3" />
+      <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+      <circle cx="12" cy="10" r="3" />
     </svg>
   );
 }

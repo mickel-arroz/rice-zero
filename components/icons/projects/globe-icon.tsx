@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Globo con meridianos: algo público o global. */
+/** Globo con meridianos: algo público o global. Trazo de Lucide `globe`. */
 export function GlobeIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,9 +15,9 @@ export function GlobeIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M3.5 12h17" />
-      <path d="M12 3.5c2.2 2.4 3.3 5.4 3.3 8.5s-1.1 6.1-3.3 8.5c-2.2-2.4-3.3-5.4-3.3-8.5S9.8 5.9 12 3.5z" />
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
     </svg>
   );
 }

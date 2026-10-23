@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Cilindro: datos y persistencia. */
+/** Cilindro: datos y persistencia. Trazo de Lucide `database`. */
 export function DatabaseIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,9 +15,9 @@ export function DatabaseIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <ellipse cx="12" cy="6.5" rx="7" ry="2.8" />
-      <path d="M5 6.5v11c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8v-11" />
-      <path d="M5 12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8" />
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+      <path d="M3 12A9 3 0 0 0 21 12" />
     </svg>
   );
 }

@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Marcador: algo que se guarda para volver. */
+/** Marcador: algo que se guarda para volver. Trazo de Lucide `bookmark`. */
 export function BookmarkIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,7 +15,7 @@ export function BookmarkIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z" />
+      <path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z" />
     </svg>
   );
 }

@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Cubo isométrico: un producto con volumen. */
+/** Cubo isométrico: un producto con volumen. Trazo de Lucide `box`. */
 export function CubeIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,9 +15,9 @@ export function CubeIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <path d="M12 3.5 20 8v8l-8 4.5L4 16V8z" />
-      <path d="m4 8 8 4.5L20 8" />
-      <path d="M12 12.5v8" />
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="m3.3 7 8.7 5 8.7-5" />
+      <path d="M12 22V12" />
     </svg>
   );
 }

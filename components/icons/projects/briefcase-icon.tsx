@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Maletín: trabajo o cliente. */
+/** Maletín: trabajo o cliente. Trazo de Lucide `briefcase`. */
 export function BriefcaseIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,9 +15,8 @@ export function BriefcaseIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <rect x="3" y="7.5" width="18" height="12" rx="2" />
-      <path d="M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5" />
-      <path d="M3 13h18" />
+      <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+      <rect width="20" height="14" x="2" y="6" rx="2" />
     </svg>
   );
 }

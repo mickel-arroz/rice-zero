@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Diana concéntrica: un objetivo concreto. */
+/** Diana concéntrica: un objetivo concreto. Trazo de Lucide `target`. */
 export function TargetIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,9 +15,9 @@ export function TargetIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <circle cx="12" cy="12" r="8.5" />
-      <circle cx="12" cy="12" r="4.5" />
-      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
     </svg>
   );
 }

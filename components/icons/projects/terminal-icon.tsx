@@ -1,6 +1,9 @@
 import type { SVGProps } from "react";
 
-/** Ventana de terminal: una herramienta de línea de comandos. */
+/**
+ * Ventana de terminal: una herramienta de línea de comandos. Trazo de Lucide
+ * `square-terminal`.
+ */
 export function TerminalIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,9 +18,9 @@ export function TerminalIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <rect x="3" y="4.5" width="18" height="15" rx="2" />
-      <path d="m7.5 10 2.5 2.2-2.5 2.2" />
-      <path d="M12.5 15h4" />
+      <path d="m7 11 2-2-2-2" />
+      <path d="M11 13h4" />
+      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
     </svg>
   );
 }

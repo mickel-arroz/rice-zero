@@ -23,21 +23,21 @@ const STEP: Record<string, (columns: number) => number> = {
 };
 
 /**
- * El selector de icono: los 30 del catálogo, todos a la vista.
+ * El selector de icono: todo el catálogo a la vista.
  *
- * Sin scroll ni «ver más» a propósito. En un teléfono de 390 px caben cinco
- * columnas de 52 px y las seis filas entran bajo los dos campos, así que
- * esconder la mitad del catálogo solo serviría para que nadie pase de la
- * primera fila.
+ * Sin «ver más» a propósito. En un teléfono de 390 px caben cinco columnas de
+ * 52 px; con los 43 iconos del #63 son nueve filas, y si no caben bajo los dos
+ * campos se desplaza el diálogo. Esconder parte del catálogo solo serviría para
+ * que nadie pase de la primera fila.
  *
  * El elegido lleva la pastilla `--accent` y el trazo en `--primary`, el mismo
  * lenguaje con el que la sidebar marca el destino activo. El borde se enciende
- * además: entre treinta celdas iguales, el relleno solo no se distingue.
+ * además: entre tantas celdas iguales, el relleno solo no se distingue.
  *
  * Es un grupo de radio porque elegir un icono es elegir UNO entre varios. Y
  * como lo es, tiene que comportarse como uno: una sola parada de tabulador —la
  * celda marcada— y las flechas para moverse dentro. Ponerle los roles y dejar
- * treinta paradas de tabulador sería anunciar algo que no se cumple, que para
+ * una parada de tabulador por celda sería anunciar algo que no se cumple, que para
  * quien navega con teclado es peor que no anunciarlo.
  */
 export function IconPicker({
@@ -62,7 +62,7 @@ export function IconPicker({
     const width = grid.current?.clientWidth ?? 0;
     const columns = width > 0 && width >= 420 ? COLUMNS.desktop : COLUMNS.phone;
 
-    // Da la vuelta por los extremos: en una rejilla cerrada de treinta, toparse
+    // Da la vuelta por los extremos: en una rejilla cerrada como esta, toparse
     // con un muro no aporta nada.
     const total = PROJECT_ICON_KEYS.length;
     const next = (index + step(columns) + total) % total;
@@ -97,7 +97,7 @@ export function IconPicker({
               aria-label={projectIconLabel(key)}
               title={projectIconLabel(key)}
               // Tabulador itinerante: solo la marcada es una parada. Sin esto,
-              // pasar de largo el selector cuesta treinta pulsaciones.
+              // pasar de largo el selector cuesta una pulsación por icono.
               tabIndex={selected ? 0 : -1}
               disabled={disabled}
               onClick={() => onChange(key)}

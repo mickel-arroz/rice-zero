@@ -9,12 +9,15 @@ import { StarIcon } from "./star-icon";
 import { HeartIcon } from "./heart-icon";
 import { FlagIcon } from "./flag-icon";
 import { BookmarkIcon } from "./bookmark-icon";
+import { TargetIcon } from "./target-icon";
 import { BookIcon } from "./book-icon";
+import { GraduationIcon } from "./graduation-icon";
 import { FlaskIcon } from "./flask-icon";
 import { BulbIcon } from "./bulb-icon";
 import { CompassIcon } from "./compass-icon";
 import { PinIcon } from "./pin-icon";
 import { GlobeIcon } from "./globe-icon";
+import { PlaneIcon } from "./plane-icon";
 import { TerminalIcon } from "./terminal-icon";
 import { CodeIcon } from "./code-icon";
 import { DatabaseIcon } from "./database-icon";
@@ -25,11 +28,21 @@ import { MonitorIcon } from "./monitor-icon";
 import { CameraIcon } from "./camera-icon";
 import { MusicIcon } from "./music-icon";
 import { PaletteIcon } from "./palette-icon";
+import { ChatIcon } from "./chat-icon";
 import { BagIcon } from "./bag-icon";
+import { CartIcon } from "./cart-icon";
+import { StoreIcon } from "./store-icon";
+import { WalletIcon } from "./wallet-icon";
+import { CoinIcon } from "./coin-icon";
 import { BriefcaseIcon } from "./briefcase-icon";
+import { ChecklistIcon } from "./checklist-icon";
+import { CalendarIcon } from "./calendar-icon";
 import { LeafIcon } from "./leaf-icon";
 import { DropIcon } from "./drop-icon";
-import { TargetIcon } from "./target-icon";
+import { StethoscopeIcon } from "./stethoscope-icon";
+import { DumbbellIcon } from "./dumbbell-icon";
+import { BallIcon } from "./ball-icon";
+import { UtensilsIcon } from "./utensils-icon";
 
 /**
  * El catálogo de iconos que un Proyecto puede llevar (#8).
@@ -45,6 +58,12 @@ import { TargetIcon } from "./target-icon";
  *
  * El orden es el del boceto: `node` primero por ser el que se asigna por
  * defecto, y detrás los demás agrupados por familia.
+ *
+ * Los trazos son de Lucide (#63, licencia en `LICENSE-lucide`), copiados a un
+ * archivo por icono en vez de importar `lucide-react`: así el dibujo de una
+ * clave guardada no cambia por subir de versión una dependencia. El trazo baja
+ * del 2 de Lucide al 1,5 del resto de iconos de la app. Lo que no puede cambiar
+ * nunca es la clave: está escrita en filas de Proyecto.
  */
 const CATALOG = {
   node: { component: NodeIcon, label: "Nodo" },
@@ -56,12 +75,15 @@ const CATALOG = {
   heart: { component: HeartIcon, label: "Corazón" },
   flag: { component: FlagIcon, label: "Bandera" },
   bookmark: { component: BookmarkIcon, label: "Marcador" },
+  target: { component: TargetIcon, label: "Diana" },
   book: { component: BookIcon, label: "Libro" },
+  graduation: { component: GraduationIcon, label: "Estudios" },
   flask: { component: FlaskIcon, label: "Matraz" },
   bulb: { component: BulbIcon, label: "Idea" },
   compass: { component: CompassIcon, label: "Brújula" },
   pin: { component: PinIcon, label: "Lugar" },
   globe: { component: GlobeIcon, label: "Mundo" },
+  plane: { component: PlaneIcon, label: "Viaje" },
   terminal: { component: TerminalIcon, label: "Terminal" },
   code: { component: CodeIcon, label: "Código" },
   database: { component: DatabaseIcon, label: "Datos" },
@@ -72,11 +94,21 @@ const CATALOG = {
   camera: { component: CameraIcon, label: "Cámara" },
   music: { component: MusicIcon, label: "Música" },
   palette: { component: PaletteIcon, label: "Paleta" },
-  bag: { component: BagIcon, label: "Tienda" },
+  chat: { component: ChatIcon, label: "Mensajes" },
+  bag: { component: BagIcon, label: "Bolsa" },
+  cart: { component: CartIcon, label: "Carrito" },
+  store: { component: StoreIcon, label: "Tienda" },
+  wallet: { component: WalletIcon, label: "Cartera" },
+  coin: { component: CoinIcon, label: "Moneda" },
   briefcase: { component: BriefcaseIcon, label: "Trabajo" },
+  checklist: { component: ChecklistIcon, label: "Tareas" },
+  calendar: { component: CalendarIcon, label: "Calendario" },
   leaf: { component: LeafIcon, label: "Hoja" },
   drop: { component: DropIcon, label: "Gota" },
-  target: { component: TargetIcon, label: "Diana" },
+  stethoscope: { component: StethoscopeIcon, label: "Salud" },
+  dumbbell: { component: DumbbellIcon, label: "Pesas" },
+  ball: { component: BallIcon, label: "Balón" },
+  utensils: { component: UtensilsIcon, label: "Comida" },
 } as const satisfies Record<string, { component: IconComponent; label: string }>;
 
 export type ProjectIconKey = keyof typeof CATALOG;

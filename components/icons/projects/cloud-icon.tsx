@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Nube: infraestructura o servicio remoto. */
+/** Nube: infraestructura o servicio remoto. Trazo de Lucide `cloud`. */
 export function CloudIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,7 +15,7 @@ export function CloudIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <path d="M7.5 18.5a4 4 0 0 1-.4-8A5.5 5.5 0 0 1 18 11.3a3.6 3.6 0 0 1-.6 7.2z" />
+      <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
     </svg>
   );
 }

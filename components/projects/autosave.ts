@@ -30,7 +30,7 @@ export type ProjectDraft = {
    *
    * Es lo contrario que en `Project.icon`, y a propósito: allí llega de una fila
    * que pudo escribir cualquiera, aquí sale del selector, que solo ofrece las
-   * treinta. El diálogo hace la conversión UNA vez, al abrir, y a partir de ahí
+   * del catálogo. El diálogo hace la conversión UNA vez, al abrir, y a partir de ahí
    * nadie más tiene que dudar ni castear.
    */
   icon: ProjectIconKey;

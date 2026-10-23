@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Cámara: fotografía o vídeo. */
+/** Cámara: fotografía o vídeo. Trazo de Lucide `camera`. */
 export function CameraIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,8 +15,8 @@ export function CameraIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <path d="M4 8.5h3L8.5 6h7L17 8.5h3a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" />
-      <circle cx="12" cy="13.5" r="3.3" />
+      <path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z" />
+      <circle cx="12" cy="13" r="3" />
     </svg>
   );
 }

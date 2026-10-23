@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Corchetes angulares con barra: código. */
+/** Corchetes angulares con barra: código. Trazo de Lucide `code-xml`. */
 export function CodeIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,9 +15,9 @@ export function CodeIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <path d="m8 8-4 4 4 4" />
-      <path d="m16 8 4 4-4 4" />
-      <path d="m13.5 6-3 12" />
+      <path d="m18 16 4-4-4-4" />
+      <path d="m6 8-4 4 4 4" />
+      <path d="m14.5 4-5 16" />
     </svg>
   );
 }

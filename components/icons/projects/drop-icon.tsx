@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Gota: algo líquido, o un goteo constante. */
+/** Gota: algo líquido, o un goteo constante. Trazo de Lucide `droplet`. */
 export function DropIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,7 +15,7 @@ export function DropIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <path d="M12 21a5.5 5.5 0 0 0 5.5-5.5c0-4.5-5.5-9.5-5.5-9.5S6.5 11 6.5 15.5A5.5 5.5 0 0 0 12 21z" />
+      <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" />
     </svg>
   );
 }

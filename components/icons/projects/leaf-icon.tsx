@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Hoja: algo que crece, o naturaleza. */
+/** Hoja: algo que crece, o naturaleza. Trazo de Lucide `leaf`. */
 export function LeafIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,8 +15,8 @@ export function LeafIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <path d="M5 19C5 11 9.5 6 20 5c.6 8.5-4 14-11 14z" />
-      <path d="M5 19c3-5.5 6.5-8.5 11-10" />
+      <path d="M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 13 5.5 9.8 6.1A7 7 0 0011 20" />
+      <path d="M2 21a5 5 0 012.911-4.544C7.613 15.212 8.351 15.24 11 13" />
     </svg>
   );
 }

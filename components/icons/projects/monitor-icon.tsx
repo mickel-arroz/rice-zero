@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Monitor con pie: una aplicación de escritorio o web. */
+/** Monitor con pie: una aplicación de escritorio o web. Trazo de Lucide `monitor`. */
 export function MonitorIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,9 +15,9 @@ export function MonitorIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <rect x="3" y="4.5" width="18" height="12" rx="2" />
-      <path d="M9 20h6" />
-      <path d="M12 16.5V20" />
+      <rect width="20" height="14" x="2" y="3" rx="2" />
+      <line x1="8" x2="16" y1="21" y2="21" />
+      <line x1="12" x2="12" y1="17" y2="21" />
     </svg>
   );
 }

@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Libro abierto: documentación o temario. */
+/** Libro: documentación o temario. Trazo de Lucide `book`. */
 export function BookIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,8 +15,7 @@ export function BookIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H18v16H6.5A1.5 1.5 0 0 1 5 18.5z" />
-      <path d="M5 17h13" />
+      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" />
     </svg>
   );
 }

@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Paleta con manchas: diseño. */
+/** Paleta con manchas: diseño. Trazo de Lucide `palette`. */
 export function PaletteIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,10 +15,11 @@ export function PaletteIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <path d="M12 3.5a8.5 8.5 0 0 0 0 17c1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7h2A5 5 0 0 0 21 9.7c0-3.5-4-6.2-9-6.2z" />
-      <circle cx="8" cy="10" r="1.2" />
-      <circle cx="12" cy="7.8" r="1.2" />
-      <circle cx="16" cy="10.5" r="1.2" />
+      <path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" />
+      <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+      <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+      <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+      <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
     </svg>
   );
 }

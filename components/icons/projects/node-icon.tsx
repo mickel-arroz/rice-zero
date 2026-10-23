@@ -1,6 +1,9 @@
 import type { SVGProps } from "react";
 
-/** Círculo con núcleo macizo: el nodo cero. Es el icono por defecto. */
+/**
+ * Círculo con núcleo: el nodo cero. Es el icono por defecto. Trazo de Lucide
+ * `circle-dot`.
+ */
 export function NodeIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,8 +18,8 @@ export function NodeIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <circle cx="12" cy="12" r="8" />
-      <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="12" cy="12" r="10" />
     </svg>
   );
 }

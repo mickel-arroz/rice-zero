@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Teléfono: una app móvil. */
+/** Teléfono: una app móvil. Trazo de Lucide `smartphone`. */
 export function PhoneIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,8 +15,8 @@ export function PhoneIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
-      <path d="M10.5 18.5h3" />
+      <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+      <path d="M12 18h.01" />
     </svg>
   );
 }

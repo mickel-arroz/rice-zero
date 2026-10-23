@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Matraz: un experimento. */
+/** Matraz: un experimento. Trazo de Lucide `flask-conical`. */
 export function FlaskIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -15,9 +15,9 @@ export function FlaskIcon(props: SVGProps<SVGSVGElement>) {
       aria-hidden="true"
       {...props}
     >
-      <path d="M10 3v6.2L5.2 17.6A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.3-2.4L14 9.2V3" />
-      <path d="M9 3h6" />
-      <path d="M7.6 14h8.8" />
+      <path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2" />
+      <path d="M6.453 15h11.094" />
+      <path d="M8.5 2h7" />
     </svg>
   );
 }
