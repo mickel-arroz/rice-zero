@@ -178,6 +178,23 @@ test("el Ticket Prompt se exporta suelto, con su propio contexto", async ({ page
   expect((await descarga).suggestedFilename()).toMatch(/^e2e-analisis-[a-z0-9]+-t1-/);
 });
 
+test("se regenera también desde la barra del Master Prompt", async ({ page }) => {
+  await arbolAnalizable(page);
+
+  await abrirAnalisis(page);
+  const panel = abrirPanel(page);
+  await generar(panel, ANALYSIS_COPY.generate);
+  await expect(panel.getByText(ANALYSIS_COPY.intents.ui, { exact: true })).toBeVisible();
+
+  // El de arriba es el mismo control que el del pie (#64): misma acción. Que
+  // el Historial pase a dos es la prueba de que generó de verdad, y no solo
+  // de que el botón estaba ahí.
+  await panel.getByRole("button", { name: ANALYSIS_COPY.regenerateAnalysis }).click();
+  await expect(
+    panel.getByRole("button", { name: ANALYSIS_COPY.historyOpen(2) }),
+  ).toBeVisible();
+});
+
 test("el Historial guarda los dos, y el vigente es el nuevo", async ({ page }) => {
   await arbolAnalizable(page);
 

@@ -95,3 +95,59 @@ export function doorState({
   if (generating) return "generando";
   return unread ? "listo" : "analizar";
 }
+
+/* ── El botón de generar ────────────────────────────────────────────────── */
+
+/** Qué dice el botón. El texto lo pone `ANALYSIS_COPY`; esto solo elige cuál. */
+export type GenerateLabel =
+  | { kind: "generar" }
+  | { kind: "regenerar" }
+  | { kind: "generando" }
+  | { kind: "espera"; seconds: number };
+
+/**
+ * Qué dice el botón de generar y si se puede pulsar.
+ *
+ * Salió del pie cuando el botón pasó a estar en DOS sitios (#64): el pie y la
+ * barra del Master Prompt. El ticket pide que sean el mismo control —misma
+ * acción, mismo estado—, y la única manera de que no se desfasen es que los
+ * dos lean la regla del mismo sitio en vez de llevar cada uno su copia.
+ */
+export function generateButton({
+  generating,
+  plan,
+  empty,
+  blocked,
+  hasAnalysis,
+}: {
+  generating: boolean;
+  /** El de `retryPlan` sobre el último fallo, o `null` si no lo hubo. */
+  plan: RetryPlan | null;
+  /** La Versión no tiene nada que analizar. Ver `hasSomethingToAnalyze`. */
+  empty: boolean;
+  /** Sin conexión. Generar gasta cuota y persiste: es una mutación. */
+  blocked: boolean;
+  hasAnalysis: boolean;
+}): { label: GenerateLabel; disabled: boolean } {
+  // Solo la espera de la cuota bloquea por fallo. Uno que no se puede
+  // reintentar tampoco lo bloquea: cambiar las Directrices y volver a probar es
+  // legítimo, y es justo lo que hay que hacer tras un `entrada`.
+  const waiting = plan?.kind === "espera" ? plan : null;
+
+  // Vacía y sin red apagan sin cambiar el texto: el botón sigue diciendo lo
+  // que haría, y el porqué está en otro sitio —el estado vacío, el aviso de
+  // conexión—. Generar va primero porque, con la petición en vuelo, la espera
+  // de un fallo anterior ya no describe nada.
+  const label: GenerateLabel = generating
+    ? { kind: "generando" }
+    : waiting
+      ? { kind: "espera", seconds: waiting.seconds }
+      : hasAnalysis
+        ? { kind: "regenerar" }
+        : { kind: "generar" };
+
+  return {
+    label,
+    disabled: generating || waiting !== null || empty || blocked,
+  };
+}

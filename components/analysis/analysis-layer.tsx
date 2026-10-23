@@ -9,7 +9,11 @@ import { useAnalysis } from "@/components/analysis/analysis-provider";
 import { AnalysisToast } from "@/components/analysis/analysis-toast";
 import { masterExport } from "@/components/analysis/export";
 import { analysisWhen } from "@/components/analysis/history";
-import { retryPlan } from "@/components/analysis/panel";
+import {
+  generateButton,
+  retryPlan,
+  type GenerateLabel,
+} from "@/components/analysis/panel";
 import { PromptActions } from "@/components/analysis/prompt-actions";
 import { useElapsedSeconds } from "@/components/analysis/use-elapsed";
 import { useWide } from "@/components/analysis/use-wide";
@@ -114,14 +118,23 @@ export function AnalysisPanelBody({
   // de golpe, arrastrando la vista de vuelta sin que nada lo hubiera
   // anunciado. El botón deshabilitado diciendo «Generando…» es ese aviso.
   const footer = view !== "history" || status === "generating";
+  // UNA vez para los dos Regenerar (#64), y no uno por botón. Cada llamada
+  // lleva su propio reloj de la cuota, y un botón que se monta tarde —el pie al
+  // volver del Historial— pasaría su primer segundo contando desde cero: los
+  // dos dirían segundos distintos justo cuando el ticket pide que digan lo mismo.
+  const button = useGenerateButton();
 
   return (
     <>
-      <PanelHeader backHref={backHref} projectName={projectName} />
+      <PanelHeader
+        backHref={backHref}
+        projectName={projectName}
+        button={button}
+      />
       <div className="flex-1 overflow-y-auto px-6 pb-6">
         <PanelContent projectName={projectName} />
       </div>
-      {footer ? <GuidelinesFooter /> : null}
+      {footer ? <GuidelinesFooter button={button} /> : null}
     </>
   );
 }
@@ -150,9 +163,11 @@ export function AnalysisPanelBody({
 function PanelHeader({
   backHref,
   projectName,
+  button,
 }: {
   backHref: string;
   projectName: string;
+  button: GenerateButton;
 }) {
   const { analysis, view, analyses, now, openHistory, closeHistory } =
     useAnalysis();
@@ -227,13 +242,21 @@ function PanelHeader({
       {/* La línea siempre está: separa la cabecera anclada de lo que se
           desplaza. Lo que cambia es si lleva la barra encima. */}
       {!history && analysis ? (
-        <div className="flex items-center justify-between gap-2.5 border-t border-border pt-3 pb-3.5">
+        // Envuelve: con Regenerar al lado, en un teléfono estrecho la etiqueta
+        // sube a su propia línea antes que apretar las pastillas.
+        <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-border pt-3 pb-3.5">
           <span className={LABEL_CLASS}>{ANALYSIS_COPY.masterPrompt}</span>
-          <PromptActions
-            build={() => masterExport(analysis, projectName)}
-            copyLabel={ANALYSIS_COPY.copyMaster}
-            downloadLabel={ANALYSIS_COPY.downloadMaster}
-          />
+          <div className="ml-auto flex items-center gap-2">
+            {/* Regenera el Análisis entero, no exporta nada: por eso va
+                aparte de Copiar y Descargar, tras una raya. */}
+            <RegenerateButton button={button} />
+            <span aria-hidden="true" className="mx-0.5 h-6 w-px bg-border" />
+            <PromptActions
+              build={() => masterExport(analysis, projectName)}
+              copyLabel={ANALYSIS_COPY.copyMaster}
+              downloadLabel={ANALYSIS_COPY.downloadMaster}
+            />
+          </div>
         </div>
       ) : (
         <div className="border-t border-border pb-3.5" />
@@ -384,6 +407,91 @@ function ResultSkeleton() {
 }
 
 /**
+ * El botón de generar, entero: qué dice, si se puede pulsar y qué hace.
+ *
+ * Lo usan el pie y la barra del Master Prompt (#64), que son el MISMO control
+ * en dos sitios. Se llama una sola vez, en `AnalysisPanelBody`, y el resultado
+ * baja a los dos: la regla está en `generateButton`, y aquí solo se le dan los
+ * datos.
+ */
+type GenerateButton = ReturnType<typeof useGenerateButton>;
+
+function useGenerateButton() {
+  const { generate, status, failure, failedAt, analysis } = useAnalysis();
+  const tree = useTree();
+  const blocked = useBlocked();
+  const elapsed = useElapsedSeconds(failedAt);
+
+  const { label, disabled } = generateButton({
+    generating: status === "generating",
+    plan: failure ? retryPlan(failure, elapsed) : null,
+    // La regla de la Versión vacía sale del servicio, no se reescribe aquí: el
+    // servicio la rechaza igual, pero saberlo ANTES de pulsar es la diferencia
+    // entre un botón apagado y un fallo.
+    empty: !hasSomethingToAnalyze(tree.nodes),
+    blocked,
+    hasAnalysis: analysis !== null,
+  });
+
+  return {
+    label,
+    text: generateLabelText(label),
+    disabled,
+    generating: label.kind === "generando",
+    run: () => fire(generate()),
+  };
+}
+
+function generateLabelText(label: GenerateLabel): string {
+  switch (label.kind) {
+    case "generando":
+      return ANALYSIS_COPY.generating;
+    case "espera":
+      return ANALYSIS_COPY.retryIn(label.seconds);
+    case "regenerar":
+      return ANALYSIS_COPY.regenerate;
+    case "generar":
+      return ANALYSIS_COPY.generate;
+  }
+}
+
+/**
+ * El segundo «Regenerar», en la barra del Master Prompt (#64, boceto en
+ * `docs/design/regenerar-analisis/`).
+ *
+ * Solo con icono en el teléfono, porque con texto no cabe al lado de Copiar y
+ * Descargar. Al no llevar texto visible, el `aria-label` es el que dice qué
+ * hace. Tiene un nombre propio para no confundirse con el del pie, que es
+ * idéntico en todo lo demás.
+ */
+function RegenerateButton({ button }: { button: GenerateButton }) {
+  const { label, text, disabled, generating, run } = button;
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={run}
+      aria-label={
+        label.kind === "regenerar" ? ANALYSIS_COPY.regenerateAnalysis : text
+      }
+      title={text}
+      // `!` porque pisa el `px-4` de la pastilla: entre dos utilidades de la
+      // misma propiedad gana la que Tailwind emite después, no la que va
+      // detrás en el atributo.
+      className={`${PILL_PRIMARY_CLASS} w-9 justify-center px-0! lg:w-auto lg:px-4! disabled:border-border disabled:text-muted-foreground`}
+    >
+      {generating ? (
+        <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
+      ) : (
+        <AnalysesIcon width={15} height={15} />
+      )}
+      <span className="hidden lg:inline">{text}</span>
+    </button>
+  );
+}
+
+/**
  * Las Directrices y el botón que genera, anclados al pie.
  *
  * Se PLIEGAN cuando ya hay un Análisis: con resultado en pantalla lo que manda
@@ -397,23 +505,18 @@ function ResultSkeleton() {
  * estaba plegado, así que pulsar el enlace no producía ningún efecto
  * observable, justo en el caso para el que el ADR 0003 lo pide.
  */
-function GuidelinesFooter() {
+function GuidelinesFooter({ button }: { button: GenerateButton }) {
   const {
     guidelines,
     setGuidelines,
     guidelinesOpen,
     guidelinesFocus,
     toggleGuidelines,
-    generate,
-    status,
-    failure,
-    failedAt,
     analysis,
     past,
   } = useAnalysis();
   const field = useRef<HTMLTextAreaElement>(null);
-  const tree = useTree();
-  const blocked = useBlocked();
+  const { text, disabled, generating, run } = button;
 
   // Desplegar sin llevar el cursor dejaría a quien pulsó «Corregir» mirando un
   // campo abierto y teniendo que tocarlo otra vez para escribir.
@@ -421,36 +524,14 @@ function GuidelinesFooter() {
     if (guidelinesFocus > 0 && guidelinesOpen) field.current?.focus();
   }, [guidelinesFocus, guidelinesOpen]);
 
-  const elapsed = useElapsedSeconds(failedAt);
-  const plan = failure ? retryPlan(failure, elapsed) : null;
-  const generating = status === "generating";
-  // Solo la espera de la cuota bloquea por fallo. Uno que no se puede
-  // reintentar tampoco lo bloquea: cambiar las Directrices y volver a probar es
-  // legítimo, y es justo lo que hay que hacer tras un `entrada`.
-  const waiting = plan?.kind === "espera";
-  // Y una Versión en la que nadie ha escrito nada no se manda: el servicio lo
-  // rechaza igual, pero enterarse ANTES de pulsar es la diferencia entre un
-  // botón apagado y un fallo. La regla sale del servicio, no se reescribe aquí.
-  const empty = !hasSomethingToAnalyze(tree.nodes);
-  // Sin red tampoco. Generar gasta cuota y PERSISTE el Análisis, así que es
-  // una mutación como cualquier otra. Lo que NO se apaga son las Directrices:
-  // viven en la pantalla hasta que se generan (no hay Autoguardado detrás), y
-  // escribirlas mientras vuelve la conexión es justo lo que se puede hacer.
-  const disabled = generating || waiting || empty || blocked;
-
-  const label = generating
-    ? ANALYSIS_COPY.generating
-    : waiting
-      ? ANALYSIS_COPY.retryIn(plan.seconds)
-      : analysis
-        ? ANALYSIS_COPY.regenerate
-        : ANALYSIS_COPY.generate;
-
+  // Sin red se apaga el botón, pero NO las Directrices: viven en la pantalla
+  // hasta que se generan (no hay Autoguardado detrás), y escribirlas mientras
+  // vuelve la conexión es justo lo que se puede hacer.
   const action = (
     <button
       type="button"
       disabled={disabled}
-      onClick={() => fire(generate())}
+      onClick={run}
       className={`${CTA_PRIMARY_CLASS} px-6 disabled:bg-accent disabled:text-muted-foreground`}
     >
       {generating ? (
@@ -458,7 +539,7 @@ function GuidelinesFooter() {
       ) : (
         <AnalysesIcon width={18} height={18} />
       )}
-      {label}
+      {text}
     </button>
   );
 
@@ -484,10 +565,10 @@ function GuidelinesFooter() {
           <button
             type="button"
             disabled={disabled}
-            onClick={() => fire(generate())}
+            onClick={run}
             className={`${PILL_PRIMARY_CLASS} h-10 disabled:border-border disabled:text-muted-foreground`}
           >
-            {label}
+            {text}
           </button>
         </div>
       </div>

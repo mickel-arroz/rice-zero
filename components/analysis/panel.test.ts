@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { doorState, retryPlan } from "@/components/analysis/panel";
+import { doorState, generateButton, retryPlan } from "@/components/analysis/panel";
 import {
   AnalysisConfigError,
   AnalysisNetworkError,
@@ -137,5 +137,70 @@ describe("La puerta del panel: qué dice el botón de la cabecera", () => {
     // Si no, regenerar sin abrir la hoja dejaría el botón diciendo «listo»
     // sobre un Análisis que se está sustituyendo ahora mismo.
     expect(doorState({ generating: true, unread: true })).toBe("generando");
+  });
+});
+
+describe("El botón de generar: qué dice y cuándo se apaga", () => {
+  const base = {
+    generating: false,
+    plan: null,
+    empty: false,
+    blocked: false,
+    hasAnalysis: true,
+  } as const;
+
+  it("con un Análisis delante, regenera", () => {
+    expect(generateButton(base)).toEqual({ label: { kind: "regenerar" }, disabled: false });
+  });
+
+  it("sin ninguno todavía, genera", () => {
+    expect(generateButton({ ...base, hasAnalysis: false })).toEqual({
+      label: { kind: "generar" },
+      disabled: false,
+    });
+  });
+
+  it("generando, se apaga y lo dice", () => {
+    expect(generateButton({ ...base, generating: true })).toEqual({
+      label: { kind: "generando" },
+      disabled: true,
+    });
+  });
+
+  it("durante la espera de la cuota, se apaga con la cuenta atrás", () => {
+    expect(
+      generateButton({ ...base, plan: { kind: "espera", seconds: 12 } }),
+    ).toEqual({ label: { kind: "espera", seconds: 12 }, disabled: true });
+  });
+
+  it("un fallo que no se reintenta NO lo apaga: cambiar las Directrices es la salida", () => {
+    expect(generateButton({ ...base, plan: { kind: "nunca" } })).toEqual({
+      label: { kind: "regenerar" },
+      disabled: false,
+    });
+  });
+
+  it("con la Versión vacía se apaga, sin cambiar lo que dice", () => {
+    expect(generateButton({ ...base, hasAnalysis: false, empty: true })).toEqual({
+      label: { kind: "generar" },
+      disabled: true,
+    });
+  });
+
+  it("sin conexión se apaga, sin cambiar lo que dice", () => {
+    expect(generateButton({ ...base, blocked: true })).toEqual({
+      label: { kind: "regenerar" },
+      disabled: true,
+    });
+  });
+
+  it("generar manda sobre la espera: la petición ya salió", () => {
+    expect(
+      generateButton({
+        ...base,
+        generating: true,
+        plan: { kind: "espera", seconds: 5 },
+      }).label,
+    ).toEqual({ kind: "generando" });
   });
 });

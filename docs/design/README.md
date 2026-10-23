@@ -135,6 +135,27 @@ Cierra: **#62**
 > `--node-bar`, lo que se desplaza lo reserva con `scroll-padding-bottom`, y el
 > campo se mantiene a la vista mientras crece.
 
+### `regenerar-analisis/` — Ticket #64
+
+Artboards: Móvil · Análisis vigente · Móvil · Generando · Escritorio · cabecera del panel.
+Medidas: pastilla de 36 de alto, la de siempre (`PILL_PRIMARY_CLASS`); raya de 1 px
+entre Regenerar y la exportación.
+
+Aprobado el 2026-10-23 y traído aquí el mismo día, antes de borrar el artifact.
+Cierra: **#64**
+
+> El segundo Regenerar vive en la barra del Master Prompt, a la izquierda de
+> Copiar y Descargar y separado de ellos por una raya: regenera el Análisis
+> entero, no exporta nada. No se repite en cada Ticket.
+
+> En el teléfono va solo con icono, porque con texto no cabe a 390. Si aun así
+> falta sitio, la barra pasa a dos líneas: la etiqueta arriba y las pastillas
+> a la derecha. En escritorio lleva el texto.
+
+> Las dos instancias son el mismo control: se apagan juntas al generar, durante
+> la espera de la cuota y sin conexión. Mientras genera, arriba el icono se
+> cambia por el punto, como en el botón del pie.
+
 ## Por qué están en el repo y no solo en los Tickets
 
 El Spec fija la regla de cierre: *«lo puramente visual no se automatiza; se

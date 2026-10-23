@@ -911,6 +911,12 @@ export const ANALYSIS_COPY = {
   retryIn: (seconds: number) => `Reintentar en ${seconds} s`,
   retry: "Reintentar",
   regenerate: "Regenerar",
+  /**
+   * El nombre del Regenerar de la barra del Master Prompt (#64). En el
+   * teléfono solo lleva icono, así que esto es lo único que lo nombra. Y no
+   * es «Regenerar» a secas para que no se confunda con el del pie.
+   */
+  regenerateAnalysis: "Regenerar el Análisis",
 
   /**
    * Lo que se promete al pulsar. Los dos datos que la gente pregunta: cuánto

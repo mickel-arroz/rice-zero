@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Escritorio · cabecera del panel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:'NDot57';src:url('../../../app/fonts/Ndot57-Regular.woff2') format('woff2');font-display:block;}
+body{margin:0}
+a{color:#e7000b}a:hover{color:#b40009}
+</style>
+</helmet>
+<div style="position: relative; width: 880px; height: 420px; box-sizing: border-box; display: flex; flex-direction: column; background: #ffffff; color: #1f1f1f; font-family: 'Iosevka', ui-monospace, Consolas, monospace; border: 1px solid #e0e0e0; border-radius: 20px; overflow: hidden">
+  <div style="display: flex; flex-direction: column; gap: 14px; padding: 16px 24px 0 24px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+        <p style="margin: 0; display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 999px; background: #e7000b"></span><span style="font-size: 11px; text-transform: uppercase; letter-spacing: .18em; color: #6b6b6b">Análisis</span></p>
+        <p style="margin: 0; font-size: 11px; color: #6b6b6b">gemini-2.5-flash · hace 3 min</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px">
+        <button type="button" aria-label="Historial: 3 Análisis" style="display: flex; height: 36px; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid #e0e0e0; background: none; padding: 0 16px; font: inherit; font-size: 11px; color: #6b6b6b"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5V9H8"/><path d="M12 7.5V12l3 1.8"/></svg>3</button>
+        <a href="#" style="display: flex; height: 36px; align-items: center; gap: 6px; border-radius: 999px; border: 1px solid #e0e0e0; padding: 0 16px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6b6b6b; text-decoration: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>Proyecto</a>
+      </div>
+    </div>
+    <div style="position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #e0e0e0; padding: 12px 0 14px 0">
+      <span style="font-size: 11px; text-transform: uppercase; letter-spacing: .18em; color: #6b6b6b">Master Prompt</span>
+      <div style="display: flex; gap: 8px">
+        <button type="button" style="display: flex; height: 36px; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid #e7000b; background: none; padding: 0 16px; font: inherit; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #e7000b; outline: 2px dashed #e7000b; outline-offset: 3px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 3 1.7 4.8L17.5 9.5l-4.8 1.7L11 16l-1.7-4.8L4.5 9.5l4.8-1.7z"/><path d="m18 14.5.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg>Regenerar</button>
+        <span aria-hidden="true" style="width: 1px; align-self: stretch; margin: 6px 2px; background: #e0e0e0"></span>
+        <button type="button" style="display: flex; height: 36px; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid #e0e0e0; background: none; padding: 0 16px; font: inherit; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6b6b6b"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5A1.5 1.5 0 0 0 13.5 4h-8A1.5 1.5 0 0 0 4 5.5v8A1.5 1.5 0 0 0 5.5 15"/></svg>Copiar</button>
+        <button type="button" style="display: flex; height: 36px; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid #e0e0e0; background: none; padding: 0 16px; font: inherit; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6b6b6b"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10"/><path d="m8 10.5 4 4 4-4"/><path d="M5 18.5h14"/></svg>Descargar</button>
+      </div>
+      <span style="position: absolute; left: 140px; top: 18px; background: #e7000b; color: #fff; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px">Nuevo · con texto en escritorio</span>
+    </div>
+  </div>
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 12px; padding: 24px">
+    <section style="display: flex; flex-direction: column; gap: 12px; border: 1px solid #e7000b; border-radius: 20px; padding: 18px">
+      <span style="font-size: 11px; text-transform: uppercase; letter-spacing: .18em; color: #6b6b6b">Intención</span>
+      <span style="font-family: 'NDot57', ui-monospace, monospace; font-size: 40px; line-height: .95; letter-spacing: .04em; color: #e7000b">Arreglo</span>
+      <p style="margin: 0; font-size: 13px; line-height: 1.6">[Por qué la IA lo leyó así]</p>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":880,"height":420}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
